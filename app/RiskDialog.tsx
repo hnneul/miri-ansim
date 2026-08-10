@@ -31,7 +31,9 @@ export default function RiskDialog({
       <dialog
         ref={ref}
         onClick={(e) => e.target === ref.current && ref.current?.close()}
-        className="m-auto w-[min(32rem,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto rounded-[24px] bg-white text-slate-800 shadow-2xl backdrop:bg-slate-900/40"
+        /* showModal() 은 top layer 로 올라가 폰 프레임 바깥이다 — cq 단위를 못 쓴다.
+           대신 프레임도 dialog 도 화면 정중앙이라 위치는 이미 겹치고, 폭만 프레임(390px) 안으로 잡으면 된다. */
+        className="m-auto w-[min(358px,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto rounded-[24px] bg-white text-slate-800 shadow-2xl backdrop:bg-slate-900/40"
       >
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">

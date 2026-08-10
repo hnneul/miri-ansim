@@ -330,7 +330,7 @@ function MapArea({
   const odds = parking && isNovice(profile) ? parallelOdds(parking!) : null;
   const goodprice = goodpriceAt(destination.label, destination.coord);
   return (
-    <div className="flex h-[54vh] min-h-80 w-full gap-2 rounded-[30px] bg-white/70 p-2 shadow-xl shadow-orange-100/60 ring-1 ring-orange-100/70">
+    <div className="flex h-[54cqh] min-h-80 w-full gap-2 rounded-[30px] bg-white/70 p-2 shadow-xl shadow-orange-100/60 ring-1 ring-orange-100/70">
       <div className="min-w-0 flex-1">
         <RouteMap center={center} level={level} routes={routes} markers={markers} preview={preview} />
       </div>
@@ -356,7 +356,9 @@ function MapArea({
  * 레일 아이콘 하나. 접힌 상태는 동그란 버튼이고, 누르면 패널이 지도 위로 열린다
  * (right-full — 레일 폭 w-12 안에는 글이 들어가지 않는다).
  *
- * 패널 높이는 지도 높이(52vh)에 맞춰 잡는다 — 더 키우면 지도를 넘어 아래 경로 카드를 덮는다.
+ * 패널 높이는 지도 높이(52cqh)에 맞춰 잡는다 — 더 키우면 지도를 넘어 아래 경로 카드를 덮는다.
+ * cq 단위는 폰 프레임(.phone, globals.css) 기준이다. 프레임이 없는 실기기에서는 뷰포트로 떨어져
+ * 결국 예전 vh 와 같은 값이 된다 — 그래서 두 모드 모두 한 벌로 맞는다.
  *
  * <details>는 네이티브라 여닫는 데 자바스크립트가 필요 없다 (서버 컴포넌트 그대로).
  * 아이콘 색(tone)이 접힌 상태의 유일한 신호다 — 경고 등급을 여기서 잃지 않게 톤을 넘겨받는다.
@@ -384,7 +386,8 @@ function RailButton({
         <span className="text-[10px] leading-none text-slate-500">{label}</span>
       </summary>
       <div
-        className={`absolute top-0 right-full z-20 mr-2 max-h-[52vh] w-[min(34rem,calc(100vw-5rem))] overflow-y-auto rounded-[24px] p-4 text-sm shadow-2xl ring-1 ring-black/5 ${tone}`}
+        /* 6rem = 오른쪽에 쌓인 것들(main p-5 20 + 지도틀 p-2 8 + 레일 w-12 48 + gap 8 + mr-2 8)에 왼쪽 여백 12 */
+        className={`absolute top-0 right-full z-20 mr-2 max-h-[52cqh] w-[min(34rem,calc(100cqw-6rem))] overflow-y-auto rounded-[24px] p-4 text-sm shadow-2xl ring-1 ring-black/5 ${tone}`}
       >
         {children}
       </div>
