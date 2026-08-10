@@ -334,7 +334,7 @@ function PreviewPanel({
   const stepNo = steps.findIndex((s) => s === step) + 1;
 
   return (
-    <aside className="absolute inset-x-3 bottom-3 z-10 rounded-[22px] bg-white/95 p-3 text-slate-900 shadow-2xl shadow-slate-900/10 ring-1 ring-black/10 backdrop-blur lg:inset-x-auto lg:left-3 lg:w-[25rem]">
+    <aside className="absolute inset-x-3 bottom-3 z-10 rounded-[22px] bg-white/95 p-3 text-slate-900 shadow-2xl shadow-slate-900/10 ring-1 ring-black/10 backdrop-blur">
       <div className="flex items-start gap-3">
         <button
           type="button"
@@ -415,7 +415,7 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
   }, [risk]);
 
   return (
-    <aside className="absolute inset-x-3 bottom-3 z-20 overflow-hidden rounded-[24px] bg-white text-slate-900 shadow-2xl ring-1 ring-black/10 lg:inset-x-auto lg:top-3 lg:right-3 lg:bottom-3 lg:w-[24rem]">
+    <aside className="absolute inset-x-3 bottom-3 z-20 overflow-hidden rounded-[24px] bg-white text-slate-900 shadow-2xl ring-1 ring-black/10">
       <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
         <div className="min-w-0">
           <p className="text-[11px] font-bold text-orange-500">위험구간 미리보기</p>
@@ -431,7 +431,7 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
           x
         </button>
       </div>
-      <div className="relative h-56 bg-slate-100 lg:h-72">
+      <div className="relative h-56 bg-slate-100">
         <div ref={box} className={`h-full w-full ${status === "empty" ? "hidden" : ""}`} />
         {status !== "ready" && (
           <div className="absolute inset-0 grid place-items-center p-4 text-center text-sm text-slate-500">

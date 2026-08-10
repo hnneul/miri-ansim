@@ -52,7 +52,7 @@ export default async function ResultPage({
   const scenario = SCENARIOS.find((s) => s.id === sp.route) ?? SCENARIOS[0];
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-900 lg:max-w-[64rem]">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 p-5 text-slate-900">
       <header className="flex items-center gap-3 rounded-[28px] bg-white/80 px-4 py-3 shadow-lg shadow-orange-100/50 ring-1 ring-orange-100/70">
         <div>
           <p className="text-[11px] font-bold text-orange-500">SAFE ROUTE</p>
@@ -126,7 +126,7 @@ async function CustomPage({
   if ("error" in live) return <ErrorMain reason={live.error} />;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-900 lg:max-w-[64rem]">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 p-5 text-slate-900">
       <header className="flex items-center gap-3 rounded-[28px] bg-white/80 px-4 py-3 shadow-lg shadow-orange-100/50 ring-1 ring-orange-100/70">
         <div>
           <p className="text-[11px] font-bold text-orange-500">LIVE ROUTE</p>
@@ -330,7 +330,7 @@ function MapArea({
   const odds = parking && isNovice(profile) ? parallelOdds(parking!) : null;
   const goodprice = goodpriceAt(destination.label, destination.coord);
   return (
-    <div className="flex h-[54vh] min-h-80 w-full gap-2 rounded-[30px] bg-white/70 p-2 shadow-xl shadow-orange-100/60 ring-1 ring-orange-100/70 lg:h-[68vh] lg:min-h-[32rem]">
+    <div className="flex h-[54vh] min-h-80 w-full gap-2 rounded-[30px] bg-white/70 p-2 shadow-xl shadow-orange-100/60 ring-1 ring-orange-100/70">
       <div className="min-w-0 flex-1">
         <RouteMap center={center} level={level} routes={routes} markers={markers} preview={preview} />
       </div>
@@ -356,8 +356,7 @@ function MapArea({
  * 레일 아이콘 하나. 접힌 상태는 동그란 버튼이고, 누르면 패널이 지도 위로 열린다
  * (right-full — 레일 폭 w-12 안에는 글이 들어가지 않는다).
  *
- * 패널 높이는 지도 높이(52vh / lg 68vh)에 맞춰 잡는다 — 더 키우면 지도를 넘어 아래
- * 경로 카드를 덮는다. 좁은 화면에서는 그 여유가 없어 지도 높이 그대로다.
+ * 패널 높이는 지도 높이(52vh)에 맞춰 잡는다 — 더 키우면 지도를 넘어 아래 경로 카드를 덮는다.
  *
  * <details>는 네이티브라 여닫는 데 자바스크립트가 필요 없다 (서버 컴포넌트 그대로).
  * 아이콘 색(tone)이 접힌 상태의 유일한 신호다 — 경고 등급을 여기서 잃지 않게 톤을 넘겨받는다.
@@ -385,7 +384,7 @@ function RailButton({
         <span className="text-[10px] leading-none text-slate-500">{label}</span>
       </summary>
       <div
-        className={`absolute top-0 right-full z-20 mr-2 max-h-[52vh] w-[min(34rem,calc(100vw-5rem))] overflow-y-auto rounded-[24px] p-4 text-sm shadow-2xl ring-1 ring-black/5 lg:max-h-[80vh] ${tone}`}
+        className={`absolute top-0 right-full z-20 mr-2 max-h-[52vh] w-[min(34rem,calc(100vw-5rem))] overflow-y-auto rounded-[24px] p-4 text-sm shadow-2xl ring-1 ring-black/5 ${tone}`}
       >
         {children}
       </div>
@@ -544,7 +543,7 @@ function GoodpricePanel({ gp }: { gp: Goodprice }) {
           .join(" · ")}
       </p>
 
-      <div className="h-56 overflow-hidden rounded-lg lg:h-80">
+      <div className="h-56 overflow-hidden rounded-lg">
         <RouteMap
           center={gp.at}
           routes={[]}
@@ -601,8 +600,8 @@ function GoodpricePanel({ gp }: { gp: Goodprice }) {
 function ParkingMap({ parking, split }: { parking: Parking; split: boolean }) {
   return (
     <div className="flex flex-col gap-1.5">
-      {/* 패널이 지도 높이 안에 갇혀 있으니 작은 화면에서는 미니 지도를 낮춘다 — 안 그러면 추천 주차장이 다 스크롤 밖으로 밀린다 */}
-      <div className="h-56 overflow-hidden rounded-lg lg:h-80">
+      {/* 패널이 지도 높이 안에 갇혀 있으니 미니 지도를 낮게 잡는다 — 안 그러면 추천 주차장이 다 스크롤 밖으로 밀린다 */}
+      <div className="h-56 overflow-hidden rounded-lg">
         <RouteMap
           center={parking.at}
           routes={[]}
@@ -764,7 +763,7 @@ async function Verified({
  * 가운데 정렬하지 않는다: 지도 왼쪽 끝과 선을 맞춰야 따로 노는 느낌이 안 든다.
  */
 function BelowMap({ children }: { children: React.ReactNode }) {
-  return <div className="flex w-full flex-col gap-5 rounded-[28px] bg-white/55 p-3 shadow-lg shadow-orange-100/40 ring-1 ring-orange-100/70 lg:max-w-2xl">{children}</div>;
+  return <div className="flex w-full flex-col gap-5 rounded-[28px] bg-white/55 p-3 shadow-lg shadow-orange-100/40 ring-1 ring-orange-100/70">{children}</div>;
 }
 
 /** §4 breakdown은 factor(이름)만 담으므로 Route.risks에서 원본을 되짚는다 */
@@ -894,12 +893,12 @@ function RouteCard({
 }) {
   const 혼잡 = live && congestionLabel(live.congestion);
   const 규칙판정 = verdict(result, r, other);
-  // 좁은 화면에서는 패딩을 줄인다 — 375px에서 카드 폭이 162px라 8px도 한 글자다.
-  // 2열 자체는 어느 폭에서도 유지한다: 두 점수를 나란히 못 보면 이 화면이 할 말이 없다.
+  // 패딩을 좁게 쥔다 — 390px 폭에서 카드가 2열이라 한 장이 162px, 8px도 한 글자다.
+  // 2열 자체는 유지한다: 두 점수를 나란히 못 보면 이 화면이 할 말이 없다.
   // break-keep: 한글은 기본이 글자 단위 줄바꿈이라 "서 행"처럼 낱말이 쪼개진다.
   return (
     <RiskDialog
-      className={`rounded-[24px] p-3 break-keep shadow-sm transition active:scale-[0.99] sm:p-4 ${
+      className={`rounded-[24px] p-3 break-keep shadow-sm transition active:scale-[0.99] ${
         recommended
           ? "bg-emerald-50 ring-2 ring-emerald-300"
           : "bg-white/90 ring-1 ring-orange-100"
