@@ -22,7 +22,7 @@ const CHARACTERS: Record<number, { src: string; alt: string; tier: string }> = {
  * 배경을 지운 PNG라(scripts/cutout.swift) 원 안에서 캐릭터만 뜬다 — 세 장의 배경 톤이
  * 달라 원 색이 서로 어긋나던 게 없어졌다. 비율도 서로 달라 정사각 칸에 object-contain 으로 담는다.
  */
-const AVATAR = "rounded-full object-contain ring-1 ring-slate-200";
+const AVATAR = "rounded-full bg-white object-contain ring-1 ring-orange-100";
 
 export default function ProfileMenu({ profile }: { profile: DriverProfile }) {
   // 허용값 밖이면 초보 쪽으로 떨어뜨린다 (DEFAULT_PROFILE 과 같은 방향)
@@ -33,10 +33,10 @@ export default function ProfileMenu({ profile }: { profile: DriverProfile }) {
       <summary className="flex cursor-pointer list-none flex-col items-center gap-1 [&::-webkit-details-marker]:hidden">
         <img src={me.src} alt={me.alt} className={`h-14 w-14 ${AVATAR}`} />
         {/* 그림만으로는 누를 수 있는 자리인지 안 보인다 — 레일 아이콘과 같이 이름을 아래에 붙인다 */}
-        <span className="text-[10px] leading-none text-slate-500">내 프로필</span>
+        <span className="text-[10px] leading-none font-medium text-slate-500">내 프로필</span>
       </summary>
 
-      <div className="absolute top-full right-0 z-20 mt-2 w-60 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
+      <div className="absolute top-full right-0 z-20 mt-2 w-60 rounded-2xl bg-white p-4 text-sm shadow-xl shadow-slate-200 ring-1 ring-orange-100">
         <div className="flex items-center gap-3">
           <img src={me.src} alt="" className={`h-11 w-11 shrink-0 ${AVATAR}`} />
           <div className="min-w-0">

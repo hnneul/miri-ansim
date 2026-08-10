@@ -23,15 +23,15 @@ export default function Home() {
   const set = <K extends keyof DriverProfile>(k: K, v: DriverProfile[K]) =>
     setProfile({ ...profile, [k]: v });
 
-  // 출발지를 직접 적으면 그 지명을 그대로 쓴다 — "제주공항 → 성산일출봉"처럼 특정 구간을
-  // 재현하고 싶을 때 GPS로는 그 자리에 가야만 하니, 비워두면 GPS로 대신한다.
   function submit() {
     if (!destination.trim()) return setError("목적지를 입력해주세요");
 
     if (origin.trim()) {
+      setError(null);
       router.push(`/result${toCustomQuery(profile, origin.trim(), destination.trim())}`);
       return;
     }
+
     if (!("geolocation" in navigator)) return setError("이 브라우저는 위치 확인을 지원하지 않습니다");
 
     setError(null);
@@ -45,7 +45,7 @@ export default function Home() {
         setError(
           err.code === err.PERMISSION_DENIED
             ? "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해주세요."
-            : "현재 위치를 확인할 수 없습니다. 다시 시도해주세요.",
+            : "현재 위치를 확인할 수 없습니다. 출발지를 직접 입력해주세요.",
         );
       },
       { enableHighAccuracy: true, timeout: 8000 },
@@ -53,15 +53,16 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-800">
-      <header>
-        <h1 className="text-2xl font-bold">길 안심 제주</h1>
-        <p className="text-sm text-slate-500">초보 운전자를 위한 제주 안전경로 추천</p>
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-900">
+      <header className="rounded-[28px] bg-slate-900 px-5 py-6 text-white shadow-xl shadow-slate-200">
+        <p className="mb-2 text-xs font-bold text-orange-200">JEJU SAFE ROUTE</p>
+        <h1 className="text-3xl font-black tracking-normal">길 안심 제주</h1>
+        <p className="mt-1 text-sm leading-relaxed text-slate-300">내 운전 조건에 맞춰 부담이 덜한 길을 비교합니다.</p>
       </header>
 
-      <section className="flex flex-col gap-5 rounded-2xl bg-slate-50 p-4">
+      <section className="flex flex-col gap-5 rounded-[28px] border border-white/80 bg-white/80 p-4 shadow-xl shadow-orange-100/50 ring-1 ring-orange-100/60">
         <div>
-          <h2 className="text-base font-semibold">운전 정보를 알려주세요</h2>
+          <h2 className="text-base font-bold">운전 정보를 알려주세요</h2>
           <p className="mt-0.5 text-xs text-slate-500">
             입력한 값이 경로별 점수의 가중치가 됩니다.
             어떻게 반영됐는지는 결과의 근거 카드에 그대로 나옵니다.
@@ -74,7 +75,7 @@ export default function Home() {
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
             placeholder="예: 서귀포 올레시장, 성산일출봉"
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+            className="w-full rounded-2xl border border-orange-100 bg-[#FFFCF8] px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
           />
         </label>
 
@@ -84,9 +85,9 @@ export default function Home() {
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
             placeholder="예: 제주국제공항"
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+            className="w-full rounded-2xl border border-orange-100 bg-[#FFFCF8] px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
           />
-          <span className="text-xs text-slate-400">비워두면 현재 위치(GPS)로 자동으로 잡습니다.</span>
+          <span className="text-xs text-slate-400">비워두면 현재 위치로 경로를 만듭니다.</span>
         </label>
 
         <Chips
@@ -154,7 +155,7 @@ export default function Home() {
       <button
         onClick={submit}
         disabled={locating}
-        className="rounded-2xl bg-slate-800 px-4 py-3.5 text-base font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+        className="rounded-2xl bg-[#FF8A3D] px-4 py-4 text-base font-bold text-white shadow-lg shadow-orange-200/70 transition hover:bg-[#E8701F] active:scale-[0.98] disabled:opacity-60"
       >
         {locating ? "현재 위치 확인 중…" : "경로 비교 보기"}
       </button>
@@ -198,8 +199,8 @@ function Chips<T extends string | number | boolean>({
             aria-pressed={v === value}
             className={`rounded-xl px-2 py-2 text-sm font-medium transition ${
               v === value
-                ? "bg-slate-800 text-white"
-                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                ? "bg-slate-900 text-white shadow-md shadow-slate-200"
+                : "border border-orange-100 bg-[#FFFCF8] text-slate-600 hover:bg-orange-50"
             }`}
           >
             <span className="block">{text}</span>

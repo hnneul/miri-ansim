@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Suspense } from "react";
 import Link from "next/link";
-import RouteMap, { type MarkerIcon, type LatLng } from "../RouteMap";
+import RouteMap, { type MarkerIcon, type LatLng, type MapPreviewRoute } from "../RouteMap";
 import ProfileMenu from "../ProfileMenu";
 import RiskDialog from "../RiskDialog";
 import { aiSentences, factsOf, type AiSentences } from "@/lib/ai";
@@ -26,7 +26,7 @@ import { type Goodprice } from "@/lib/goodprice";
 import { parseProfile, oneOf } from "@/lib/profile";
 import { liveTraffic, congestionLabel, type Live } from "@/lib/traffic";
 import { geocodePlace } from "@/lib/geocode";
-import { routesFor, type LiveRoute, type LiveRoutes } from "@/lib/route";
+import { routesFor, type LiveRoute } from "@/lib/route";
 import type { Link as RoadLink } from "@/lib/analyze";
 
 /** 표준노드링크 5.9MB — 요청마다 다시 읽지 않게 모듈 전역에 캐시한다 (lib/analyze.ts 참고). */
@@ -43,7 +43,7 @@ export default async function ResultPage({
   const sp = await searchParams;
   const profile = parseProfile(sp);
 
-  // 목적지 텍스트가 있으면 임의 구간(GPS 출발지 + 지오코딩 목적지) 흐름이다 —
+  // 목적지 텍스트가 있으면 임의 구간(출발지 + 지오코딩 목적지) 흐름이다 —
   // 굳혀둔 3구간과 완전히 다른 데이터 경로라 여기서 갈라 처리한다.
   const destQuery = oneOf(sp, "dest");
   if (destQuery) return <CustomPage sp={sp} destQuery={destQuery} profile={profile} />;
@@ -52,10 +52,11 @@ export default async function ResultPage({
   const scenario = SCENARIOS.find((s) => s.id === sp.route) ?? SCENARIOS[0];
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-800 lg:max-w-[64rem]">
-      <header className="flex items-baseline gap-3">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-900 lg:max-w-[64rem]">
+      <header className="flex items-center gap-3 rounded-[28px] bg-white/80 px-4 py-3 shadow-lg shadow-orange-100/50 ring-1 ring-orange-100/70">
         <div>
-          <h1 className="text-2xl font-bold">길 안심 제주</h1>
+          <p className="text-[11px] font-bold text-orange-500">SAFE ROUTE</p>
+          <h1 className="text-2xl font-black tracking-normal">길 안심 제주</h1>
           <p className="text-sm text-slate-500">{scenario.label}</p>
         </div>
         <ProfileMenu profile={profile} />
@@ -74,7 +75,7 @@ export default async function ResultPage({
             markers={scenario.markers}
           />
           <BelowMap>
-            <section className="rounded-2xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
+            <section className="rounded-2xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-900 ring-1 ring-amber-100">
               이 구간은 아직 위험구간 검증이 되지 않아 추천을 제공하지 않습니다.
               <p className="mt-1 text-xs text-amber-700">
                 확인되지 않은 위험요인은 생성하지 않는다는 원칙에 따라, 검증된 구간에서만 추천합니다.
@@ -88,7 +89,7 @@ export default async function ResultPage({
 }
 
 /**
- * 임의 구간(목적지 텍스트 + GPS 출발지) 결과 페이지.
+ * 임의 구간(목적지 텍스트 + 출발지) 결과 페이지.
  *
  * 굳혀둔 3구간과 달리 데이터가 요청 시점에 나온다 — 목적지 지오코딩 → 표준노드링크 인덱스 →
  * 카카오 길찾기 실시간 조회를 순서대로 거치고, 어느 단계든 실패하면 사유를 그대로 보여준다
@@ -103,8 +104,6 @@ async function CustomPage({
   destQuery: string;
   profile: DriverProfile;
 }) {
-  // 출발지는 GPS 좌표(originLat/Lng) 또는 직접 입력한 지명(originText) 중 하나로 온다 —
-  // "제주공항 → 성산일출봉"처럼 특정 구간을 재현하려면 GPS로는 안 되니 텍스트 경로를 남겨둔다.
   const originText = oneOf(sp, "originText");
   let origin: { coord: LatLng; label: string };
   if (originText) {
@@ -115,7 +114,7 @@ async function CustomPage({
     const originLat = Number(oneOf(sp, "originLat"));
     const originLng = Number(oneOf(sp, "originLng"));
     if (!Number.isFinite(originLat) || !Number.isFinite(originLng)) {
-      return <ErrorMain reason="현재 위치를 받지 못했습니다. 홈에서 다시 시도해주세요." />;
+      return <ErrorMain reason="출발지를 받지 못했습니다. 홈에서 다시 시도해주세요." />;
     }
     origin = { coord: [originLat, originLng], label: "현재 위치" };
   }
@@ -127,10 +126,11 @@ async function CustomPage({
   if ("error" in live) return <ErrorMain reason={live.error} />;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-800 lg:max-w-[64rem]">
-      <header className="flex items-baseline gap-3">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-900 lg:max-w-[64rem]">
+      <header className="flex items-center gap-3 rounded-[28px] bg-white/80 px-4 py-3 shadow-lg shadow-orange-100/50 ring-1 ring-orange-100/70">
         <div>
-          <h1 className="text-2xl font-bold">길 안심 제주</h1>
+          <p className="text-[11px] font-bold text-orange-500">LIVE ROUTE</p>
+          <h1 className="text-2xl font-black tracking-normal">길 안심 제주</h1>
           <p className="text-sm text-slate-500">
             {origin.label} → {dest.label}
           </p>
@@ -145,14 +145,14 @@ async function CustomPage({
 /** 목적지를 못 찾거나 길찾기가 실패했을 때 — 원인을 그대로 보여준다. */
 function ErrorMain({ reason }: { reason: string }) {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-800">
-      <header className="flex items-baseline gap-3">
-        <h1 className="text-2xl font-bold">길 안심 제주</h1>
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 p-5 text-slate-900">
+      <header className="flex items-center gap-3 rounded-[28px] bg-white/80 px-4 py-3 shadow-lg shadow-orange-100/50 ring-1 ring-orange-100/70">
+        <h1 className="text-2xl font-black tracking-normal">길 안심 제주</h1>
         <Link href="/profile" className="ml-auto shrink-0 text-sm text-slate-500 underline hover:text-slate-800">
           다시 입력
         </Link>
       </header>
-      <section className="rounded-2xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">{reason}</section>
+      <section className="rounded-2xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-900 ring-1 ring-amber-100">{reason}</section>
     </main>
   );
 }
@@ -177,7 +177,12 @@ function CustomRoutes({
 }) {
   if (routes.length === 1) {
     const only = routes[0];
-    const riskMarkers = only.risks.map((r) => ({ coord: r.coord, label: `${r.label} (${r.location})` }));
+    const riskMarkers = only.risks.map((r) => ({
+      coord: r.coord,
+      label: `${r.label} (${r.location})`,
+      icon: 위험아이콘,
+      risk: r,
+    }));
     return (
       <>
         <MapArea
@@ -187,9 +192,10 @@ function CustomRoutes({
           profile={profile}
           routes={[{ path: only.path, color: only.color, weight: 9, opacity: 0.95 }]}
           markers={[origin, dest, ...riskMarkers]}
+          preview={only}
         />
         <BelowMap>
-          <section className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+          <section className="rounded-[24px] bg-white/85 p-4 text-sm text-slate-700 shadow-lg shadow-orange-100/50 ring-1 ring-orange-100/70">
             <p className="font-semibold">{only.name}</p>
             <p className="mt-1 tabular-nums text-slate-500">
               {only.durationMin}분 · {only.distanceKm}km
@@ -234,6 +240,8 @@ function CustomRoutes({
   const riskMarkers = [...fast.risks, ...safe.risks].map((r) => ({
     coord: r.coord,
     label: `${r.label} (${r.location})`,
+    icon: 위험아이콘,
+    risk: r,
   }));
 
   const ai = aiSentences(factsOf(`${origin.label} → ${dest.label}`, profile, result, [fast, safe]));
@@ -248,6 +256,7 @@ function CustomRoutes({
         profile={profile}
         routes={[line(fast, pick === "fast"), line(safe, pick === "safe")]}
         markers={[origin, dest, ...riskMarkers]}
+        preview={pick === "safe" ? safe : fast}
       >
         <RailButton glyph="💡" label="해석" tone="bg-emerald-50 text-emerald-900">
           <p className="text-base font-bold">내 조건으로 본 이 길</p>
@@ -265,7 +274,7 @@ function CustomRoutes({
           </div>
 
           {pick === "single" && (
-            <p className="rounded-xl bg-slate-100 p-3 text-center text-sm text-slate-600">
+            <p className="rounded-2xl bg-white/80 p-3 text-center text-sm text-slate-600 ring-1 ring-orange-100">
               두 경로의 부담 차이가 작습니다 — 익숙한 경로를 이용하세요
             </p>
           )}
@@ -305,6 +314,7 @@ function MapArea({
   profile,
   routes,
   markers,
+  preview,
   children,
 }: {
   center: LatLng;
@@ -312,6 +322,7 @@ function MapArea({
   /** 목적지 좌표·이름 — 주차·착한가격업소 조회는 구간이 아니라 여기서 나온다 (임의 목적지도 같은 함수를 쓴다). */
   destination: { coord: LatLng; label: string };
   profile: DriverProfile;
+  preview?: MapPreviewRoute;
   children?: React.ReactNode;
 } & Pick<React.ComponentProps<typeof RouteMap>, "routes" | "markers">) {
   const parking = parkingAt(destination.label, destination.coord);
@@ -319,11 +330,11 @@ function MapArea({
   const odds = parking && isNovice(profile) ? parallelOdds(parking!) : null;
   const goodprice = goodpriceAt(destination.label, destination.coord);
   return (
-    <div className="flex h-[52vh] min-h-72 w-full gap-2 lg:h-[68vh] lg:min-h-[32rem]">
+    <div className="flex h-[54vh] min-h-80 w-full gap-2 rounded-[30px] bg-white/70 p-2 shadow-xl shadow-orange-100/60 ring-1 ring-orange-100/70 lg:h-[68vh] lg:min-h-[32rem]">
       <div className="min-w-0 flex-1">
-        <RouteMap center={center} level={level} routes={routes} markers={markers} />
+        <RouteMap center={center} level={level} routes={routes} markers={markers} preview={preview} />
       </div>
-      <div className="flex w-12 shrink-0 flex-col items-center gap-3 pt-1">
+      <div className="flex w-12 shrink-0 flex-col items-center gap-3 pt-1.5">
         {parking && (
           <RailButton glyph="P" label="주차" tone={parkingTone(odds)}>
             <ParkingPanel parking={parking} odds={odds} />
@@ -367,14 +378,14 @@ function RailButton({
     <details name="rail" className="group relative">
       <summary className="flex cursor-pointer list-none flex-col items-center gap-1 [&::-webkit-details-marker]:hidden">
         <span
-          className={`grid h-11 w-11 place-items-center rounded-full text-sm font-bold shadow-md ring-1 ring-black/5 group-open:ring-2 group-open:ring-slate-400 ${tone}`}
+          className={`grid h-11 w-11 place-items-center rounded-full text-sm font-bold shadow-md shadow-slate-200 ring-1 ring-black/5 transition group-open:scale-95 group-open:ring-2 group-open:ring-orange-300 ${tone}`}
         >
           {glyph}
         </span>
         <span className="text-[10px] leading-none text-slate-500">{label}</span>
       </summary>
       <div
-        className={`absolute top-0 right-full z-20 mr-2 max-h-[52vh] w-[min(34rem,calc(100vw-5rem))] overflow-y-auto rounded-2xl p-4 text-sm shadow-xl ring-1 ring-black/5 lg:max-h-[80vh] ${tone}`}
+        className={`absolute top-0 right-full z-20 mr-2 max-h-[52vh] w-[min(34rem,calc(100vw-5rem))] overflow-y-auto rounded-[24px] p-4 text-sm shadow-2xl ring-1 ring-black/5 lg:max-h-[80vh] ${tone}`}
       >
         {children}
       </div>
@@ -501,6 +512,15 @@ const 착한가격아이콘 = pin(
            fill="#fff" text-anchor="middle">₩</text>
    </svg>`,
   [22, 22],
+);
+
+const 위험아이콘 = pin(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+     <path d="M15 3 28 26H2Z" fill="#f97316" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+     <path d="M15 10v7" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+     <circle cx="15" cy="22" r="1.7" fill="#fff"/>
+   </svg>`,
+  [30, 30],
 );
 
 /**
@@ -657,6 +677,8 @@ async function Verified({
   const riskMarkers = [...fast.risks, ...safe.risks].map((r) => ({
     coord: r.coord,
     label: `${r.label} (${r.location})`,
+    icon: 위험아이콘,
+    risk: r,
   }));
 
   // AI 문장. await 하지 않고 promise 를 그대로 두 Suspense 자리에 넘긴다 —
@@ -675,6 +697,7 @@ async function Verified({
         profile={profile}
         routes={[line(fast, pick === "fast"), line(safe, pick === "safe")]}
         markers={[...scenario.markers, ...riskMarkers]}
+        preview={pick === "safe" ? safe : fast}
       >
         {/* ④ 운전자 맞춤 해석 — 점수가 아니라 "내 조건에서 이 길이 어떤 길인지"를 AI가 풀어 쓴다.
             실패하면 같은 말투의 규칙 기반 문장으로 떨어진다 (lib/briefing.ts) */}
@@ -704,7 +727,7 @@ async function Verified({
           )}
 
           {pick === "single" && (
-            <p className="rounded-xl bg-slate-100 p-3 text-center text-sm text-slate-600">
+            <p className="rounded-2xl bg-white/80 p-3 text-center text-sm text-slate-600 ring-1 ring-orange-100">
               두 경로의 부담 차이가 작습니다 — 익숙한 경로를 이용하세요
             </p>
           )}
@@ -741,7 +764,7 @@ async function Verified({
  * 가운데 정렬하지 않는다: 지도 왼쪽 끝과 선을 맞춰야 따로 노는 느낌이 안 든다.
  */
 function BelowMap({ children }: { children: React.ReactNode }) {
-  return <div className="flex w-full flex-col gap-5 lg:max-w-2xl">{children}</div>;
+  return <div className="flex w-full flex-col gap-5 rounded-[28px] bg-white/55 p-3 shadow-lg shadow-orange-100/40 ring-1 ring-orange-100/70 lg:max-w-2xl">{children}</div>;
 }
 
 /** §4 breakdown은 factor(이름)만 담으므로 Route.risks에서 원본을 되짚는다 */
@@ -828,7 +851,7 @@ function Verdict({
 }) {
   return (
     <div
-      className={`mt-3 rounded-xl p-3 ${recommended ? "bg-emerald-50 text-emerald-900" : "bg-slate-100 text-slate-700"}`}
+      className={`mt-3 rounded-2xl p-3 ${recommended ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-100" : "bg-slate-100 text-slate-700"}`}
     >
       <p className="text-sm leading-relaxed">{children}</p>
       <p className="mt-1.5 text-[10px] opacity-60">
@@ -876,12 +899,16 @@ function RouteCard({
   // break-keep: 한글은 기본이 글자 단위 줄바꿈이라 "서 행"처럼 낱말이 쪼개진다.
   return (
     <RiskDialog
-      className={`rounded-2xl p-3 break-keep sm:p-4 ${recommended ? "bg-emerald-50 ring-2 ring-emerald-300" : "bg-slate-50"}`}
+      className={`rounded-[24px] p-3 break-keep shadow-sm transition active:scale-[0.99] sm:p-4 ${
+        recommended
+          ? "bg-emerald-50 ring-2 ring-emerald-300"
+          : "bg-white/90 ring-1 ring-orange-100"
+      }`}
       title={`${r.name} — 이 길에서 만나는 것`}
       face={
         <>
         <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
+          <span className="h-3 w-3 shrink-0 rounded-full ring-2 ring-white" style={{ background: r.color }} />
           <span className="text-sm font-semibold">{r.name}</span>
         </div>
         <div className="mt-0.5 text-[11px] text-slate-400">{r.badge}</div>
@@ -899,12 +926,12 @@ function RouteCard({
             {혼잡 ? `지금 ${혼잡}` : "지금 원활"}
           </div>
         )}
-        <div className="mt-1 flex items-baseline gap-1.5">
-          <span className="text-3xl font-bold tabular-nums">{score}</span>
+        <div className="mt-2 flex items-baseline gap-1.5">
+          <span className="text-4xl font-black tabular-nums tracking-normal">{score}</span>
           <span className="text-xs text-slate-500">부담점수</span>
         </div>
         {recommended && (
-          <div className="mt-1.5 inline-block rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-medium text-white">
+          <div className="mt-1.5 inline-block rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm shadow-emerald-200">
             추천
           </div>
         )}

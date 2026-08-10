@@ -31,7 +31,7 @@ export default function RiskDialog({
       <dialog
         ref={ref}
         onClick={(e) => e.target === ref.current && ref.current?.close()}
-        className="m-auto w-[min(32rem,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto rounded-2xl bg-white text-slate-800 shadow-xl backdrop:bg-slate-900/40"
+        className="m-auto w-[min(32rem,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto rounded-[24px] bg-white text-slate-800 shadow-2xl backdrop:bg-slate-900/40"
       >
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">

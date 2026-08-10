@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>길 안심 제주 - 구간 브리핑 목업</title>
+  <style>
+    :root {
+      --bg: #fff8ef;
+      --ink: #1f2933;
+      --muted: #697386;
+      --line: #f2d7bf;
+      --orange: #ff742e;
+      --orange-soft: #fff0e4;
+      --blue: #2ea7df;
+      --safe: #1f9d73;
+      --warn: #f59e0b;
+      --danger: #e85d5d;
+      --panel: rgba(255, 255, 255, 0.88);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 0%, #fff3df 0, transparent 34rem),
+        linear-gradient(180deg, #fffaf4 0%, #fff6eb 100%);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: 0 18px 48px rgba(255, 116, 46, 0.12);
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--orange);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    h1 {
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .profile {
+      display: grid;
+      place-items: center;
+      width: 72px;
+      height: 72px;
+      flex: 0 0 auto;
+      border: 2px solid #ffd5b6;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--orange);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
+      gap: 24px;
+      margin-top: 24px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: 0 16px 38px rgba(255, 116, 46, 0.1);
+    }
+
+    .map-card {
+      padding: 16px;
+    }
+
+    .map-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 4px 6px 14px;
+    }
+
+    .route-name {
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .score {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 18px;
+      background: var(--orange-soft);
+      color: var(--orange);
+      font-weight: 900;
+    }
+
+    .score strong {
+      font-size: 36px;
+      line-height: 1;
+    }
+
+    .map {
+      position: relative;
+      overflow: hidden;
+      min-height: 560px;
+      border-radius: 24px;
+      background:
+        linear-gradient(115deg, rgba(75, 153, 105, 0.1), transparent 45%),
+        #eef7f4;
+    }
+
+    .map svg {
+      display: block;
+      width: 100%;
+      height: 560px;
+    }
+
+    .legend {
+      position: absolute;
+      left: 20px;
+      bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: calc(100% - 40px);
+      padding: 10px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(8px);
+      color: #526071;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+      border-radius: 999px;
+      vertical-align: -1px;
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .brief {
+      padding: 22px;
+    }
+
+    .brief h2 {
+      font-size: 24px;
+      line-height: 1.18;
+    }
+
+    .brief-copy {
+      margin-top: 10px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .chip {
+      padding: 9px 11px;
+      border-radius: 999px;
+      background: #fff;
+      color: #526071;
+      font-size: 13px;
+      font-weight: 800;
+      border: 1px solid #f0dcc8;
+    }
+
+    .timeline {
+      padding: 20px;
+    }
+
+    .timeline h2 {
+      margin-bottom: 18px;
+      font-size: 21px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 12px;
+    }
+
+    .step + .step {
+      margin-top: 14px;
+    }
+
+    .num {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1f2933;
+      color: white;
+      font-weight: 900;
+    }
+
+    .step-body {
+      padding: 14px;
+      border: 1px solid #efdfd0;
+      border-radius: 20px;
+      background: #fff;
+    }
+
+    .step-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .step-title {
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .time {
+      margin-top: 3px;
+      color: #8a94a5;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .level {
+      flex: 0 0 auto;
+      padding: 6px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .level.normal { background: #eef2f7; color: #526071; }
+    .level.warn { background: #fff2cf; color: #9a6700; }
+    .level.danger { background: #ffe7e7; color: #b42323; }
+    .level.safe { background: #e7f8f0; color: #087443; }
+
+    .step-desc {
+      margin-top: 9px;
+      color: #526071;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .action {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 18px;
+      padding: 16px 14px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .primary {
+      background: #1f2933;
+      color: white;
+    }
+
+    .secondary {
+      border: 1px solid #efd8c2;
+      background: #fff;
+      color: #526071;
+    }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .map { min-height: 430px; }
+      .map svg { height: 430px; }
+      .top { align-items: flex-start; }
+      .profile { width: 58px; height: 58px; font-size: 22px; }
+      .action { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div>
+        <p class="eyebrow">Beginner Route Briefing</p>
+        <h1>길 안심 제주</h1>
+        <p class="sub">제주공항 → 서귀포 매일올레시장 · 출발 전 30초 구간 미리보기</p>
+      </div>
+      <div class="profile">초</div>
+    </header>
+
+    <section class="layout">
+      <article class="card map-card">
+        <div class="map-head">
+          <div>
+            <p class="eyebrow">선택한 경로</p>
+            <p class="route-name">평화로 경유 · 초보 부담 적은 길</p>
+          </div>
+          <div class="score"><strong>28</strong><span>부담점수</span></div>
+        </div>
+
+        <div class="map" aria-label="경로 지도 예시">
+          <svg viewBox="0 0 900 560" role="img">
+            <rect width="900" height="560" fill="#eef7f4"></rect>
+            <path d="M80 90 C190 130 250 110 340 160 C470 235 555 210 790 300" fill="none" stroke="#f2cc5d" stroke-width="8" opacity=".75"></path>
+            <path d="M60 420 C150 360 240 390 330 340 C440 280 570 340 830 220" fill="none" stroke="#f2cc5d" stroke-width="7" opacity=".65"></path>
+            <path d="M130 260 C230 210 330 255 430 205 C540 150 675 140 815 90" fill="none" stroke="#d8e4dc" stroke-width="5"></path>
+            <path d="M110 60 L230 120 L310 180 L385 232" fill="none" stroke="#cfd8d4" stroke-width="4"></path>
+            <path d="M385 232 C420 265 458 295 505 315" fill="none" stroke="#38bdf8" stroke-width="16" stroke-linecap="round"></path>
+            <path d="M505 315 C565 344 620 382 675 430" fill="none" stroke="#f59e0b" stroke-width="16" stroke-linecap="round"></path>
+            <path d="M675 430 C707 462 737 490 780 515" fill="none" stroke="#38bdf8" stroke-width="16" stroke-linecap="round"></path>
+            <path d="M385 232 C420 265 458 295 505 315 C565 344 620 382 675 430 C707 462 737 490 780 515" fill="none" stroke="#0ea5e9" stroke-width="6" stroke-linecap="round"></path>
+            <circle cx="385" cy="232" r="16" fill="#fff" stroke="#1f2933" stroke-width="6"></circle>
+            <circle cx="780" cy="515" r="18" fill="#ff742e" stroke="#fff" stroke-width="6"></circle>
+            <circle cx="520" cy="322" r="17" fill="#f59e0b" stroke="#fff" stroke-width="5"></circle>
+            <circle cx="650" cy="410" r="17" fill="#e85d5d" stroke="#fff" stroke-width="5"></circle>
+            <text x="395" y="210" font-size="18" font-weight="800" fill="#1f2933">제주공항</text>
+            <text x="650" y="395" font-size="16" font-weight="800" fill="#9a6700">고속주행 구간</text>
+            <text x="700" y="455" font-size="16" font-weight="800" fill="#b42323">좁은 교행 주의</text>
+            <text x="704" y="544" font-size="18" font-weight="900" fill="#1f2933">서귀포</text>
+          </svg>
+          <div class="legend">
+            <span><i class="dot" style="background:#38bdf8"></i>일반 구간</span>
+            <span><i class="dot" style="background:#f59e0b"></i>속도 유지 구간</span>
+            <span><i class="dot" style="background:#e85d5d"></i>초보 주의 구간</span>
+          </div>
+        </div>
+      </article>
+
+      <aside class="side">
+        <section class="card brief">
+          <p class="eyebrow">오늘 길 요약</p>
+          <h2>7분 더 걸리지만, 중간에 당황할 구간이 줄어드는 길이에요.</h2>
+          <p class="brief-copy">
+            경로 전체를 한 줄로만 보지 않고, 초보가 긴장할 수 있는 부분을 먼저 나눠 보여주는 화면 예시입니다.
+            실제 안내는 외부 내비로 넘기고, 이 화면은 출발 전 마음준비에 집중합니다.
+          </p>
+          <div class="chips">
+            <span class="chip">61분 · 38.3km</span>
+            <span class="chip">좁은 길 3%</span>
+            <span class="chip">급커브 3곳</span>
+            <span class="chip">주차장 도보 4분</span>
+          </div>
+        </section>
+
+        <section class="card timeline">
+          <h2>구간별 초보 브리핑</h2>
+
+          <div class="step">
+            <div class="num">1</div>
+            <div class="step-body">
+              <div class="step-top">
+                <div>
+                  <p class="step-title">제주시내 빠져나가기</p>
+                  <p class="time">0~8분</p>
+                </div>
+                <span class="level normal">부담 보통</span>
+              </div>
+              <p class="step-desc">차선과 표지판을 보면서 천천히 리듬을 잡는 구간입니다.</p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="num">2</div>
+            <div class="step-body">
+              <div class="step-top">
+                <div>
+                  <p class="step-title">평화로 진입</p>
+                  <p class="time">8~24분</p>
+                </div>
+                <span class="level warn">속도 주의</span>
+              </div>
+              <p class="step-desc">제한속도 80km/h 구간입니다. 차간거리만 유지하면 길 구조는 단순합니다.</p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="num">3</div>
+            <div class="step-body">
+              <div class="step-top">
+                <div>
+                  <p class="step-title">중산간 연결 구간</p>
+                  <p class="time">24~44분</p>
+                </div>
+                <span class="level danger">초보 주의</span>
+              </div>
+              <p class="step-desc">좁은 교행 구간이 일부 있습니다. 마주 오는 차를 만나면 속도를 먼저 낮춥니다.</p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="num">4</div>
+            <div class="step-body">
+              <div class="step-top">
+                <div>
+                  <p class="step-title">도착 전 주차 준비</p>
+                  <p class="time">마지막 7분</p>
+                </div>
+                <span class="level safe">미리 선택</span>
+              </div>
+              <p class="step-desc">목적지 바로 앞 대신 도보 4분 공영주차장을 먼저 찍으면 덜 헤맬 수 있습니다.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card action">
+          <button class="btn secondary">다른 길 보기</button>
+          <button class="btn primary">이 경로를 내비로 열기</button>
+        </section>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

@@ -40,29 +40,33 @@ const SLIDES = [
 ];
 
 const BRAND = "bg-[#FF8A3D]";
-const CTA = `rounded-2xl ${BRAND} px-4 py-3.5 text-center text-base font-semibold text-white transition hover:bg-[#E8701F] active:scale-[0.98]`;
+const CTA = `rounded-2xl ${BRAND} px-4 py-4 text-center text-base font-bold text-white shadow-lg shadow-orange-200/70 transition hover:bg-[#E8701F] active:scale-[0.98]`;
 
 export default function Onboarding() {
   const [i, setI] = useState(0);
   const last = i === SLIDES.length - 1;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-5 text-slate-800">
-      <Link href="/profile" className="self-end text-sm text-slate-400 hover:text-slate-600">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 p-5 text-slate-900">
+      <Link href="/profile" className="self-end rounded-full px-3 py-2 text-sm font-medium text-slate-400 hover:bg-white/70 hover:text-slate-600">
         건너뛰기
       </Link>
 
       {/* 바깥도 flex다 — h-full(높이 100%)은 flex-1로 잡힌 부모 높이에 안 걸려서 트랙이 내용 높이로 쪼그라든다 */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-[28px] border border-white/80 bg-white/70 shadow-xl shadow-orange-100/60 ring-1 ring-orange-100/70 backdrop-blur">
         <div
           className="flex w-full shrink-0 transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${i * 100}%)` }}
         >
           {SLIDES.map((s) => (
-            <section key={s.title} className="flex w-full shrink-0 flex-col gap-2">
-              <h1 className="text-[26px] leading-snug font-bold whitespace-pre-line">{s.title}</h1>
+            <section key={s.title} className="flex w-full shrink-0 flex-col gap-3 p-5">
+              <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                길 안심 제주
+              </div>
+              <h1 className="text-[28px] leading-tight font-black whitespace-pre-line tracking-normal">{s.title}</h1>
               <p className="text-[15px] leading-relaxed text-slate-500">{s.sub}</p>
-              <div className="mt-2 flex min-h-40 flex-1 items-center justify-center rounded-3xl bg-[#FFF1E6] p-6">
+              <div className="mt-2 flex min-h-48 flex-1 items-center justify-center rounded-[24px] bg-gradient-to-b from-[#FFF3E8] to-[#EAF8F3] p-6">
                 {/* 장식이라 alt는 비운다 — 옆의 제목·설명이 같은 내용을 이미 글로 말한다 */}
                 <img src={s.art} alt="" className="max-h-72 w-auto object-contain" />
               </div>
@@ -89,7 +93,7 @@ export default function Onboarding() {
             onClick={() => setI(n)}
             aria-label={`${n + 1}번째 소개`}
             aria-current={n === i}
-            className="flex h-11 w-8 items-center justify-center"
+            className="flex h-11 w-8 items-center justify-center rounded-full"
           >
             <span
               className={`h-2 rounded-full transition-all ${n === i ? `w-6 ${BRAND}` : "w-2 bg-slate-200"}`}

@@ -74,9 +74,8 @@ export function toQuery(profile: DriverProfile, scenarioId: string): string {
 }
 
 /**
- * 프로필 + 출발지 + 목적지 텍스트 → "?originLat=..&originLng=..&dest=..&exp=1&...". 임의 구간용.
- * 출발지는 GPS 좌표(LatLng) 또는 직접 입력한 지명(string) 둘 다 받는다 — "제주공항"처럼
- * 특정 구간을 재현하려면 GPS 대신 텍스트로 고정할 수 있어야 한다.
+ * 프로필 + 출발지 + 목적지 텍스트 → "?originText=..&dest=..&exp=1&...". 임의 구간용.
+ * 출발지는 직접 입력한 지명 또는 현재 위치 좌표를 받을 수 있다.
  */
 export function toCustomQuery(profile: DriverProfile, origin: LatLng | string, destination: string): string {
   const originParams: Record<string, string> =
