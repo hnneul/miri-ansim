@@ -20,6 +20,40 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.phone {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/*
+ * 시연은 노트북 브라우저다 — 화면 가운데 폰을 놓고 그 안에서만 앱이 돈다.
+ * 480px 미만(진짜 폰)에서는 이 블록이 통째로 꺼져 프레임 없이 꽉 찬다. 껐다 켜는 스위치가 이것뿐이다.
+ */
+@media (min-width: 480px) {
+  body {
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    background: #1c1917;
+  }
+
+  .phone {
+    /* 13인치 노트북은 뷰포트가 844px보다 낮다 — 넘치면 잘리는 대신 프레임이 줄어든다 */
+    height: min(844px, calc(100dvh - 2.5rem));
+    min-height: 0;
+    width: 390px;
+    /* 안쪽 cqh/cqw 가 노트북 화면이 아니라 이 박스를 기준으로 잡히게 한다 */
+    container-type: size;
+    overflow-y: auto;
+    border-radius: 44px;
+    background: var(--background);
+    box-shadow:
+      0 0 0 10px #0c0a09,
+      0 24px 60px rgb(0 0 0 / 0.55);
+  }
+}
+
 button,
 a,
 summary {
