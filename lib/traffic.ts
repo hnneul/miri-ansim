@@ -36,6 +36,20 @@ const DRIFT_RATIO = 0.05;
 const JAM = new Set([1, 2]);
 const SLOW = new Set([3]);
 
+/**
+ * 빠른 흐름 경계 (실제 통행속도 km/h). analyze.ts 의 고속주행(제한속도 80↑)보다 낮게 잡는다 —
+ * 실제로 70으로 흐르는 구간이면 제한속도는 그 이상이고, 그 옆에 붙어 달리는 것 자체가
+ * 초보에게는 부담이다. 제한속도는 굳혀둔 값이라 "이 길은 원래 빠르다"까지밖에 말하지 못하고,
+ * 지금 실제로 빠른지는 이 값만 안다.
+ */
+const FAST = 70;
+
+/**
+ * 느긋한 흐름 구간. 아래를 막아두는 이유가 있다 — 20km/h 는 느긋한 게 아니라 막힌 것이고,
+ * 그건 congestionOf 가 이미 말한다. 정체를 "느긋"이라고 부르면 카드가 거짓말을 한다.
+ */
+const CALM = { min: 35, max: 55 };
+
 export type Congestion = {
   jamKm: number;
   slowKm: number;
@@ -47,6 +61,8 @@ export type Live = {
   durationMin: number;
   distanceKm: number;
   congestion: Congestion;
+  /** 경로 전체 실제 통행속도 (km/h). 속도가 실린 조각이 없으면 null */
+  flowKmh: number | null;
   /** 실시간 안내 경로가 검증된 경로와 다른가 (사고·통제로 우회) */
   drift: boolean;
 };
@@ -60,7 +76,7 @@ export type LiveTraffic = {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-type Road = { name?: string; distance: number; traffic_state?: number };
+type Road = { name?: string; distance: number; traffic_state?: number; traffic_speed?: number };
 
 /** 도로 조각들 → 혼잡 요약. 순수 함수라 traffic.check.ts 가 픽스처로 검증한다. */
 export function congestionOf(roads: Road[]): Congestion {
@@ -84,6 +100,42 @@ export function congestionOf(roads: Road[]): Congestion {
 
   const top = [...byRoad.entries()].sort((a, b) => b[1] - a[1])[0];
   return { jamKm: round1(jamKm), slowKm: round1(slowKm), topRoad: top?.[0] ?? null };
+}
+
+/**
+ * 도로 조각들 → 경로 전체 실제 통행속도 (km/h). 속도가 실린 조각이 없으면 null.
+ *
+ * traffic_state 는 4단계 등급이라 "평소보다 느린가"까지만 말한다. 82km/h 로 흐르는 평화로와
+ * 45km/h 로 흐르는 5.16로가 똑같이 "원활(4)"로 온다. 초보가 무서워하는 건 막히는 게 아니라
+ * 빠른 차 옆에 붙는 것이라, 등급이 아니라 이 숫자가 있어야 둘을 가른다.
+ *
+ * 거리가중 산술평균이 아니라 총거리÷총시간(조화평균)이다. 실제로 그 길을 지나는 데 걸리는
+ * 시간은 느린 구간이 지배한다 — 산술평균을 쓰면 짧은 정체 구간이 묻혀 실제보다 빠르게 나온다.
+ */
+export function flowSpeed(roads: Road[]): number | null {
+  let km = 0;
+  let hours = 0;
+  for (const r of roads) {
+    const v = r.traffic_speed;
+    if (v == null || v <= 0) continue; // 0 은 속도가 아니라 정보없음이다 (나누면 Infinity)
+    const d = r.distance / 1000;
+    km += d;
+    hours += d / v;
+  }
+  return hours > 0 ? Math.round(km / hours) : null;
+}
+
+/**
+ * 흐름 한 줄. 할 말이 있을 때만 준다 — 중간 속도는 null 이다.
+ *
+ * 양쪽을 다 말하는 이유: 초보에게 "빠르게 흐름"은 경고고 "느긋하게 흐름"은 안심이다.
+ * 이 앱이 하려는 말이 후자라 경고만 남기면 반쪽이 된다.
+ */
+export function flowLabel(kmh: number | null): string | null {
+  if (kmh == null) return null;
+  if (kmh >= FAST) return `${kmh}km/h로 빠르게 흐름`;
+  if (kmh >= CALM.min && kmh <= CALM.max) return `${kmh}km/h로 느긋하게 흐름`;
+  return null;
 }
 
 /**
@@ -116,10 +168,12 @@ export function driftedFrom(liveKm: number, verifiedKm: number | null): boolean 
 
 function liveOf(route: KakaoRoute, verifiedKm: number | null): Live {
   const distanceKm = round1(route.summary.distance / 1000);
+  const roads = route.sections.flatMap((s) => s.roads);
   return {
     durationMin: Math.round(route.summary.duration / 60),
     distanceKm,
-    congestion: congestionOf(route.sections.flatMap((s) => s.roads)),
+    congestion: congestionOf(roads),
+    flowKmh: flowSpeed(roads),
     drift: driftedFrom(distanceKm, verifiedKm),
   };
 }

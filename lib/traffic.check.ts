@@ -9,12 +9,13 @@
 // 픽스처의 traffic_state 값은 실제 응답에서 확인한 것이다 (lib/traffic.ts 주석 참고).
 
 import assert from "node:assert";
-import { congestionOf, congestionLabel, driftedFrom } from "./traffic.ts";
+import { congestionOf, congestionLabel, driftedFrom, flowSpeed, flowLabel } from "./traffic.ts";
 
-const road = (name: string, km: number, traffic_state?: number) => ({
+const road = (name: string, km: number, traffic_state?: number, traffic_speed?: number) => ({
   name,
   distance: km * 1000,
   traffic_state,
+  traffic_speed,
 });
 
 // --- ① 혼잡 집계 ---
@@ -60,6 +61,32 @@ assert.equal(driftedFrom(45.5, 43.0), true); // +5.8% — 다른 길로 안내�
 assert.equal(driftedFrom(38.0, 43.0), true); // 짧아진 것도 이탈이다 (방향은 상관없다)
 assert.equal(driftedFrom(43.0, null), false); // 비교 대상이 없으면 판정하지 않는다
 
-console.log("✅ 실시간 교통 집계·이탈 판정 정상");
+// --- ④ 통행속도 ---
+
+// 속도가 하나도 안 실려 오면 지어내지 않는다
+assert.equal(flowSpeed([road("평화로", 10, 4)]), null);
+// 0 은 속도가 아니라 정보없음이다 — 나누면 Infinity 가 되어 전체를 망친다
+assert.equal(flowSpeed([road("평화로", 10, 4, 0)]), null);
+// 같은 속도면 그 속도 그대로
+assert.equal(flowSpeed([road("평화로", 5, 4, 80), road("평화로", 5, 4, 80)]), 80);
+// 총거리÷총시간이다. 10km@80 + 10km@20 은 산술평균 50 이 아니라 32 다 —
+// 앞 구간 7.5분 + 뒤 구간 30분 = 37.5분에 20km 를 간 것이다. 산술평균을 쓰면 정체가 묻힌다.
+assert.equal(flowSpeed([road("평화로", 10, 4, 80), road("평화로", 10, 1, 20)]), 32);
+// 속도 없는 조각은 거리에서도 빠진다 (모르는 구간을 평균에 섞지 않는다)
+assert.equal(flowSpeed([road("평화로", 10, 4, 60), road("무명", 10, 4)]), 60);
+
+// --- ⑤ 흐름 문구 ---
+
+assert.equal(flowLabel(null), null); // 모르면 말하지 않는다
+assert.equal(flowLabel(82), "82km/h로 빠르게 흐름"); // 초보에게는 경고다
+assert.equal(flowLabel(70), "70km/h로 빠르게 흐름"); // 경계 위
+assert.equal(flowLabel(69), null); // 경계 아래 — 중간 속도는 할 말이 없다
+assert.equal(flowLabel(56), null);
+assert.equal(flowLabel(45), "45km/h로 느긋하게 흐름"); // 이 앱이 하려는 말
+assert.equal(flowLabel(35), "35km/h로 느긋하게 흐름"); // 경계
+assert.equal(flowLabel(34), null); // 아래는 느긋한 게 아니라 막힌 것 — congestionOf 가 말한다
+
+console.log("✅ 실시간 교통 집계·이탈 판정·통행속도 정상");
 console.log("   혼잡 코드: 1·2 → 정체, 3 → 서행, 4·0·누락 → 세지 않음");
 console.log(`   이탈 임계: 검증 거리와 5% 초과 차이`);
+console.log(`   흐름 문구: 70km/h↑ 빠름 · 35~55km/h 느긋 · 그 사이는 말하지 않음`);
