@@ -6,34 +6,36 @@
 //
 // 메인화면(/home)의 "탐나는전 사용처" 카드로 들어온다.
 //
-// **지금 찍는 데이터는 착한가격업소 417곳뿐이다.** 탐나는전 가맹점(공공데이터포털 15157894,
-// 48,081행)은 주소만 있고 좌표가 없어 지오코딩을 돌려야 해서 아직 굳혀둔 파일이 없다.
-// ponytail: 그 데이터가 들어오면 SHOPS 에 합치고 배지(source)만 늘리면 된다 —
-//   업종 칩은 데이터에서 자동으로 생기므로(kinds) 칩을 손댈 필요가 없다.
+// 찍는 것은 **탐나는전 캐시백 가맹점**뿐이다 (data/tamna-data.json, 12,115곳).
+// 착한가격업소는 여기 섞지 않는다 — 둘 다 놓으면 "여기서 결제하면 10% 돌려받는다"는
+// 이 화면 한 줄이 흐려진다. 착한가격 데이터와 lib/goodprice.ts 는 그대로 남아 있다.
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import { loadSdk, type LatLng } from "../RouteMap";
 import { findPlace } from "../destination/actions";
-import { nearbyGoodprice, type GoodpriceShop, type Shop } from "@/lib/goodprice";
+import { nearbyTamna, type Shop, type TamnaShop } from "@/lib/tamna";
 import { walkMinutes } from "@/lib/parking";
-import GOODPRICE from "@/data/goodprice-data.json";
+import TAMNA from "@/data/tamna-data.json";
 
-const SHOPS = GOODPRICE.shops as Shop[];
+const SHOPS = TAMNA.shops as Shop[];
 
 /**
- * 반경. data/goodprice-data.json 을 만들 때 쓴 값(3km)을 그대로 쓴다.
- * 1km로 좁히면 성산 1곳·협재 0곳이라 동·서 구간이 통째로 빈다 (lib/goodprice.ts 주석).
+ * 반경 — 도보권 1km.
+ *
+ * 착한가격업소(417곳)는 1km로 자르면 성산 1곳·협재 0곳이라 3km를 써야 했다.
+ * 탐나는전은 12,115곳이라 그 전제가 뒤집힌다 — 실측으로 1km 안에 제주시청 823곳,
+ * 서귀포 올레시장 682곳, 협재 111곳, 성산 47곳이다. 걸어갈 거리 밖까지 넓힐 이유가 없다.
  */
-const RADIUS_M = 3000;
+const RADIUS_M = 1000;
 
 /** 처음 보고 있을 곳 — 제주시청. /parking 과 같은 이유로 섬 한가운데(한라산)를 잡지 않는다. */
 const START: LatLng = [33.4996, 126.5312];
 const START_LEVEL = 5;
 
-/** 검색으로 옮겨갈 때 축척. 반경 3km가 화면에 담기는 정도다. */
-const FOCUS_LEVEL = 6;
+/** 검색으로 옮겨갈 때 축척. 반경 1km가 화면에 담기는 정도다. */
+const FOCUS_LEVEL = 5;
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function AroundPage() {
@@ -45,10 +47,10 @@ export default function AroundPage() {
 }
 
 /** 같은 업소인가. 이름만 보면 지점이 겹칠 수 있어 좌표까지 본다 (/parking 과 같은 규칙). */
-const same = (a: GoodpriceShop | null, b: GoodpriceShop) =>
+const same = (a: TamnaShop | null, b: TamnaShop) =>
   !!a && a.name === b.name && a.at[0] === b.at[0] && a.at[1] === b.at[1];
 
-const idOf = (s: GoodpriceShop) => `shop-${s.name}-${s.at[0]}-${s.at[1]}`;
+const idOf = (s: TamnaShop) => `shop-${s.name}-${s.at[0]}-${s.at[1]}`;
 
 function Around() {
   const router = useRouter();
@@ -56,7 +58,7 @@ function Around() {
 
   const [center, setCenter] = useState<LatLng>(START);
   const [kind, setKind] = useState<string | null>(null); // null = 전체
-  const [selected, setSelected] = useState<GoodpriceShop | null>(null);
+  const [selected, setSelected] = useState<TamnaShop | null>(null);
   const [open, setOpen] = useState(true); // 시트 두 상태 — 와이어프레임의 올린/내린 버전
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,7 +74,7 @@ function Around() {
   const move = useRef<((at: LatLng, level?: number) => void) | null>(null);
 
   const near = useMemo(
-    () => nearbyGoodprice(label ?? "지도 가운데", center, SHOPS, RADIUS_M),
+    () => nearbyTamna(label ?? "지도 가운데", center, SHOPS, RADIUS_M),
     [label, center],
   );
 
@@ -189,9 +191,9 @@ type SheetProps = {
   kinds: string[];
   kind: string | null;
   onKind: (k: string | null) => void;
-  shops: GoodpriceShop[];
-  selected: GoodpriceShop | null;
-  onPick: (s: GoodpriceShop) => void;
+  shops: TamnaShop[];
+  selected: TamnaShop | null;
+  onPick: (s: TamnaShop) => void;
 };
 
 /**
@@ -212,9 +214,8 @@ function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, on
         className="mx-auto block h-1 w-[38px] shrink-0 rounded-full bg-[#bfbfbf]"
       />
 
-      {/* 업종 칩. "전체"만 우리가 넣고 나머지는 데이터에서 나온다 (byKind).
-          ponytail: 탐나는전 데이터가 들어오면 여기에 "탐나는전"·"착한가격" 같은
-            출처 칩을 한 줄 더 얹는다 — 지금은 전부 착한가격이라 걸러낼 게 없다. */}
+      {/* 업종 칩. "전체"만 우리가 넣고 나머지(음식점·숙박·주유)는 데이터에서 나온다 (byKind).
+          와이어프레임의 "관광지·카페" 칩은 그리지 않는다 — 원본 업종에 그런 값이 없다. */}
       <div className="mt-3.5 flex shrink-0 gap-2 overflow-x-auto px-5 [&::-webkit-scrollbar]:hidden">
         <Chip on={kind === null} onClick={() => onKind(null)}>
           전체
@@ -264,10 +265,10 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 /**
  * 목록 카드 한 장.
  *
- * 와이어프레임에는 왼쪽에 음식 사진이 있지만 데이터에 사진이 없다 —
- * 없는 사진을 채우느니 업종 글자를 둔다. 대표 품목도 지어내지 않고 menu[0] 을 그대로 쓴다.
+ * 와이어프레임에는 왼쪽에 음식 사진이, 아래에 "한식 · 8,000원~" 같은 대표 품목이 있다.
+ * 원본 데이터에는 둘 다 없다 — 가맹점명·주소·업종뿐이다. 없는 걸 지어내느니 업종만 둔다.
  */
-function ShopCard({ shop, on, onClick }: { shop: GoodpriceShop; on: boolean; onClick: () => void }) {
+function ShopCard({ shop, on, onClick }: { shop: TamnaShop; on: boolean; onClick: () => void }) {
   return (
     <button
       id={idOf(shop)}
@@ -291,15 +292,15 @@ function ShopCard({ shop, on, onClick }: { shop: GoodpriceShop; on: boolean; onC
           </span>
         </span>
 
-        {/* 지금은 전부 착한가격업소라 배지가 하나뿐이다.
-            ponytail: 탐나는전이 들어오면 출처에 따라 배지를 갈아 끼운다. */}
+        {/*
+          굳혀둔 곳은 전부 캐시백 인센티브 가맹점이다(scripts/build-tamna-data.mjs 가 그렇게 거른다).
+          비율은 적지 않는다 — 10%는 제주도가 정책으로 조정하는 값이라 우리가 화면에 박을 숫자가 아니다.
+        */}
         <span className="mt-1.5 inline-block rounded-md bg-[#ffebd6] px-2 py-1 text-[11px] font-bold text-[#ff6114]">
-          착한가격
+          탐나는전 캐시백
         </span>
 
-        <span className="mt-1.5 block truncate text-[12px] text-[#616161]">
-          {[shop.kind, shop.menu[0]].filter(Boolean).join(" · ")}
-        </span>
+        <span className="mt-1.5 block truncate text-[12px] text-[#616161]">{shop.kind}</span>
       </span>
     </button>
   );
@@ -324,10 +325,35 @@ const PIN_ON = pin(
    </svg>`,
 );
 
+/**
+ * 지도의 세로 어디를 "여기"로 삼을지 (컨테이너 높이 대비).
+ *
+ * 지도는 화면을 꽉 채우지만 아래 62%는 하단 시트가 덮는다. 그래서 지도 한가운데(0.5)를
+ * 기준으로 잡으면 반경 1km 안 가맹점이 **전부 시트 뒤에 숨는다** — 실제로 그랬다.
+ * 시트 위로 보이는 띠(0~0.38)의 한가운데를 기준으로 삼아야 핀과 목록이 같은 곳을 가리킨다.
+ */
+const FOCUS_Y = 0.19;
+
+/**
+ * 지도에서 기준으로 삼을 좌표. 화면 위쪽 띠의 가운데다 (FOCUS_Y).
+ *
+ * 픽셀 → 좌표 변환(coordsFromContainerPoint)은 쓰지 않는다. 실려 오는 SDK 빌드의
+ * Projection 에는 그 메서드가 없어서 조용히 지도 한가운데로 물러났다 — 핀이 전부
+ * 시트 뒤에 숨은 채로. 대신 문서화된 getBounds() 로 화면 전체가 덮는 위도 폭을 재고,
+ * 그 폭의 (0.5 - FOCUS_Y) 만큼 북쪽으로 올린다. 화면 높이 = 위도 폭이라 비율이 그대로 맞는다.
+ */
+function focus(map: any): LatLng {
+  const c = map.getCenter();
+  const b = map.getBounds?.();
+  if (!b) return [c.getLat(), c.getLng()];
+  const latSpan = b.getNorthEast().getLat() - b.getSouthWest().getLat();
+  return [c.getLat() + latSpan * (0.5 - FOCUS_Y), c.getLng()];
+}
+
 type MapProps = {
-  pins: GoodpriceShop[];
-  selected: GoodpriceShop | null;
-  onPick: (s: GoodpriceShop) => void;
+  pins: TamnaShop[];
+  selected: TamnaShop | null;
+  onPick: (s: TamnaShop) => void;
   onIdle: (at: LatLng) => void;
   move: React.RefObject<((at: LatLng, level?: number) => void) | null>;
 };
@@ -365,13 +391,25 @@ function Map({ pins, selected, onPick, onIdle, move }: MapProps) {
     map.current = m;
 
     kakao.maps.event.addListener(m, "idle", () => {
-      const c = m.getCenter();
-      idle.current([c.getLat(), c.getLng()]);
+      idle.current(focus(m));
     });
+
+    // idle 은 사용자가 지도를 움직여야 온다. 처음 열었을 때는 오지 않아서 기준점이 START(=지도
+    // 한가운데) 로 남았고, 그러면 반경 안 가맹점이 전부 시트 뒤에 숨는다. 첫 타일이 깔린 뒤
+    // 한 번만 직접 부른다 — 그때는 getBounds() 도 값을 준다. 이후는 idle 이 맡는다.
+    const first = () => {
+      idle.current(focus(m));
+      kakao.maps.event.removeListener(m, "tilesloaded", first);
+    };
+    kakao.maps.event.addListener(m, "tilesloaded", first);
 
     move.current = (at, level) => {
       if (level) m.setLevel(level);
-      m.panTo(pt(at));
+      m.setCenter(pt(at));
+      // 검색한 곳을 지도 한가운데(=시트 뒤)가 아니라 FOCUS_Y 자리에 올려둔다.
+      // 안 하면 "성판악에서 가까운 순"이라 적어놓고 성판악 북쪽 어딘가를 기준으로 재게 된다.
+      const h = box.current?.clientHeight ?? 0;
+      if (h) m.panBy(0, h * (0.5 - FOCUS_Y));
     };
 
     // 컨테이너가 0폭인 동안 만들어지면 축척이 터진다 (RouteMap 과 같은 이유)
