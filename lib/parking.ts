@@ -224,6 +224,25 @@ export function parkingKind(s: { type: string; parallel?: boolean }): ParkingKin
   return null;
 }
 
+/** 공개 데이터에 도로변(노상) 주차장이 한 곳도 없는 지역. 주소 앞머리로 가른다. */
+const NO_ONSTREET = "서귀포시";
+
+/**
+ * 지금 보고 있는 목록에서 "평행주차" 판정이 구조적으로 못 나오는가.
+ *
+ * 서귀포시 몫 113곳은 **전부 노외**다 (제주시는 노외 901 + 노상 643). 노상이 0곳이라
+ * 여기서는 프록시가 언제나 "직각"만 답하고, 화면에는 `주차 쉬움`만 줄줄이 붙는다.
+ * 판정이 틀린 건 아니다 — 그 113곳은 진짜 노외다. 틀린 건 **빠진 쪽**이다:
+ * 서귀포에 실제로 있는 도로변 주차장이 데이터에 없어서 앱에도 안 나온다.
+ *
+ * 그래서 판정을 지우지 않고 한계를 말한다. 맞는 정보까지 지우면 초보가 쓸 수 있는 게 없어진다.
+ * 카카오에서 온 곳(source)은 애초에 유형을 모르니 이 판단에서 뺀다.
+ */
+export function onStreetBlind(spots: { addr: string | null; source?: string }[]): boolean {
+  const 공공 = spots.filter((s) => !s.source);
+  return 공공.length > 0 && 공공.every((s) => s.addr?.startsWith(NO_ONSTREET));
+}
+
 /** 초보가 편한 쪽(직각)인가. 배지 하나를 붙일지 말지에만 쓴다. */
 export const isEasyParking = (s: { type: string; parallel?: boolean }): boolean =>
   parkingKind(s)?.parallel === false;

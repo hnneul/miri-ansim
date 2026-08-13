@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   parallelOdds, recommendedSpots, nearestSpots, nearbyParking,
-  spotsAround, mergeSpots, walkMinutes, isEasyParking, parkingKind, feeText, feeDetail, WALK10_M, REACH_M,
+  spotsAround, mergeSpots, walkMinutes, isEasyParking, parkingKind, onStreetBlind, feeText, feeDetail, WALK10_M, REACH_M,
   type Parking, type ParkingSpot, type Lot,
 } from "./parking.ts";
 
@@ -142,6 +142,22 @@ assert.ok(!isEasyParking({ type: "노외", parallel: true }), "평행으로 확�
 // 카카오에서 온 곳도 태깅되면 판정이 선다 (유형은 여전히 모른다)
 assert.deepEqual(parkingKind({ type: "", parallel: false }), { parallel: false, confirmed: true });
 
+// 서귀포시는 공개 데이터에 노상이 0곳이라 "평행" 판정이 못 나온다 — 그 사실을 화면이 말해야 한다
+const 서귀포 = { addr: "서귀포시 성산읍 성산리", source: undefined };
+const 제주시 = { addr: "제주시 이도이동", source: undefined };
+const 카카오POI = { addr: "서귀포시 성산읍 일출로", source: "카카오" };
+assert.ok(onStreetBlind([서귀포, 서귀포]), "서귀포만 있는데 안내가 안 뜬다");
+assert.ok(!onStreetBlind([서귀포, 제주시]), "제주시가 섞였는데 서귀포 안내가 뜬다");
+assert.ok(!onStreetBlind([]), "빈 목록에 지역 안내를 띄우면 안 된다");
+// 카카오는 유형을 모르니 판단에서 뺀다 — 카카오만 있으면 판정 자체가 없어 할 말도 없다
+assert.ok(!onStreetBlind([카카오POI]), "카카오만 있는데 안내가 뜬다");
+assert.ok(onStreetBlind([서귀포, 카카오POI]), "카카오가 섞였다고 안내가 사라지면 안 된다");
+
+// 실데이터로도 성립해야 한다 — 서귀포 몫에 노상이 한 곳이라도 생기면 이 안내는 거짓말이 된다
+const 서귀포몫 = (DATA.spots as Lot[]).filter((s) => s.addr?.startsWith("서귀포시"));
+assert.ok(서귀포몫.length > 100, "서귀포 표본이 사라졌다");
+assert.ok(서귀포몫.every((s) => s.type === "노외"), "서귀포에 노상이 생겼다 — 안내 문구를 지워야 한다");
+
 // 두 출처 합치기 — 같은 주차장이면 정보가 더 많은 공공 쪽을 남긴다
 const 공공: ParkingSpot = { name: "시청 앞", addr: "제주시 동광로", type: "노상", spaces: 24, fee: "유료", walkM: 100, at: [33.4996, 126.5312] };
 const 카카오同 : ParkingSpot = { name: "제주시청 공영주차장", addr: "제주시 동광로", source: "카카오", type: "", spaces: null, fee: null, walkM: 100, at: [33.49962, 126.53122] }; // 약 2m 차이
@@ -209,7 +225,15 @@ assert.ok(유료.length > 100, "유료·혼합 표본이 사라졌다");
 assert.ok(유료.every((s) => s.rate), "유료인데 요금이 없는 곳이 있다");
 assert.ok(LOTS.every((s) => s.fee === "무료" || !feeText(s).includes("유료") || s.fee === "혼합"), "유료인데 금액을 못 편 곳이 있다");
 assert.ok(LOTS.every((s) => s.addr), "주소가 빠진 주차장이 있다");
-assert.ok(LOTS.every((s) => !/^제주특별자치도/.test(s.addr!) && !/\s\d/.test(s.addr!)), "주소에 도 이름이나 번지가 남았다");
+// 주소에서 빠져야 하는 건 도 이름과 번지다. 숫자 자체는 아니다 —
+// "한림남1길"·"하귀1리"·"간월동로 5길"처럼 숫자가 지명의 일부인 곳이 385곳이다.
+assert.ok(LOTS.every((s) => !/^제주특별자치도/.test(s.addr!)), "주소에 도 이름이 남았다");
+assert.ok(
+  LOTS.every((s) => s.addr!.split(" ").every((t) => !/^\d/.test(t) || /[가-힣]$/.test(t))),
+  "주소에 번지가 남았다",
+);
+assert.ok(LOTS.every((s) => !/\d$/.test(s.addr!)), "주소 끝에 번지가 붙어 있다");
+assert.equal(LOTS.find((s) => s.name === "유수암리648")?.addr, "제주시 애월읍 유수암리");
 assert.equal(LOTS.find((s) => s.name === "이도일동 1307")?.addr, "제주시 이도일동");
 
 // 운영시간은 어디에도 안 쓴다 — 원본 CSV 1,657곳이 전부 00:00~23:59 이고 유료 117곳도 그렇다.
