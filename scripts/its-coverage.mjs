@@ -74,7 +74,14 @@ async function 가장많이주는(service, 후보들) {
         console.log(`  ${이름}: HTTP ${res.status}`);
         continue;
       }
-      const json = await res.json();
+      // getType=json 인데 XML 이 오면 승인 안 된 키다. apiKey=test 는 bbox 를 무시하고
+      // 문서 샘플(수도권 20건)을 XML 로 돌려준다 — 그걸 실데이터로 세면 "제주 0건"으로 오독한다.
+      const text = await res.text();
+      if (text.trimStart().startsWith("<")) {
+        console.log(`  ${이름}: XML 응답 — 키가 아직 승인 안 됐거나 test 키다 (샘플이라 제주가 없다)`);
+        continue;
+      }
+      const json = JSON.parse(text);
       const got = items(json);
       // 0건이면 응답 앞부분을 같이 찍는다 — 대개 여기에 거절 사유(키·파라미터)가 들어 있다
       console.log(`  ${이름}: ${got.length}건` + (got.length ? "" : ` ${JSON.stringify(json).slice(0, 300)}`));
