@@ -16,7 +16,16 @@ const JEJU_RECT = "126.05,33.05,126.99,33.62";
 /** 길찾기(lib/route.ts)와 같은 한계. 여기서 매달리면 결과 페이지가 끝없이 기다린다. */
 const TIMEOUT_MS = 6000;
 
-export type Geocoded = { coord: LatLng; label: string } | { error: string };
+/** region 은 화면에 붙이는 짧은 행정구역이다 ("제주 서귀포시") — 전체 주소는 길어서 한 줄에 안 들어간다. */
+export type Geocoded = { coord: LatLng; label: string; region: string } | { error: string };
+
+/**
+ * "제주특별자치도 서귀포시 색달동 3039-1" → "제주 서귀포시".
+ * 앞 두 마디만 쓰고 도 이름은 줄인다 — 제주 안만 검색하므로(JEJU_RECT) 도 이름은 늘 같은 값이라
+ * 자리만 차지한다. 마디가 하나뿐이면 그것만 돌려준다.
+ */
+const shortRegion = (address: string) =>
+  address.replace(/^제주특별자치도/, "제주").split(" ").slice(0, 2).join(" ");
 
 export async function geocodePlace(query: string): Promise<Geocoded> {
   const key = process.env.KAKAO_REST_API_KEY;
@@ -36,7 +45,11 @@ export async function geocodePlace(query: string): Promise<Geocoded> {
     if (!place)
       return { error: `"${query}"의 위치를 제주에서 찾지 못했습니다. 정확한 장소명이나 주소로 다시 입력해주세요.` };
 
-    return { coord: [Number(place.y), Number(place.x)], label: place.place_name };
+    return {
+      coord: [Number(place.y), Number(place.x)],
+      label: place.place_name,
+      region: shortRegion(place.address_name ?? place.road_address_name ?? ""),
+    };
   } catch {
     // 타임아웃(AbortError)·네트워크 오류·깨진 JSON. 사유는 영어라 우리 문구로 갈아준다.
     return { error: "장소 검색 응답을 받지 못했습니다 (응답 지연 또는 네트워크 오류)" };

@@ -13,7 +13,17 @@ import { geocodePlace } from "./geocode.ts";
 const 응답 = (body: unknown, status = 200) =>
   (() => Promise.resolve(new Response(JSON.stringify(body), { status }))) as unknown as typeof fetch;
 
-const 공항 = { documents: [{ place_name: "제주국제공항", x: "126.49272304493574", y: "33.50683984835887" }] };
+// address_name 은 실제 응답 그대로다 — 화면에 붙는 짧은 행정구역이 여기서 잘려 나온다
+const 공항 = {
+  documents: [
+    {
+      place_name: "제주국제공항",
+      address_name: "제주특별자치도 제주시 용담이동 2002",
+      x: "126.49272304493574",
+      y: "33.50683984835887",
+    },
+  ],
+};
 
 /** 입력을 의심하는 문구가 붙었나 — 서버·키 문제에 이게 붙으면 사용자를 헛수고시킨다 */
 const 입력탓 = (g: Awaited<ReturnType<typeof geocodePlace>>) => "error" in g && g.error.includes("다시 입력");
@@ -33,7 +43,17 @@ process.env.KAKAO_REST_API_KEY = "test-key";
 assert.deepEqual(await geocodePlace("제주국제공항"), {
   coord: [33.50683984835887, 126.49272304493574],
   label: "제주국제공항",
+  // 도 이름을 줄이고 앞 두 마디만 — 전체 주소는 시트 한 줄에 안 들어간다
+  region: "제주 제주시",
 });
+
+// 주소가 통째로 빠진 응답도 있다(카카오가 늘 채워 주지는 않는다). 빈 문자열로 두고 화면이 그 줄만 비운다 —
+// 여기서 던지면 좌표는 멀쩡한데 목적지를 못 고른다.
+globalThis.fetch = 응답({ documents: [{ place_name: "어딘가", x: "126.5", y: "33.4" }] });
+const 주소없음 = await geocodePlace("어딘가");
+assert.deepEqual("error" in 주소없음 ? 주소없음 : 주소없음.region, "");
+
+globalThis.fetch = 응답(공항);
 
 // --- ③ HTTP 오류 (429 한도 초과·5xx) ---
 globalThis.fetch = 응답({}, 429);

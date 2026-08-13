@@ -28,6 +28,12 @@ type Props = {
   level?: number; // 클수록 넓게 보임
   routes: MapRoute[];
   markers?: MapMarker[];
+  /**
+   * 바깥 상자 모양. 기본은 카드(둥근 모서리·안쪽 그림자)다.
+   * 화면 전체를 까는 자리(app/destination)는 각지게 넘긴다 — 폰 프레임이 이미 모서리를 둥글리고 있어
+   * 여기까지 둥글면 두 반지름이 어긋나 귀퉁이에 프레임 배경이 비친다.
+   */
+  className?: string;
 };
 
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
@@ -54,7 +60,13 @@ function loadSdk() {
   }));
 }
 
-export default function RouteMap({ center, level = 10, routes, markers = [] }: Props) {
+export default function RouteMap({
+  center,
+  level = 10,
+  routes,
+  markers = [],
+  className = "rounded-[24px] shadow-inner ring-1 ring-black/5",
+}: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
@@ -135,20 +147,26 @@ export default function RouteMap({ center, level = 10, routes, markers = [] }: P
     // 컨테이너 폭이 달라질 때 한쪽 경로가 화면 밖으로 나간다.
     // 경로가 없으면(주차 미니 지도 등) 마커에 맞춘다 — 축척을 손으로 고를 필요가 없다.
     const all = routes.length ? routes.flatMap((r) => r.path) : markers.map((m) => m.coord);
-    if (all.length < 2) return; // 한 점뿐이면 맞출 게 없다 — center/level 을 그대로 쓴다
+    // 두 점 이상이어야 담을 범위가 생긴다. 한 점 이하면 center/level 을 그대로 쓰되,
+    // relayout 은 그때도 걸어야 한다 — 안 걸면 컨테이너가 0 이던 시점의 중심에 멈춘다
+    // (목적지 화면처럼 마커가 하나뿐인 지도가 제주 대신 엉뚱한 데를 보고 있었다).
     const lat = all.map((p) => p[0]);
     const lng = all.map((p) => p[1]);
-    const bounds = new kakao.maps.LatLngBounds(
-      new kakao.maps.LatLng(Math.min(...lat), Math.min(...lng)),
-      new kakao.maps.LatLng(Math.max(...lat), Math.max(...lng)),
-    );
+    const bounds =
+      all.length < 2
+        ? null
+        : new kakao.maps.LatLngBounds(
+            new kakao.maps.LatLng(Math.min(...lat), Math.min(...lng)),
+            new kakao.maps.LatLng(Math.max(...lat), Math.max(...lng)),
+          );
 
     // 컨테이너 크기가 0인 동안 맞추면 축척이 터진다 (제주 대신 한반도가 보인다).
     // 첫 렌더에 폭이 0일 수 있고, 창 크기가 바뀌어도 다시 맞춰야 하므로 관찰한다.
     const fit = () => {
       if (!box.current?.clientWidth || !box.current.clientHeight) return;
       map.current.relayout();
-      map.current.setBounds(bounds, 24, 24, 24, 24);
+      if (bounds) map.current.setBounds(bounds, 24, 24, 24, 24);
+      else map.current.setCenter(pt(center));
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -165,7 +183,7 @@ export default function RouteMap({ center, level = 10, routes, markers = [] }: P
         : null;
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[24px] bg-slate-100 shadow-inner ring-1 ring-black/5">
+    <div className={`relative h-full w-full overflow-hidden bg-slate-100 ${className}`}>
       <div ref={box} className="h-full w-full" />
       {selected && sdk === "ready" && <RoadviewPanel risk={selected} onClose={() => setSelected(null)} />}
       {notice && <Notice>{notice}</Notice>}
