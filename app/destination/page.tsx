@@ -20,8 +20,19 @@ import { findPlace } from "./actions";
 /** 목적지를 못 골랐을 때 지도가 보고 있을 곳 — 제주 한가운데(한라산)라 섬이 통째로 담긴다. */
 const JEJU_CENTER: LatLng = [33.38, 126.55];
 
-/** 와이어프레임의 주황 핀(image 16, 50x56). 뾰족한 끝이 좌표에 앉아야 한다 — 가운데로 두면 핀이 아래로 밀린다. */
+/**
+ * 목적지 마커. 어느 쪽이든 **뾰족한 끝이 좌표에 앉아야 한다** — anchor 를 안 주면 이미지 가운데가
+ * 좌표에 맞아 마커가 통째로 아래로 밀린다 (app/RouteMap.tsx MarkerIcon).
+ *
+ * MASCOT 을 쓴다. 캐릭터를 왜 핀에 앉혔는지는 scripts/build-marker.py 주석에 있다.
+ * PIN 은 와이어프레임(image 16)이 그린 원본이다 — 피그마 에셋 URL 이 7일 뒤 만료돼 다시 못 받으므로
+ * 파일째 남긴다. 되돌리려면 아래 markers 의 MASCOT 을 PIN 으로 바꾸면 된다.
+ */
 const PIN = { src: "/icon-pin.png", size: [50, 56] as [number, number], anchor: [25, 56] as [number, number] };
+// 크기·앵커는 scripts/build-marker.py 가 만들어 낸 값 그대로다 (스크립트가 실행 끝에 찍어 준다).
+// 그림자 자리가 아래에 남아 있어 앵커 y 는 이미지 높이(74)가 아니라 꼬리 끝(68)이다.
+const MASCOT = { src: "/icon-pin-character.png", size: [56, 74] as [number, number], anchor: [28, 68] as [number, number] };
+void PIN; // 지금은 안 쓴다 — 위 주석의 되돌리기용이다
 
 /** 최근 검색어. 저장소가 없어 브라우저에 둔다 — 새로고침에 살아남으면 되고, 기기 간 동기화는 필요 없다. */
 const RECENT_KEY = "gilansim:recent";
@@ -130,7 +141,7 @@ function Destination() {
             center={place?.coord ?? JEJU_CENTER}
             level={place ? 5 : 10}
             routes={[]}
-            markers={place ? [{ coord: place.coord, label: place.label, icon: PIN }] : []}
+            markers={place ? [{ coord: place.coord, label: place.label, icon: MASCOT }] : []}
           />
         </div>
 
