@@ -9,11 +9,36 @@
 // 데이터(data/parking-data.json) 자체는 lib/scenario.ts 가 물린다. 여기는 판정 로직만 둬서
 // 번들러 없이도 검증이 돌아간다 — node --experimental-strip-types lib/parking.check.ts
 
+/** 유료 주차장 요금 (data/parking-data.json). 무료면 통째로 없다. */
+export type Rate = {
+  baseMin: number | null;
+  baseWon: number | null;
+  addMin: number | null;
+  addWon: number | null;
+  dayWon: number | null;
+};
+
 export type ParkingSpot = {
   name: string;
+  /**
+   * 공공데이터에 없는 곳은 카카오에서 온다 (lib/poi.ts).
+   *
+   * 공공데이터 1,657곳은 전부 `주차장구분: 공영`이라 관광지·호텔의 부설주차장이 통째로 빠져 있다
+   * — 성산일출봉 반경 1km 에 잡히는 게 1곳뿐인 이유다. 초보 관광객이 쓰는 앱에서 하필
+   * 관광지가 가장 부실하다.
+   *
+   * 대신 카카오 쪽은 유형·구획수·요금을 모른다. 없는 값을 채우지 않고 없는 채로 둔다.
+   */
+  source?: "카카오";
+  /**
+   * "제주시 이도이동" — 이름 대신 위치를 알려주는 줄.
+   * name 1,657곳 중 1,514곳(91%)이 이름이 아니라 번지·도로명 그 자체라서 따로 둔다.
+   */
+  addr: string | null;
   type: string; // "노상" | "노외"
   spaces: number | null;
   fee: string | null;
+  rate?: Rate; // 유료·혼합만 있다
   walkM: number;
   at: [number, number]; // [위도, 경도] — 카드 안 미니 지도에 찍는다
 };
@@ -43,6 +68,15 @@ const SPOT_CAP = 40;
 
 /** 도보 10분. 아래 walkMinutes 와 같은 속도로 잰다 — 칩과 표시가 어긋나면 안 된다. */
 export const WALK10_M = 670;
+
+/**
+ * 칩을 안 켰을 때의 상한 (도보 30분).
+ *
+ * 처음엔 반경 없이 개수로만 잘랐다 — 한적한 곳에서 핀이 하나도 안 뜨는 게 싫어서였는데,
+ * 실제로 열어보니 성산일출봉에서 10km 밖 세화리 주차장이 "도보 160분"으로 목록에 올라왔다.
+ * 걸어갈 수 없는 곳을 주차장이라고 내미는 게 빈 목록보다 나쁘다. 빈 경우는 화면이 말로 알린다.
+ */
+export const REACH_M = 2000;
 
 const rad = (d: number) => (d * Math.PI) / 180;
 
@@ -166,15 +200,68 @@ export const walkMinutes = (m: number): number => Math.max(1, Math.round(m / 67)
  * 하단 시트 배지("주차 쉬움"). parallelOdds 와 같은 프록시를 한 곳에만 쓴 것이다 —
  * 노외는 칸에 맞춰 대는 직각주차일 확률이 높다. 확정이 아니라 확률이라 배지도 단정하지 않는다.
  */
-export const isEasyParking = (s: { type: string }): boolean => s.type !== "노상";
+// "노상이 아니면"이 아니라 "노외일 때만"이다. 카카오에서 온 주차장은 유형을 모르는데(type ""),
+// 부정으로 쓰면 모르는 곳까지 전부 쉽다고 단언하게 된다 — 모르면 아무 말도 안 하는 게 맞다.
+export const isEasyParking = (s: { type: string }): boolean => s.type === "노외";
+
+/** 1000 → "1,000". toLocaleString 은 실행 환경 로케일을 타서 검증과 화면이 갈릴 수 있다. */
+const won = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+/**
+ * 요금 한 줄. "유료" 한 단어로는 갈 곳을 정할 수 없어서 원본의 기본요금까지 편다
+ * (유료 117곳 중 116곳이 30분 1,000원이다).
+ * 혼합은 구역에 따라 갈리는 곳이라 값을 단정하지 않고 "일부 유료"를 앞에 붙인다.
+ */
+export function feeText(s: { fee: string | null; rate?: Rate }): string {
+  if (s.fee === "무료") return "무료";
+  const base = s.rate?.baseMin && s.rate?.baseWon ? `${s.rate.baseMin}분 ${won(s.rate.baseWon)}원` : null;
+  if (!base) return s.fee ?? "요금 정보 없음";
+  return s.fee === "혼합" ? `일부 유료 · ${base}` : base;
+}
+
+/** 기본요금 뒤에 붙는 나머지. 무료면 null 이라 줄이 통째로 빠진다. */
+export function feeDetail(s: { rate?: Rate }): string | null {
+  const r = s.rate;
+  if (!r) return null;
+  const bits = [];
+  if (r.addMin && r.addWon) bits.push(`이후 ${r.addMin}분마다 ${won(r.addWon)}원`);
+  if (r.dayWon) bits.push(`1일권 ${won(r.dayWon)}원`);
+  return bits.join(" · ") || null;
+}
 
 /** 지도 화면의 필터 칩. 24시간은 칩이 아니다 — 데이터의 1,657곳이 전부 00:00~23:59라 안 걸러진다. */
 export type SpotFilter = { walk10?: boolean; free?: boolean };
 
 /**
- * 지도 중심에서 가까운 주차장 cap 곳. 반경으로 안 자르고 개수로 자르는 이유 —
- * 섬 전체를 보는 축척에서 반경을 걸면 한적한 곳에서는 핀이 하나도 안 뜬다.
- * 대신 "도보 10분" 칩을 켜면 그때는 반경(WALK10_M)이 기준이 된다.
+ * 굳혀둔 공공데이터에 카카오에서 받은 곳을 얹는다.
+ *
+ * 같은 주차장이 양쪽에 다 있으면 공공 쪽을 남긴다 — 구획수·요금·유형이 붙어 있어 화면에서
+ * 할 말이 더 많다.
+ *
+ * 같은 곳인지는 두 가지로 본다:
+ *   ① 좌표가 gapM 안 — 이름은 한쪽이 "이도일동 1307", 다른 쪽이 "제주시청 공영주차장" 식으로
+ *      아예 다르게 적혀 있어 이름만으로는 맞출 수가 없다.
+ *   ② 이름이 똑같고 NAME_GAP_M 안 — 큰 주차장은 좌표를 입구에 찍었는지 한가운데에 찍었는지에
+ *      따라 30m 를 훌쩍 넘게 벌어진다. 성산일출봉 주차장(285면)이 양쪽에 같은 이름으로
+ *      들어 있는데도 ①만으로는 안 걸려서 목록에 두 번 올라왔다.
+ *
+ * @param gapM 이 거리 안이면 같은 주차장으로 본다. 30m — 주차장 한 필지 폭 정도라,
+ *        좌표 차이는 흡수하면서 옆 주차장까지 삼키진 않는다.
+ */
+const NAME_GAP_M = 300;
+
+export function mergeSpots(base: ParkingSpot[], extra: ParkingSpot[], gapM = 30): ParkingSpot[] {
+  const same = (b: ParkingSpot, e: ParkingSpot) => {
+    const d = meters(b.at, e.at);
+    return d <= gapM || (b.name === e.name && d <= NAME_GAP_M);
+  };
+  const fresh = extra.filter((e) => !base.some((b) => same(b, e)));
+  return [...base, ...fresh].sort((a, b) => a.walkM - b.walkM);
+}
+
+/**
+ * 지도 중심에서 가까운 주차장 cap 곳. 걸어갈 수 있는 거리(REACH_M) 안에서만 고르고,
+ * "도보 10분" 칩을 켜면 그때는 WALK10_M 이 기준이 된다.
  */
 export function spotsAround(
   center: [number, number],
@@ -182,11 +269,12 @@ export function spotsAround(
   filter: SpotFilter = {},
   cap = SPOT_CAP,
 ): ParkingSpot[] {
+  const limit = filter.walk10 ? WALK10_M : REACH_M;
   const near: ParkingSpot[] = [];
   for (const lot of lots) {
     if (filter.free && lot.fee !== "무료") continue; // "혼합"은 무료가 아니다 — 돈을 낼 수도 있으면 무료로 보여주면 안 된다
     const walkM = Math.round(meters(center, lot.at));
-    if (filter.walk10 && walkM > WALK10_M) continue;
+    if (walkM > limit) continue;
     near.push({ ...lot, walkM });
   }
   return near.sort((a, b) => a.walkM - b.walkM).slice(0, cap);

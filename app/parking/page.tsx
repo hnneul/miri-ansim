@@ -7,6 +7,9 @@
 // 메인화면(/home)의 "주차장 찾기" 카드로 들어온다. 목적지 흐름과 달리 **목적지가 없다** —
 // 그래서 반경 안 전부가 아니라 지금 보고 있는 곳에서 가까운 40곳을 찍고, 지도를 움직이면 다시 찍는다.
 //
+// 주차장은 두 군데서 온다: 굳혀둔 공공데이터(data/parking-data.json)와 카카오 카테고리 검색.
+// 공공데이터는 전부 공영이라 관광지 부설주차장이 통째로 빠져 있어서 카카오로 덧붙인다 (lib/poi.ts).
+//
 // 24시간은 칩으로도 정보로도 쓰지 않는다. 원본 CSV 1,657곳이 전부 평일+토요일+공휴일
 // 00:00~23:59 인데 유료 117곳도 그렇다 — 유료 주차장이 24시간 개방일 리 없으니 그 컬럼은
 // 운영시간이 아니라 미입력 기본값이다. 걸러낼 것도 없고, 말할 수 있는 사실도 아니다.
@@ -16,10 +19,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import { loadSdk, type LatLng } from "../RouteMap";
 import { findPlace } from "../destination/actions";
+import { findParkingNear } from "./actions";
 import {
   spotsAround,
+  mergeSpots,
   walkMinutes,
   isEasyParking,
+  feeText,
+  feeDetail,
   meters,
   type Lot,
   type ParkingSpot,
@@ -42,6 +49,12 @@ const START_LEVEL = 5;
 
 /** 현위치·검색으로 옮겨갈 때 축척. 도보 10분 반경(WALK10_M)이 대체로 화면에 담기는 정도다. */
 const FOCUS_LEVEL = 5;
+
+/** 지도를 이만큼 움직이면 카카오에 다시 물어본다. 받아오는 반경(2km)보다 훨씬 작게 잡는다. */
+const REFETCH_M = 300;
+
+/** 카카오에서 받은 것 중 지도에 얹을 최대 개수. 받아오는 건 한 페이지(15곳)뿐이다. */
+const POI_CAP = 15;
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function ParkingPage() {
@@ -73,7 +86,30 @@ function Parking() {
 
   const move = useRef<((at: LatLng, level?: number) => void) | null>(null);
 
-  const spots = useMemo(() => spotsAround(center, LOTS, { walk10, free }), [center, walk10, free]);
+  // 카카오에서 받아온 주변 주차장. 굳혀두지 않고 화면에서만 들고 있는다 (lib/poi.ts 첫 주석).
+  const [pois, setPois] = useState<Lot[]>([]);
+  const fetched = useRef<LatLng | null>(null);
+
+  // 지도를 조금 움직일 때마다 부르면 팬 한 번에 요청이 여러 개 나간다. 반경 2km 로 받아오므로
+  // REFETCH_M 만큼 움직이기 전에는 받아둔 걸 그대로 쓴다.
+  useEffect(() => {
+    if (fetched.current && meters(fetched.current, center) < REFETCH_M) return;
+    fetched.current = center;
+    // 실패해도 화면엔 알리지 않는다 — 공공데이터 40곳은 그대로 떠 있어서 화면이 비지 않고,
+    // 여기서 오류 문구를 띄우면 사용자가 할 수 있는 일이 없는 경고만 하나 더 얹는 셈이다.
+    findParkingNear(center).then((r) => !("error" in r) && setPois(r.spots));
+  }, [center]);
+
+  // 두 출처를 같은 기준으로 잰다 — 카카오 쪽 거리도 지금 지도 중심에서 다시 계산한다.
+  // "무료" 칩을 켜면 카카오 쪽은 통째로 빠진다. 요금을 모르는 곳을 무료라고 보여줄 수는 없다.
+  const spots = useMemo(
+    () =>
+      mergeSpots(
+        spotsAround(center, LOTS, { walk10, free }),
+        spotsAround(center, pois, { walk10, free }, POI_CAP),
+      ),
+    [center, walk10, free, pois],
+  );
 
   // 고른 주차장이 화면을 옮기다 40곳 밖으로 밀려도 핀은 남긴다 —
   // 시트에는 "선택한 주차장"이 떠 있는데 지도에 그 핀만 없으면 어디를 고른 건지 알 수 없다.
@@ -260,7 +296,7 @@ function SpotSheet({ spot, walkM, onClose }: { spot: ParkingSpot; walkM: number;
   // 와이어프레임의 "무료 · 24시간 · 120면"에서 24시간을 뺐다 — 예시로 적힌 값이고, 데이터로
   // 뒷받침되지 않는다. 원본 CSV 는 1,657곳이 전부 00:00~23:59 인데 유료 117곳도 그렇다.
   // 유료 주차장이 24시간 개방일 리 없으니 그 컬럼은 운영시간이 아니라 미입력 기본값이다.
-  const info = [spot.fee, spot.spaces != null ? `${spot.spaces}면` : null].filter(Boolean).join(" · ");
+  const info = [feeText(spot), spot.spaces != null ? `${spot.spaces}면` : null].filter(Boolean).join(" · ");
   return (
     <aside className="absolute inset-x-0 bottom-0 z-20 rounded-t-[20px] bg-white px-5 pt-2.5 pb-6 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]">
       <button onClick={onClose} aria-label="닫기" className="mx-auto block h-1 w-[38px] rounded-full bg-[#bfbfbf]" />
@@ -269,8 +305,15 @@ function SpotSheet({ spot, walkM, onClose }: { spot: ParkingSpot; walkM: number;
         <div className="min-w-0">
           <p className="text-[12px] font-bold text-[#ff6114]">선택한 주차장</p>
           <h2 className="mt-1.5 text-[19px] leading-tight font-bold text-[#1f1f1f]">{spot.name}</h2>
+          {/* 이름이 번지뿐인 곳이 91%다 — 시·읍면동을 붙여야 어디인지 보인다 */}
+          {spot.addr && <p className="mt-1 text-[12px] text-[#9e9e9e]">{spot.addr}</p>}
           <p className="mt-2 text-[13px] text-[#525252]">지도 가운데에서 도보 {walkMinutes(walkM)}분</p>
           <p className="mt-1.5 text-[13px] text-[#525252]">{info}</p>
+          {feeDetail(spot) && <p className="mt-1 text-[12px] text-[#9e9e9e]">{feeDetail(spot)}</p>}
+          {/* 어디서 온 정보인지 밝힌다 — 구획수·요금이 왜 비어 있는지가 여기서 설명된다 */}
+          {spot.source === "카카오" && (
+            <p className="mt-1 text-[12px] text-[#9e9e9e]">카카오맵에서 찾은 곳 · 구획수·요금은 알 수 없습니다</p>
+          )}
         </div>
         {isEasyParking(spot) && (
           <span className="mt-6 shrink-0 rounded-full bg-[#ffebd6] px-3 py-1.5 text-[12px] font-bold text-[#ff6114]">
@@ -341,9 +384,11 @@ function SpotList({ spots, onPick, onClose }: { spots: ParkingSpot[]; onPick: (s
           >
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-bold text-[#1f1f1f]">{s.name}</span>
+              {s.addr && <span className="mt-0.5 block truncate text-[11px] text-[#9e9e9e]">{s.addr}</span>}
               <span className="mt-1 block text-[12px] text-[#616161]">
-                {[s.fee, s.spaces != null ? `${s.spaces}면` : null].filter(Boolean).join(" · ")}
+                {[feeText(s), s.spaces != null ? `${s.spaces}면` : null].filter(Boolean).join(" · ")}
                 {isEasyParking(s) && <span className="ml-1.5 font-bold text-[#ff6114]">주차 쉬움</span>}
+                {s.source === "카카오" && <span className="ml-1.5 text-[#9e9e9e]">카카오맵</span>}
               </span>
             </span>
             <span className="shrink-0 text-[13px] tabular-nums text-[#525252]">도보 {walkMinutes(s.walkM)}분</span>

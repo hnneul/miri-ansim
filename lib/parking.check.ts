@@ -10,14 +10,14 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   parallelOdds, recommendedSpots, nearestSpots, nearbyParking,
-  spotsAround, walkMinutes, isEasyParking, WALK10_M,
+  spotsAround, mergeSpots, walkMinutes, isEasyParking, feeText, feeDetail, WALK10_M, REACH_M,
   type Parking, type ParkingSpot, type Lot,
 } from "./parking.ts";
 
 const DATA = JSON.parse(readFileSync(fileURLToPath(new URL("../data/parking-data.json", import.meta.url)), "utf8"));
 
 // --- ① 판정 로직 ---
-const lot = (type: string, walkM: number): ParkingSpot => ({ name: type + walkM, type, spaces: 10, fee: "무료", walkM, at: [33, 126] });
+const lot = (type: string, walkM: number): ParkingSpot => ({ name: type + walkM, addr: null, type, spaces: 10, fee: "무료", walkM, at: [33, 126] });
 const make = (onStreet: number, offStreet: number): Parking => ({
   label: "테스트",
   at: [33, 126],
@@ -127,6 +127,24 @@ for (const [id, d] of 계산) {
 assert.equal(walkMinutes(WALK10_M), 10, `"도보 10분" 칩 반경(${WALK10_M}m)이 표시 분수와 어긋난다`);
 assert.equal(walkMinutes(0), 1, "도보 0분이라고 말하지 않는다");
 assert.ok(isEasyParking({ type: "노외" }) && !isEasyParking({ type: "노상" }));
+// 카카오에서 온 곳은 유형을 모른다 — 모르는 걸 "쉽다"고 단언하면 안 된다
+assert.ok(!isEasyParking({ type: "" }), "유형을 모르는 주차장에 주차 쉬움 배지가 붙는다");
+
+// 두 출처 합치기 — 같은 주차장이면 정보가 더 많은 공공 쪽을 남긴다
+const 공공: ParkingSpot = { name: "시청 앞", addr: "제주시 동광로", type: "노상", spaces: 24, fee: "유료", walkM: 100, at: [33.4996, 126.5312] };
+const 카카오同 : ParkingSpot = { name: "제주시청 공영주차장", addr: "제주시 동광로", source: "카카오", type: "", spaces: null, fee: null, walkM: 100, at: [33.49962, 126.53122] }; // 약 2m 차이
+const 카카오別: ParkingSpot = { name: "성산일출봉 주차장", addr: "서귀포시 성산읍", source: "카카오", type: "", spaces: null, fee: null, walkM: 50, at: [33.4581, 126.9425] };
+
+const 합친 = mergeSpots([공공], [카카오同, 카카오別]);
+assert.equal(합친.length, 2, "좌표가 겹치는 주차장이 두 번 들어갔다");
+assert.ok(!합친.some((s) => s.name === "제주시청 공영주차장"), "이름이 달라도 같은 좌표면 공공 쪽만 남아야 한다");
+assert.deepEqual(합친.map((s) => s.walkM), [50, 100], "합친 뒤 가까운 순이 아니다");
+// 30m 밖이면 옆 주차장이다 — 삼키면 안 된다
+assert.equal(mergeSpots([공공], [{ ...카카오同, at: [33.4999, 126.5312] }]).length, 2);
+// 이름이 같으면 좌표가 더 벌어져도 같은 곳으로 본다 (큰 주차장은 입구/한가운데 차이가 크다)
+assert.equal(mergeSpots([공공], [{ ...카카오同, name: "시청 앞", at: [33.5006, 126.5312] }]).length, 1, "이름이 같은 큰 주차장이 두 번 들어갔다");
+// 다만 이름이 같아도 300m 밖이면 남긴다 ("○○리 주차장"처럼 흔한 이름이 있다)
+assert.equal(mergeSpots([공공], [{ ...카카오同, name: "시청 앞", at: [33.505, 126.5312] }]).length, 2);
 
 const 시청: [number, number] = [33.4996, 126.5312];
 const LOTS = DATA.spots as Lot[];
@@ -143,11 +161,31 @@ assert.ok(LOTS.some((s) => s.fee === "혼합"), "혼합 표본이 사라졌다 �
 // "도보 10분" 칩은 반경 밖을 자른다
 assert.ok(spotsAround(시청, LOTS, { walk10: true }).every((s) => s.walkM <= WALK10_M));
 
-// 한적한 곳(한라산 정상)에서도 핀은 뜬다 — 반경이 아니라 개수로 자르는 이유가 이것이다.
-// 다만 칩을 켜면 그때는 반경이 기준이라 0곳이 맞다.
+// 걸어갈 수 없는 곳은 아예 안 준다. 성산일출봉에서 10km 밖 세화리 주차장이 "도보 160분"으로
+// 목록에 올라온 적이 있다 — 빈 목록보다 나쁘다 (화면이 빈 이유는 말로 알린다).
+assert.ok(spotsAround(시청, LOTS).every((s) => s.walkM <= REACH_M), "걸어갈 수 없는 거리가 섞였다");
 const 한라산: [number, number] = [33.3617, 126.5292];
-assert.ok(spotsAround(한라산, LOTS).length > 0, "반경 없이도 가까운 주차장은 나와야 한다");
-assert.equal(spotsAround(한라산, LOTS, { walk10: true }).length, 0);
+assert.equal(spotsAround(한라산, LOTS).length, 0, "한라산 정상 도보 30분 안에 주차장이 잡힌다");
+
+// 요금·주소 표시 — "유료" 한 단어가 아니라 얼마인지, 이름이 번지뿐일 때 어디인지가 나와야 한다
+assert.equal(feeText({ fee: "무료" }), "무료");
+assert.equal(feeText({ fee: "유료", rate: { baseMin: 30, baseWon: 1000, addMin: 15, addWon: 500, dayWon: 10000 } }), "30분 1,000원");
+assert.equal(feeText({ fee: "혼합", rate: { baseMin: 30, baseWon: 1000, addMin: 15, addWon: 500, dayWon: null } }), "일부 유료 · 30분 1,000원");
+assert.equal(feeText({ fee: "유료" }), "유료", "요금을 모르면 지어내지 않는다");
+assert.equal(feeDetail({}), null);
+assert.equal(
+  feeDetail({ rate: { baseMin: 30, baseWon: 1000, addMin: 15, addWon: 500, dayWon: 10000 } }),
+  "이후 15분마다 500원 · 1일권 10,000원",
+);
+
+// 실데이터: 유료·혼합에는 요금이, 모든 곳에는 주소가 있어야 화면에서 줄이 비지 않는다
+const 유료 = LOTS.filter((s) => s.fee !== "무료");
+assert.ok(유료.length > 100, "유료·혼합 표본이 사라졌다");
+assert.ok(유료.every((s) => s.rate), "유료인데 요금이 없는 곳이 있다");
+assert.ok(LOTS.every((s) => s.fee === "무료" || !feeText(s).includes("유료") || s.fee === "혼합"), "유료인데 금액을 못 편 곳이 있다");
+assert.ok(LOTS.every((s) => s.addr), "주소가 빠진 주차장이 있다");
+assert.ok(LOTS.every((s) => !/^제주특별자치도/.test(s.addr!) && !/\s\d/.test(s.addr!)), "주소에 도 이름이나 번지가 남았다");
+assert.equal(LOTS.find((s) => s.name === "이도일동 1307")?.addr, "제주시 이도일동");
 
 // 운영시간은 어디에도 안 쓴다 — 원본 CSV 1,657곳이 전부 00:00~23:59 이고 유료 117곳도 그렇다.
 // 유료 주차장이 24시간 개방일 리 없으니 그 컬럼은 운영시간이 아니라 미입력 기본값으로 본다.

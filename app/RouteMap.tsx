@@ -34,6 +34,12 @@ type Props = {
    * 여기까지 둥글면 두 반지름이 어긋나 귀퉁이에 프레임 배경이 비친다.
    */
   className?: string;
+  /**
+   * 아래쪽 몇 px 이 다른 것에 덮여 있는지 (하단 시트 높이). 지도는 자기 상자 전체를 쓰지만
+   * 사람이 보는 건 그 위쪽뿐이라, 정중앙에 맞추면 마커가 시트에 반쯤 걸리거나 눌린 것처럼 보인다.
+   * 이 값만큼 안 가린 영역의 한가운데로 올려 잡는다.
+   */
+  padBottom?: number;
 };
 
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
@@ -67,6 +73,7 @@ export default function RouteMap({
   routes,
   markers = [],
   className = "rounded-[24px] shadow-inner ring-1 ring-black/5",
+  padBottom = 0,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -75,7 +82,7 @@ export default function RouteMap({
   const [selected, setSelected] = useState<RiskFactor | null>(null);
 
   // 배열 prop이 매 렌더 새 참조라 의존성으로 직접 못 쓴다
-  const shape = JSON.stringify({ center, level, routes, markers });
+  const shape = JSON.stringify({ center, level, routes, markers, padBottom });
 
   useEffect(() => {
     if (!KEY) return;
@@ -166,12 +173,24 @@ export default function RouteMap({
     const fit = () => {
       if (!box.current?.clientWidth || !box.current.clientHeight) return;
       map.current.relayout();
-      if (bounds) map.current.setBounds(bounds, 24, 24, 24, 24);
+      // 가려진 아래쪽은 여백으로 넘긴다 — setBounds 가 알아서 그만큼 위로 잡는다
+      if (bounds) map.current.setBounds(bounds, 24, 24, 24 + padBottom, 24);
       else {
         // setLevel 도 같이 걸어야 한다 — 생성자에 준 level 은 첫 렌더의 값이라, 나중에 prop 이
         // 바뀌어도(목적지를 고르면 10 → 5) 지도는 처음 축척에 그대로 있다.
         map.current.setLevel(level);
         map.current.setCenter(pt(center));
+        if (padBottom) {
+          // 화면에서 center 를 padBottom/2 만큼 위로 올린다 — 안 가린 영역(H - padBottom)의
+          // 한가운데가 정중앙에서 딱 그만큼 위다.
+          //
+          // panBy 를 쓰면 안 된다. 애니메이션이라 바로 뒤따르는 setCenter/relayout 에 잘려
+          // 실제로는 몇 px 만 움직였다. 투영으로 목표 좌표를 직접 구하면 한 번에 끝난다.
+          const proj = map.current.getProjection();
+          const p = proj.containerPointFromCoords(pt(center));
+          p.y += padBottom / 2;
+          map.current.setCenter(proj.coordsFromContainerPoint(p));
+        }
       }
     };
     fit();
