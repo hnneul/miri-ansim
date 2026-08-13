@@ -14,12 +14,15 @@ const geistMono = Geist_Mono({
 
 /**
  * 와이어프레임의 본문 서체다 (WF/Label·Title·Body 전부 Noto Sans KR).
- * korean 서브셋을 명시해야 한글 글리프가 딸려온다 — latin 만 받으면 한글이 시스템 폰트로 떨어져
- * 자간·굵기가 디자인과 어긋난다. 굵기는 디자인이 쓰는 셋(400/500/700)만 받는다.
+ *
+ * subsets 에 "korean" 은 못 쓴다 — next/font 가 받는 값이 cyrillic·latin·latin-ext·vietnamese 뿐이고
+ * 넣으면 타입 에러가 난다. 한글 글리프는 구글이 서브셋 이름 없이 번호로 쪼갠 파일로 내려주므로
+ * latin 만 적어도 같이 딸려온다 (computed font 가 "Noto Sans KR" 로 잡히는 것으로 확인).
+ * 굵기는 디자인이 쓰는 셋(400/500/700)만 받는다.
  */
 const notoSansKr = Noto_Sans_KR({
   variable: "--font-noto-kr",
-  subsets: ["latin", "korean"],
+  subsets: ["latin"],
   weight: ["400", "500", "700"],
   display: "swap",
 });
