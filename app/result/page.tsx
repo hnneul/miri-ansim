@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Suspense } from "react";
 import Link from "next/link";
-import RouteMap, { type MarkerIcon, type LatLng, type MapPreviewRoute } from "../RouteMap";
+import RouteMap, { type MarkerIcon, type LatLng } from "../RouteMap";
 import ProfileMenu from "../ProfileMenu";
 import RiskDialog from "../RiskDialog";
 import { aiSentences, factsOf, type AiSentences } from "@/lib/ai";
@@ -190,9 +190,16 @@ function CustomRoutes({
           level={10}
           destination={dest}
           profile={profile}
-          routes={[{ path: only.path, color: only.color, weight: 9, opacity: 0.95 }]}
+          routes={[
+            {
+              path: only.path,
+              color: only.color,
+              weight: 9,
+              opacity: 0.95,
+              label: `${only.name} ${only.durationMin}분`,
+            },
+          ]}
           markers={[origin, dest, ...riskMarkers]}
-          preview={only}
         />
         <BelowMap>
           <section className="rounded-[24px] bg-white/85 p-4 text-sm text-slate-700 shadow-lg shadow-orange-100/50 ring-1 ring-orange-100/70">
@@ -235,6 +242,7 @@ function CustomRoutes({
     color: r.color,
     weight: recommended ? 9 : 4,
     opacity: recommended ? 0.95 : 0.35,
+    label: `${r.name} ${r.durationMin}분`,
   });
 
   const riskMarkers = [...fast.risks, ...safe.risks].map((r) => ({
@@ -256,7 +264,6 @@ function CustomRoutes({
         profile={profile}
         routes={[line(fast, pick === "fast"), line(safe, pick === "safe")]}
         markers={[origin, dest, ...riskMarkers]}
-        preview={pick === "safe" ? safe : fast}
       >
         <RailButton glyph="💡" label="해석" tone="bg-emerald-50 text-emerald-900">
           <p className="text-base font-bold">내 조건으로 본 이 길</p>
@@ -314,7 +321,6 @@ function MapArea({
   profile,
   routes,
   markers,
-  preview,
   children,
 }: {
   center: LatLng;
@@ -322,7 +328,6 @@ function MapArea({
   /** 목적지 좌표·이름 — 주차·착한가격업소 조회는 구간이 아니라 여기서 나온다 (임의 목적지도 같은 함수를 쓴다). */
   destination: { coord: LatLng; label: string };
   profile: DriverProfile;
-  preview?: MapPreviewRoute;
   children?: React.ReactNode;
 } & Pick<React.ComponentProps<typeof RouteMap>, "routes" | "markers">) {
   const parking = parkingAt(destination.label, destination.coord);
@@ -332,7 +337,7 @@ function MapArea({
   return (
     <div className="flex h-[54cqh] min-h-80 w-full gap-2 rounded-[30px] bg-white/70 p-2 shadow-xl shadow-orange-100/60 ring-1 ring-orange-100/70">
       <div className="min-w-0 flex-1">
-        <RouteMap center={center} level={level} routes={routes} markers={markers} preview={preview} />
+        <RouteMap center={center} level={level} routes={routes} markers={markers} />
       </div>
       <div className="flex w-12 shrink-0 flex-col items-center gap-3 pt-1.5">
         {parking && (
@@ -673,6 +678,7 @@ async function Verified({
     color: r.color,
     weight: recommended ? 9 : 4,
     opacity: recommended ? 0.95 : 0.35,
+    label: `${r.name} ${r.durationMin}분`,
   });
 
   // ② 위험구간 마커 — 출발/도착 마커에 더해 각 위험요인 위치를 찍는다
@@ -699,7 +705,6 @@ async function Verified({
         profile={profile}
         routes={[line(fast, pick === "fast"), line(safe, pick === "safe")]}
         markers={[...scenario.markers, ...riskMarkers]}
-        preview={pick === "safe" ? safe : fast}
       >
         {/* ④ 운전자 맞춤 해석 — 점수가 아니라 "내 조건에서 이 길이 어떤 길인지"를 AI가 풀어 쓴다.
             실패하면 같은 말투의 규칙 기반 문장으로 떨어진다 (lib/briefing.ts) */}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ACTION, WHY } from "@/lib/briefing";
+import { useEffect, useRef, useState } from "react";
+import { WHY } from "@/lib/briefing";
 import type { RiskFactor } from "@/lib/score";
 
 // ponytail: 카카오 SDK는 타입 정의가 없어 any로 둔다.
@@ -13,16 +13,8 @@ declare global {
 }
 
 export type LatLng = [number, number]; // [위도, 경도]
-export type MapRoute = { path: LatLng[]; color: string; weight?: number; opacity?: number };
-export type MapPreviewRoute = {
-  name: string;
-  badge?: string;
-  color: string;
-  durationMin: number | null;
-  distanceKm: number | null;
-  path: LatLng[];
-  risks: RiskFactor[];
-};
+/** label 을 주면 경로 중간에 말풍선이 붙는다 (카카오맵 "OO로 55분"과 같은 자리). */
+export type MapRoute = { path: LatLng[]; color: string; weight?: number; opacity?: number; label?: string };
 
 /**
  * 마커 아이콘. src 는 data: URI 를 넣는다 — 인라인 SVG면 파일도 외부 요청도 안 늘어난다.
@@ -36,7 +28,6 @@ type Props = {
   level?: number; // 클수록 넓게 보임
   routes: MapRoute[];
   markers?: MapMarker[];
-  preview?: MapPreviewRoute;
 };
 
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
@@ -63,21 +54,15 @@ function loadSdk() {
   }));
 }
 
-export default function RouteMap({ center, level = 10, routes, markers = [], preview }: Props) {
+export default function RouteMap({ center, level = 10, routes, markers = [] }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
-  const previewMarker = useRef<any>(null);
   const [sdk, setSdk] = useState<"loading" | "ready" | "error">("loading");
   const [selected, setSelected] = useState<RiskFactor | null>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const [progress, setProgress] = useState(0);
 
   // 배열 prop이 매 렌더 새 참조라 의존성으로 직접 못 쓴다
   const shape = JSON.stringify({ center, level, routes, markers });
-  const previewShape = JSON.stringify(preview && { name: preview.name, path: preview.path, risks: preview.risks });
-  const previewSteps = useMemo(() => buildPreviewSteps(preview), [previewShape]);
-  const activeStep = activePreviewStep(previewSteps, progress);
 
   useEffect(() => {
     if (!KEY) return;
@@ -89,33 +74,15 @@ export default function RouteMap({ center, level = 10, routes, markers = [], pre
   }, []);
 
   useEffect(() => {
-    setProgress(0);
-    setPreviewing(false);
-  }, [previewShape]);
-
-  useEffect(() => {
-    if (!previewing || !preview?.path.length) return;
-    const id = window.setInterval(() => {
-      setProgress((p) => {
-        const next = p + Math.max(1, Math.ceil(preview.path.length / 90));
-        return Math.min(next, preview.path.length - 1);
-      });
-    }, 700);
-    return () => window.clearInterval(id);
-  }, [previewing, previewShape, preview?.path.length]);
-
-  useEffect(() => {
-    if (previewing && preview?.path.length && progress >= preview.path.length - 1) {
-      setPreviewing(false);
-    }
-  }, [previewing, progress, preview?.path.length]);
-
-  useEffect(() => {
     if (sdk !== "ready" || !box.current) return;
     const { kakao } = window;
     const pt = ([lat, lng]: LatLng) => new kakao.maps.LatLng(lat, lng);
 
     map.current ??= new kakao.maps.Map(box.current, { center: pt(center), level });
+
+    // 라벨을 어느 쪽으로 붙일지 정하는 기준선 (경로 전체의 동서 한가운데)
+    const allLng = routes.flatMap((r) => r.path.map((p) => p[1]));
+    const midLng = (Math.min(...allLng) + Math.max(...allLng)) / 2;
 
     drawn.current.forEach((o) => o.setMap(null));
     drawn.current = [
@@ -128,6 +95,25 @@ export default function RouteMap({ center, level = 10, routes, markers = [], pre
             strokeOpacity: r.opacity ?? 0.9,
           }),
       ),
+      // 라벨은 경로 중간점에 — 두 경로가 갈라진 뒤라 겹칠 일이 거의 없다.
+      // ponytail: 겹치면 그때 갈라지는 지점 계산으로 올린다.
+      ...routes
+        .filter((r) => r.label)
+        .map((r) => {
+          const at = r.path[Math.floor(r.path.length / 2)];
+          return new kakao.maps.CustomOverlay({
+            position: pt(at),
+            zIndex: 3,
+            // 가운데 정렬(기본값)하면 지도 가장자리 경로에서 잘린다. 여백을 더 주면 축척이 한 단계
+            // 물러나 경로가 작아지므로, 대신 말풍선을 지도 안쪽으로 붙인다 (동쪽 점이면 왼쪽으로).
+            xAnchor: at[1] > midLng ? 1 : 0,
+            content:
+              `<div style="padding:5px 10px;border-radius:10px;` +
+              // 선은 흐리게 해도 글자는 안 된다 — 추천/대안 구분은 선 굵기가 이미 하고 있다
+              `background:${r.color};color:#fff;font-size:12px;font-weight:700;white-space:nowrap;` +
+              `box-shadow:0 2px 6px rgba(0,0,0,.25)">${r.label}</div>`,
+          });
+        }),
       ...markers.map((m) => {
         const [w, h] = m.icon?.size ?? [0, 0];
         const marker = new kakao.maps.Marker({
@@ -170,38 +156,6 @@ export default function RouteMap({ center, level = 10, routes, markers = [], pre
     return () => ro.disconnect();
   }, [sdk, shape]);
 
-  useEffect(() => {
-    if (sdk !== "ready" || !map.current || !preview?.path.length) {
-      previewMarker.current?.setMap(null);
-      previewMarker.current = null;
-      return;
-    }
-
-    const { kakao } = window;
-    const [lat, lng] = preview.path[Math.min(progress, preview.path.length - 1)];
-    const position = new kakao.maps.LatLng(lat, lng);
-    const image = new kakao.maps.MarkerImage(
-      previewDot(preview.color),
-      new kakao.maps.Size(34, 34),
-      { offset: new kakao.maps.Point(17, 17) },
-    );
-
-    if (previewMarker.current) {
-      previewMarker.current.setImage(image);
-    } else {
-      previewMarker.current = new kakao.maps.Marker({
-        image,
-        zIndex: 10,
-      });
-    }
-    previewMarker.current.setPosition(position);
-    previewMarker.current.setMap(map.current);
-
-    return () => {
-      if (!preview) previewMarker.current?.setMap(null);
-    };
-  }, [sdk, previewShape, progress, preview]);
-
   const notice = !KEY
     ? "NEXT_PUBLIC_KAKAO_MAP_KEY 가 없습니다 (.env.local 확인)"
     : sdk === "loading"
@@ -213,181 +167,9 @@ export default function RouteMap({ center, level = 10, routes, markers = [], pre
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[24px] bg-slate-100 shadow-inner ring-1 ring-black/5">
       <div ref={box} className="h-full w-full" />
-      {preview && sdk === "ready" && activeStep && (
-        <PreviewPanel
-          route={preview}
-          step={activeStep}
-          steps={previewSteps}
-          progress={progress}
-          playing={previewing}
-          onToggle={() => setPreviewing((v) => !v)}
-          onChange={(value) => {
-            setPreviewing(false);
-            setProgress(value);
-          }}
-          onStep={(dir) => {
-            setPreviewing(false);
-            const current = previewSteps.findIndex((s) => s === activeStep);
-            const next = previewSteps[Math.max(0, Math.min(previewSteps.length - 1, current + dir))];
-            if (next) setProgress(next.index);
-          }}
-        />
-      )}
       {selected && sdk === "ready" && <RoadviewPanel risk={selected} onClose={() => setSelected(null)} />}
       {notice && <Notice>{notice}</Notice>}
     </div>
-  );
-}
-
-type PreviewStep = {
-  index: number;
-  title: string;
-  body: string;
-  meta: string;
-  risk?: RiskFactor;
-};
-
-function buildPreviewSteps(route?: MapPreviewRoute): PreviewStep[] {
-  if (!route?.path.length) return [];
-  const riskSteps = route.risks
-    .map((risk) => ({ risk, index: closestIndex(route.path, risk.coord) }))
-    .sort((a, b) => a.index - b.index)
-    .map(({ risk, index }) => ({
-      index,
-      title: risk.label,
-      body: `${WHY[risk.type]} ${ACTION[risk.type]}`,
-      meta: risk.location,
-      risk,
-    }));
-
-  return [
-    {
-      index: 0,
-      title: "출발 전 경로 감 잡기",
-      body: "실제 안내가 아니라, 초보자가 부담을 느낄 지점만 먼저 훑어보는 예습 모드입니다.",
-      meta: route.badge ?? route.name,
-    },
-    ...riskSteps,
-    {
-      index: route.path.length - 1,
-      title: "도착 직전",
-      body: "목적지 주변에서는 내비 안내보다 주차장 입구와 차선 위치를 천천히 확인하는 게 더 중요합니다.",
-      meta:
-        route.durationMin != null && route.distanceKm != null
-          ? `${route.durationMin}분 · ${route.distanceKm}km`
-          : "소요시간 확인 중",
-    },
-  ];
-}
-
-function activePreviewStep(steps: PreviewStep[], progress: number): PreviewStep | undefined {
-  let active = steps[0];
-  for (const step of steps) {
-    if (step.index > progress) break;
-    active = step;
-  }
-  return active;
-}
-
-function closestIndex(path: LatLng[], target: LatLng): number {
-  let best = 0;
-  let bestDist = Number.POSITIVE_INFINITY;
-  path.forEach((p, i) => {
-    const d = (p[0] - target[0]) ** 2 + (p[1] - target[1]) ** 2;
-    if (d < bestDist) {
-      best = i;
-      bestDist = d;
-    }
-  });
-  return best;
-}
-
-function previewDot(color: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
-      <circle cx="17" cy="17" r="12" fill="${color}" stroke="#fff" stroke-width="5"/>
-      <circle cx="17" cy="17" r="4" fill="#fff"/>
-    </svg>
-  `)}`;
-}
-
-function PreviewPanel({
-  route,
-  step,
-  steps,
-  progress,
-  playing,
-  onToggle,
-  onChange,
-  onStep,
-}: {
-  route: MapPreviewRoute;
-  step: PreviewStep;
-  steps: PreviewStep[];
-  progress: number;
-  playing: boolean;
-  onToggle: () => void;
-  onChange: (value: number) => void;
-  onStep: (dir: -1 | 1) => void;
-}) {
-  const max = Math.max(0, route.path.length - 1);
-  const stepNo = steps.findIndex((s) => s === step) + 1;
-
-  return (
-    <aside className="absolute inset-x-3 bottom-3 z-10 rounded-[22px] bg-white/95 p-3 text-slate-900 shadow-2xl shadow-slate-900/10 ring-1 ring-black/10 backdrop-blur">
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={playing ? "미리 달려보기 정지" : "미리 달려보기 재생"}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-black text-white shadow-sm"
-          style={{ background: route.color }}
-        >
-          {playing ? "II" : "▶"}
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-[11px] font-bold text-orange-500">미리 달려보기</p>
-            <p className="shrink-0 text-[11px] tabular-nums text-slate-400">
-              {stepNo}/{steps.length}
-            </p>
-          </div>
-          <h2 className="mt-0.5 text-base font-black tracking-normal">{step.title}</h2>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">{step.meta}</p>
-        </div>
-      </div>
-      <p className="mt-3 text-sm leading-relaxed text-slate-700">{step.body}</p>
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onStep(-1)}
-          aria-label="이전 부담 구간"
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"
-        >
-          ‹
-        </button>
-        <input
-          aria-label="미리 달려보기 진행 위치"
-          className="h-2 min-w-0 flex-1 accent-orange-500"
-          type="range"
-          min={0}
-          max={max}
-          value={Math.min(progress, max)}
-          onChange={(e) => onChange(Number(e.currentTarget.value))}
-        />
-        <button
-          type="button"
-          onClick={() => onStep(1)}
-          aria-label="다음 부담 구간"
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"
-        >
-          ›
-        </button>
-      </div>
-      <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
-        실제 운전 중 길안내는 카카오내비·티맵·네이버지도 같은 전용 내비를 함께 사용하세요.
-      </p>
-    </aside>
   );
 }
 
@@ -408,15 +190,21 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
         setStatus("empty");
         return;
       }
+      // 로드뷰는 생성 시점의 컨테이너 크기를 물고 있어서, 파노라마를 붙인 뒤 relayout 을
+      // 부르지 않으면 300x300 기본값에 멈춘 채 회색으로 남는다. setTimeout(0) 으로는
+      // 뷰어 DOM 이 만들어지기 전에 돌아 놓친다 — init 이 그 시점을 정확히 알려준다.
+      kakao.maps.event.addListener(roadview, "init", () => roadview.relayout());
       roadview.setPanoId(panoId, position);
       setStatus("ready");
-      window.setTimeout(() => roadview.relayout(), 0);
     });
   }, [risk]);
 
   return (
-    <aside className="absolute inset-x-3 bottom-3 z-20 overflow-hidden rounded-[24px] bg-white text-slate-900 shadow-2xl ring-1 ring-black/10">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
+    // 지도 안에 갇혀야 한다 — max-h 가 없으면 패널(503px)이 지도(351px)보다 커져서
+    // 위로 넘치고, 부모의 overflow-hidden 에 제목이 통째로 잘린다. 넘치는 몫은
+    // 로드뷰가 아니라 아래 설명이 스크롤로 흡수한다 (사진이 이 패널의 본론이다).
+    <aside className="absolute inset-x-3 bottom-3 z-20 flex max-h-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-[24px] bg-white text-slate-900 shadow-2xl ring-1 ring-black/10">
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 p-4">
         <div className="min-w-0">
           <p className="text-[11px] font-bold text-orange-500">위험구간 미리보기</p>
           <h2 className="mt-0.5 text-base font-black tracking-normal">{risk.label}</h2>
@@ -431,7 +219,7 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
           x
         </button>
       </div>
-      <div className="relative h-56 bg-slate-100">
+      <div className="relative h-40 shrink-0 bg-slate-100">
         <div ref={box} className={`h-full w-full ${status === "empty" ? "hidden" : ""}`} />
         {status !== "ready" && (
           <div className="absolute inset-0 grid place-items-center p-4 text-center text-sm text-slate-500">
@@ -439,7 +227,7 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
           </div>
         )}
       </div>
-      <div className="space-y-2 p-4 text-sm">
+      <div className="min-h-0 space-y-2 overflow-y-auto p-4 text-sm">
         <p className="leading-relaxed text-slate-700">{WHY[risk.type]}</p>
         <p className="text-xs tabular-nums text-slate-500">
           {risk.value} · 경로의 {Math.round(risk.exposure * 100)}%
