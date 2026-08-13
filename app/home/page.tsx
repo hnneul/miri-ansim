@@ -74,9 +74,9 @@ function Home() {
             <br />
             부담 적은 길로 출발해요
           </h1>
-          {/* 프로필 입구. 온보딩을 다시 돌면 값이 바뀐다 — 아바타는 운전 경력에 따라 자란다 */}
+          {/* 마이 화면(/profile) 입구. 쿼리를 그대로 넘겨야 거기서 프로필을 되읽는다 (lib/profile.ts) */}
           <button
-            onClick={() => router.push("/onboarding")}
+            onClick={() => router.push(`/profile?${searchParams}`)}
             className="mt-[11px] flex shrink-0 flex-col items-center gap-1 transition active:scale-95"
           >
             <img src={me.src} alt={me.alt} className="size-[90px] rounded-full bg-[#1f1f1f] object-contain" />

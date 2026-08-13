@@ -2,7 +2,7 @@
 // URL은 사용자가 고칠 수 있는 입력이다. 여기가 새면 점수가 조용히 틀린 프로필로 계산된다.
 
 import assert from "node:assert";
-import { parseProfile, toQuery, DEFAULT_PROFILE, OPTIONS } from "./profile.ts";
+import { parseProfile, parseConcerns, toQuery, toProfileQuery, CONCERNS, DEFAULT_PROFILE, OPTIONS } from "./profile.ts";
 
 /** toQuery 결과를 다시 parseProfile 입력 형태로 되돌린다 */
 const roundTrip = (q: string) => parseProfile(Object.fromEntries(new URLSearchParams(q)));
@@ -42,5 +42,20 @@ assert.equal(parseProfile({}).jejuExperience, false);
 // 같은 키가 여러 번 오면 첫 값을 쓴다 (?exp=1&exp=10)
 assert.equal(parseProfile({ exp: ["10", "1"] }).experienceYears, 10);
 assert.equal(parseProfile({ exp: ["bad", "10"] }).experienceYears, DEFAULT_PROFILE.experienceYears);
+
+// --- 부담 유형 (마이 화면이 되읽는 값) ---
+const concerns = (q: string) => parseConcerns(Object.fromEntries(new URLSearchParams(q)));
+
+// 왕복 — 고른 인덱스가 그대로 돌아온다
+assert.deepEqual(concerns(toProfileQuery(DEFAULT_PROFILE, [0, 4])), [0, 4]);
+// 안 고르면 키째 빠지고, 빈 배열로 읽힌다
+assert.equal(new URLSearchParams(toProfileQuery(DEFAULT_PROFILE)).has("hard"), false);
+assert.deepEqual(concerns(toProfileQuery(DEFAULT_PROFILE)), []);
+
+// 범위 밖·정수 아님·중복은 버린다. 화면 순서대로 나온다 — CONCERNS 인덱스로 읽으니 새면 [i] 가 undefined 다
+assert.deepEqual(parseConcerns({ hard: `${CONCERNS.length}` }), []);
+assert.deepEqual(parseConcerns({ hard: "-1,abc,1.5," }), []);
+assert.deepEqual(parseConcerns({ hard: "4,0,4" }), [0, 4]);
+assert.ok(parseConcerns({ hard: "0,1,2,3,4,5,6,7" }).every((i) => CONCERNS[i]));
 
 console.log("✅ 프로필 URL 왕복 + 입력 검증 정상");

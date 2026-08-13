@@ -17,7 +17,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import StatusBar from "../StatusBar";
 import type { DriverProfile } from "@/lib/score";
-import { DEFAULT_PROFILE, toProfileQuery } from "@/lib/profile";
+import { CONCERNS, DEFAULT_PROFILE, toProfileQuery } from "@/lib/profile";
 
 type Step = {
   /** "N / 4" 옆에 붙는 부가 문구 (마지막 단계 "여러 개 선택 가능") */
@@ -83,16 +83,9 @@ const STEPS: Step[] = [
     subtitle: "피하고 싶거나, 안내를 더 자세히 받고 싶은 상황을 골라주세요.",
     hint: "선택 내용은 길 설명에만 사용하며 언제든 바꿀 수 있어요.",
     multi: true,
-    // ponytail: 부담 유형은 아직 점수·브리핑에 안 들어간다 — 화면(ONB-06)만 먼저 옮겼다.
-    // 점수에 반영하려면 lib/score.ts 의 가중치와 URL 쿼리(lib/profile.ts)에 값을 뚫어야 한다.
-    options: [
-      { label: "좁은 골목길", desc: "차가 마주 오면 불안해요" },
-      { label: "복잡한 교차로", desc: "차선 선택이 어려워요" },
-      { label: "급경사·굽은 길", desc: "오르막·커브가 부담돼요" },
-      { label: "어두운 길", desc: "가로등이 적으면 긴장돼요" },
-      { label: "주차 어려운 곳", desc: "공간이 좁으면 부담돼요" },
-      { label: "해당 없음", desc: "특별히 부담 없어요" },
-    ],
+    // 선택지는 마이 화면과 공유한다 (lib/profile.ts CONCERNS) — 거기서 되보여 주므로 문구가 갈리면 안 된다.
+    // ponytail: 부담 유형은 아직 점수·브리핑에 안 들어간다. 반영하려면 lib/score.ts 가중치에 값을 뚫어야 한다.
+    options: CONCERNS,
   },
 ];
 
@@ -123,7 +116,8 @@ export default function Onboarding() {
       (acc, s, idx) => ({ ...acc, ...s.options[picks[idx][0]]?.patch }),
       DEFAULT_PROFILE,
     );
-    router.push(`/home${toProfileQuery(profile)}`);
+    // 부담 유형(마지막 단계)은 patch 가 없어 프로필에 안 접힌다 — 고른 인덱스를 따로 넘긴다
+    router.push(`/home${toProfileQuery(profile, picks[STEPS.length - 1])}`);
   }
 
   return (
