@@ -108,37 +108,54 @@ function Destination() {
   }
 
   return (
-    <div className="relative flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col">
       {/*
-        지도는 화면 전체를 깔고, 나머지는 그 위에 뜬다 (와이어프레임의 Map/Placeholder 자리).
-        z-0 은 장식이 아니라 필수다 — 카카오가 지도 안쪽 요소에 z-index:1 을 직접 박는데,
-        여기가 z-auto 면 그것들이 부모 문맥으로 새어 나와 아래 흰 덮개와 검색 패널 위에 그려진다.
-        z-0 하나로 쌓임 문맥이 생겨 지도의 z-index 가 이 상자 안에 갇힌다.
+        상태바는 지도 밖에 둔다 — 와이어프레임도 Map/Placeholder 가 상태바 아래(y:32)에서 시작한다.
+        지도를 상태바 뒤까지 깔면 시각·배터리가 지도 상호명과 겹쳐 양쪽 다 안 읽힌다.
       */}
-      <div className="absolute inset-0 z-0">
-        <RouteMap
-          className=""
-          center={place?.coord ?? JEJU_CENTER}
-          level={place ? 5 : 10}
-          routes={[]}
-          markers={place ? [{ coord: place.coord, label: place.label, icon: PIN }] : []}
-        />
+      <div className="relative z-20 shrink-0 bg-white">
+        <StatusBar tone="text-[#525252]" />
       </div>
 
-      {/* 검색 중에는 지도를 흰 종이로 덮는다 — 와이어프레임 HOME-01 a 가 흰 바탕이다 */}
-      {searching && <div className="absolute inset-0 z-[5] bg-white" />}
+      <div className="relative flex-1">
+        {/*
+          지도는 상태바 아래를 전부 깔고, 나머지는 그 위에 뜬다 (와이어프레임의 Map/Placeholder 자리).
+          z-0 은 장식이 아니라 필수다 — 카카오가 지도 안쪽 요소에 z-index:1 을 직접 박는데,
+          여기가 z-auto 면 그것들이 부모 문맥으로 새어 나와 아래 흰 덮개와 검색 패널 위에 그려진다.
+          z-0 하나로 쌓임 문맥이 생겨 지도의 z-index 가 이 상자 안에 갇힌다.
+        */}
+        <div className="absolute inset-0 z-0">
+          <RouteMap
+            className=""
+            center={place?.coord ?? JEJU_CENTER}
+            level={place ? 5 : 10}
+            routes={[]}
+            markers={place ? [{ coord: place.coord, label: place.label, icon: PIN }] : []}
+          />
+        </div>
 
-      <div className="relative z-10 flex flex-1 flex-col">
-        <StatusBar tone="text-[#525252]" />
+        {/* 검색 중에는 지도를 흰 종이로 덮는다 — 와이어프레임 HOME-01 a 가 흰 바탕이다 */}
+        {searching && <div className="absolute inset-0 z-[5] bg-white" />}
 
-        {/* 검색바 + 프로필. 와이어프레임 기준 입력 284px, 아바타 63px, 사이 16px */}
-        <div className="flex shrink-0 items-center gap-4 px-4">
+        {/*
+          지도 위에 뜨는 것들. pointer-events-none 이 없으면 지도가 끌리지도 확대되지도 않는다 —
+          이 상자가 눈에 안 보일 뿐 지도를 통째로 덮고 있어서 클릭·드래그를 전부 가로챈다.
+          실제로 눌러야 하는 것들만 pointer-events-auto 로 되살린다.
+        */}
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
+          {/* 검색바 + 프로필. 와이어프레임 기준 입력 284px, 아바타 63px, 사이 16px */}
+          <div className="pointer-events-auto flex shrink-0 items-center gap-4 px-4 pt-3">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               search(text);
             }}
-            className="flex h-16 flex-1 items-center gap-3 rounded-[12px] border border-[#fc7f35] bg-[#fc7f35]/15 px-4"
+            /*
+              배경은 와이어프레임의 주황 15% 반투명을 흰 바탕에 미리 섞어 불투명하게 굳힌 값이다.
+              반투명 그대로 두면 회색 목업 위에서나 읽히고, 진짜 지도 위에서는 상호명이 비쳐 글자가 묻힌다.
+              보이는 색은 같고 뒤만 안 비친다.
+            */
+            className="flex h-16 flex-1 items-center gap-3 rounded-[12px] border border-[#fc7f35] bg-[#ffece1] px-4"
           >
             <span aria-hidden className="size-3 shrink-0 rounded-full bg-[#fc7f35]" />
             <input
@@ -175,39 +192,42 @@ function Destination() {
           </button>
         </div>
 
-        {(pending || error) && (
-          <p className={`mt-3 shrink-0 px-6 text-[12px] leading-[18px] ${error ? "text-rose-600" : "text-[#525252]"}`}>
-            {error ?? "장소를 찾는 중…"}
-          </p>
-        )}
+          {(pending || error) && (
+            <p
+              className={`pointer-events-auto mt-3 shrink-0 rounded-[8px] bg-white/90 px-6 py-1 text-[12px] leading-[18px] ${error ? "text-rose-600" : "text-[#525252]"}`}
+            >
+              {error ?? "장소를 찾는 중…"}
+            </p>
+          )}
 
-        {/* HOME-01 a — 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */}
-        {searching && recent.length > 0 && (
-          <div className="mt-5 shrink-0 px-6">
-            <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
-            <ul className="mt-2">
-              {recent.map((r) => (
-                <li key={r}>
-                  <button
-                    onClick={() => {
-                      setText(r);
-                      search(r);
-                    }}
-                    className="flex w-full items-center gap-3 py-2 text-left"
-                  >
-                    <span aria-hidden className="w-6 shrink-0 text-center text-[18px] leading-none text-[#525252]">
-                      ⌕
-                    </span>
-                    <span className="text-[14px] leading-[22px] text-[#1f1f1f]">{r}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          {/* HOME-01 a — 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */}
+          {searching && recent.length > 0 && (
+            <div className="pointer-events-auto mt-5 shrink-0 px-6">
+              <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
+              <ul className="mt-2">
+                {recent.map((r) => (
+                  <li key={r}>
+                    <button
+                      onClick={() => {
+                        setText(r);
+                        search(r);
+                      }}
+                      className="flex w-full items-center gap-3 py-2 text-left"
+                    >
+                      <span aria-hidden className="w-6 shrink-0 text-center text-[18px] leading-none text-[#525252]">
+                        ⌕
+                      </span>
+                      <span className="text-[14px] leading-[22px] text-[#1f1f1f]">{r}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-        {/* HOME-01 b — 목적지를 고르면 아래에서 올라오는 시트 */}
-        {place && !searching && <PlaceSheet place={place} origin={origin} onClose={() => setPlace(null)} />}
+          {/* HOME-01 b — 목적지를 고르면 아래에서 올라오는 시트 */}
+          {place && !searching && <PlaceSheet place={place} origin={origin} onClose={() => setPlace(null)} />}
+        </div>
       </div>
     </div>
   );
@@ -222,7 +242,7 @@ function PlaceSheet({ place, origin, onClose }: { place: Place; origin: LatLng |
   const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
 
   return (
-    <div className="mt-auto shrink-0 rounded-t-[24px] bg-white pb-8">
+    <div className="pointer-events-auto mt-auto shrink-0 rounded-t-[24px] bg-white pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
       {/* grab — 끌어올릴 수 있어 보이게 하는 표시다. 실제로 끌리지는 않는다 (와이어프레임도 장식이다) */}
       <div aria-hidden className="mx-auto mt-[10px] h-1 w-12 rounded-[2px] bg-[#d6d6d6]" />
 

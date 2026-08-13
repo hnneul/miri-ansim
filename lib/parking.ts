@@ -41,6 +41,9 @@ export type Lot = Omit<ParkingSpot, "walkM">;
 /** 카드 목록·미니 지도에 찍을 최대 개수. 판정은 전체 개수로 하고 표시만 자른다. */
 const SPOT_CAP = 40;
 
+/** 도보 10분. 아래 walkMinutes 와 같은 속도로 잰다 — 칩과 표시가 어긋나면 안 된다. */
+export const WALK10_M = 670;
+
 const rad = (d: number) => (d * Math.PI) / 180;
 
 /** 두 좌표 사이 미터. 제주 크기에선 평면 근사로 충분하다 (빌드 스크립트와 같은 식). */
@@ -150,4 +153,41 @@ export function recommendedSpots(p: Parking, n = 3): ParkingSpot[] {
  */
 export function nearestSpots(p: Parking, n = 5): ParkingSpot[] {
   return p.spots.slice(0, n);
+}
+
+// --- 주차장 찾기 화면(/parking) ---
+// 목적지 흐름(nearbyParking)과 달리 목적지가 없다. 지도를 움직이는 대로 중심이 바뀌므로
+// "반경 안 전부"가 아니라 "지금 보는 곳에서 가까운 몇 곳"을 준다.
+
+/** 도보 4km/h = 67m/분. 100m 를 1.5분으로 읽는 흔한 기준이다. 0분은 안 쓴다. */
+export const walkMinutes = (m: number): number => Math.max(1, Math.round(m / 67));
+
+/**
+ * 하단 시트 배지("주차 쉬움"). parallelOdds 와 같은 프록시를 한 곳에만 쓴 것이다 —
+ * 노외는 칸에 맞춰 대는 직각주차일 확률이 높다. 확정이 아니라 확률이라 배지도 단정하지 않는다.
+ */
+export const isEasyParking = (s: { type: string }): boolean => s.type !== "노상";
+
+/** 지도 화면의 필터 칩. 24시간은 칩이 아니다 — 데이터의 1,657곳이 전부 00:00~23:59라 안 걸러진다. */
+export type SpotFilter = { walk10?: boolean; free?: boolean };
+
+/**
+ * 지도 중심에서 가까운 주차장 cap 곳. 반경으로 안 자르고 개수로 자르는 이유 —
+ * 섬 전체를 보는 축척에서 반경을 걸면 한적한 곳에서는 핀이 하나도 안 뜬다.
+ * 대신 "도보 10분" 칩을 켜면 그때는 반경(WALK10_M)이 기준이 된다.
+ */
+export function spotsAround(
+  center: [number, number],
+  lots: Lot[],
+  filter: SpotFilter = {},
+  cap = SPOT_CAP,
+): ParkingSpot[] {
+  const near: ParkingSpot[] = [];
+  for (const lot of lots) {
+    if (filter.free && lot.fee !== "무료") continue; // "혼합"은 무료가 아니다 — 돈을 낼 수도 있으면 무료로 보여주면 안 된다
+    const walkM = Math.round(meters(center, lot.at));
+    if (filter.walk10 && walkM > WALK10_M) continue;
+    near.push({ ...lot, walkM });
+  }
+  return near.sort((a, b) => a.walkM - b.walkM).slice(0, cap);
 }

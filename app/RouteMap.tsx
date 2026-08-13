@@ -49,7 +49,8 @@ const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
  */
 let sdkPromise: Promise<void> | undefined;
 
-function loadSdk() {
+/** 주차장 지도(app/parking)도 같은 SDK 를 쓴다 — 프로미스가 하나여야 스크립트도 하나다. */
+export function loadSdk() {
   return (sdkPromise ??= new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
     // autoload=false — 로드 직후 maps.load() 로 직접 초기화한다
@@ -166,7 +167,12 @@ export default function RouteMap({
       if (!box.current?.clientWidth || !box.current.clientHeight) return;
       map.current.relayout();
       if (bounds) map.current.setBounds(bounds, 24, 24, 24, 24);
-      else map.current.setCenter(pt(center));
+      else {
+        // setLevel 도 같이 걸어야 한다 — 생성자에 준 level 은 첫 렌더의 값이라, 나중에 prop 이
+        // 바뀌어도(목적지를 고르면 10 → 5) 지도는 처음 축척에 그대로 있다.
+        map.current.setLevel(level);
+        map.current.setCenter(pt(center));
+      }
     };
     fit();
     const ro = new ResizeObserver(fit);

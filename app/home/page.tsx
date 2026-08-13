@@ -8,6 +8,7 @@
 // ponytail: 출발지를 직접 고르려면 그 화면(Figma 2173:1932)을 만들고 여기서 목적지만 넘기면 된다.
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import { parseProfile, characterOf, toCustomQuery } from "@/lib/profile";
@@ -112,9 +113,9 @@ function Home() {
       )}
 
       {/*
-        프로모 카드 세 장. 아직 갈 화면이 없어서 버튼이 아니라 그림으로 둔다 —
+        프로모 카드 세 장. 갈 화면이 있는 것만 누를 수 있다 —
         누를 수 있어 보이는데 아무 일도 없으면 시연에서 더 나쁘다.
-        ponytail: 주차장 찾기(Figma 2129:3599)·탐나는전(2160:2236) 화면을 만들면 여기에 링크를 건다.
+        ponytail: 탐나는전(Figma 2160:2236) 화면을 만들면 그 카드에도 href 를 준다.
       */}
       <div className="mt-9 grid shrink-0 grid-cols-2 gap-3 px-6">
         <div className="flex h-[190px] flex-col rounded-2xl border border-[#dbe0e0] bg-[#f7fafa] p-[15px]">
@@ -130,7 +131,8 @@ function Home() {
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <PromoCard eyebrow="내 목적지 가까이" title="주차장 찾기" mark="P" />
+          {/* 쿼리를 그대로 넘겨야 주차 화면에서 뒤로 나올 때 프로필이 살아 있다 (lib/profile.ts) */}
+          <PromoCard eyebrow="내 목적지 가까이" title="주차장 찾기" mark="P" href={`/parking?${searchParams}`} />
           <PromoCard eyebrow="제주 관광객 혜택" title="탐나는전 사용처" mark="₩" />
         </div>
       </div>
@@ -152,10 +154,11 @@ function Home() {
   );
 }
 
-/** 오른쪽 주황 카드 두 장 — 문구만 다르고 골격이 같다 */
-function PromoCard({ eyebrow, title, mark }: { eyebrow: string; title: string; mark: string }) {
-  return (
-    <div className="flex h-[90px] flex-col justify-center rounded-2xl bg-[#ff6108] px-[14px]">
+/** 오른쪽 주황 카드 두 장 — 문구만 다르고 골격이 같다. href 가 있으면 누를 수 있는 카드가 된다. */
+function PromoCard({ eyebrow, title, mark, href }: { eyebrow: string; title: string; mark: string; href?: string }) {
+  const box = `flex h-[90px] flex-col justify-center rounded-2xl bg-[#ff6108] px-[14px]`;
+  const inner = (
+    <>
       <p className="text-[11px] leading-none text-[#ffd1b2]">{eyebrow}</p>
       <div className="mt-2.5 flex items-center justify-between gap-2">
         <p className="text-[16px] leading-none font-bold text-white">{title}</p>
@@ -163,7 +166,14 @@ function PromoCard({ eyebrow, title, mark }: { eyebrow: string; title: string; m
           {mark}
         </span>
       </div>
-    </div>
+    </>
+  );
+  return href ? (
+    <Link href={href} className={`${box} transition active:scale-[0.98]`}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={box}>{inner}</div>
   );
 }
 
