@@ -251,7 +251,22 @@ function Destination() {
           {/* HOME-01 b — 목적지를 고르면 아래에서 올라오는 시트. 높이를 재서 지도에 넘긴다 */}
           {place && !searching && (
             <div ref={sheetBox} className="pointer-events-auto mt-auto">
-              <PlaceSheet place={place} origin={origin} onClose={() => setPlace(null)} />
+              <PlaceSheet
+                place={place}
+                origin={origin}
+                onClose={() => setPlace(null)}
+                /*
+                 * 목적지 좌표까지 넘긴다 — 이름만 넘기면 주차장 화면이 지오코딩을 한 번 더 해야 하고,
+                 * 같은 이름이 여러 곳이면 여기서 고른 곳과 다른 데가 잡힐 수 있다.
+                 */
+                onParking={() => {
+                  const next = new URLSearchParams(searchParams);
+                  next.set("dest", place.label);
+                  next.set("destLat", String(place.coord[0]));
+                  next.set("destLng", String(place.coord[1]));
+                  router.push(`/parking?${next}`);
+                }}
+              />
             </div>
           )}
         </div>
@@ -264,7 +279,17 @@ function Destination() {
  * 고른 목적지 시트. 와이어프레임(search-panel 2153:2981)은 높이 515 로 그려졌지만 그 아래가 비어 있다 —
  * 채울 내용이 정해지면 늘어날 자리이고, 지금 515 를 박으면 지도만 가린다. 내용 높이로 둔다.
  */
-function PlaceSheet({ place, origin, onClose }: { place: Place; origin: LatLng | null; onClose: () => void }) {
+function PlaceSheet({
+  place,
+  origin,
+  onClose,
+  onParking,
+}: {
+  place: Place;
+  origin: LatLng | null;
+  onClose: () => void;
+  onParking: () => void;
+}) {
   const [notice, setNotice] = useState<string | null>(null);
   const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
 
@@ -292,9 +317,9 @@ function PlaceSheet({ place, origin, onClose }: { place: Place; origin: LatLng |
       </div>
 
       {/*
-        출발 / 근처 주차장 보기. 갈 화면이 아직 없다 —
-        ponytail: "목적지 -> 출발 선택"(Figma 2173:1932)과 "목적지 -> 근처 주차장 보기"(2160:2167)를
-        만들면 여기 onClick 을 router.push 로 바꾼다. 목적지 좌표는 이미 손에 있다.
+        출발은 갈 화면이 아직 없다 —
+        ponytail: "목적지 -> 출발 선택"(Figma 2173:1932)을 만들면 여기 onClick 을 router.push 로 바꾼다.
+        근처 주차장 보기는 /parking 이 받는다 (Figma 2153:1771 "수정 PARK-01 | 목적지 주변 주차장").
       */}
       <div className="mt-[11px] flex gap-1 px-4">
         <button
@@ -304,8 +329,8 @@ function PlaceSheet({ place, origin, onClose }: { place: Place; origin: LatLng |
           출발
         </button>
         <button
-          onClick={() => setNotice("주차장 화면은 아직 준비 중입니다")}
-          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-medium text-white"
+          onClick={onParking}
+          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.98]"
         >
           <span aria-hidden className="text-[17px] leading-none font-bold">
             P
