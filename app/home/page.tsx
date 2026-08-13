@@ -10,7 +10,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import { parseProfile, characterOf, toCustomQuery } from "@/lib/profile";
+import { parseProfile, characterOf } from "@/lib/profile";
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function HomePage() {
@@ -30,7 +30,9 @@ function Home() {
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 출발지 확인까지 끝내고 결과로 넘긴다 — 로직은 없어진 /profile 에서 그대로 옮겨왔다.
+  // 출발지(현재 위치)를 붙여 다음 화면으로 넘긴다.
+  // ponytail: 넘길 곳이 아직 없다 — 와이어프레임의 "목적지 입력"(Figma 2147:2005)을 만들면
+  // 여기 router.push 를 그 경로로 되살린다. 그때까지는 좌표만 확인하고 멈춘다.
   function search(e: React.FormEvent) {
     e.preventDefault();
     if (!destination.trim()) return setError("목적지를 입력해주세요");
@@ -39,8 +41,9 @@ function Home() {
     setError(null);
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        router.push(`/result${toCustomQuery(profile, [coords.latitude, coords.longitude], destination.trim())}`);
+      () => {
+        setLocating(false);
+        setError("다음 화면은 아직 준비 중입니다");
       },
       (err) => {
         setLocating(false);

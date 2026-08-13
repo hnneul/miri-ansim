@@ -53,9 +53,14 @@ body {
     display: grid;
     place-items: center;
     min-height: 100dvh;
-    background: #1c1917;
-    /* 옆 버튼(body::before/after)의 기준 박스 — 없으면 뷰포트 기준이 되어 스크롤 시 어긋난다 */
-    position: relative;
+    /*
+     * 흰 배경이다. 두 가지를 동시에 푼다 —
+     * 하나, 시연 영상에서 폰만 잘라내면 둥근 모서리 네 귀퉁이에 이 색이 물려 들어오는데,
+     * 앱 화면이 대부분 흰색·크림색이라 흰 배경이면 그 자국이 거의 안 보인다.
+     * 둘, 검은 베젤(#0c0a09)이 배경과 대비돼 폰 윤곽이 또렷해진다 —
+     * 어두운 배경에서는 베젤이 묻혀서 폰 몸체가 사라진다.
+     */
+    background: #fff;
   }
 
   .phone {
@@ -68,9 +73,17 @@ body {
     overflow-y: auto;
     border-radius: 44px;
     background: var(--background);
+    /*
+     * 테두리 두 겹 + 바닥 그림자.
+     * 안쪽 8px 은 검은 베젤(화면 유리), 그 바깥 2.5px 은 금속 측면이다 —
+     * 실물은 여기서 빛을 받아 밝게 뜨는데, 이게 없으면 흰 배경에서 순검정 띠 하나만 남아
+     * 실제보다 무겁고 진해 보인다. 전체 두께(10.5px)는 실측(11~12pt)에 맞춘 값이라 그대로 두고
+     * 안쪽을 덜어 바깥에 준다. 그림자도 순검정 대신 옅게 — 흰 배경에서는 진한 그림자가 때처럼 보인다.
+     */
     box-shadow:
-      0 0 0 10px #0c0a09,
-      0 24px 60px rgb(0 0 0 / 0.55);
+      0 0 0 8px #0c0a09,
+      0 0 0 10.5px #a8a8ad,
+      0 18px 40px rgb(0 0 0 / 0.18);
   }
 
   /*
@@ -95,26 +108,13 @@ body {
     pointer-events: none;
   }
 
-  /* 옆 버튼 — 왼쪽 음량 둘(box-shadow 복제), 오른쪽 전원 하나. 프레임이 줄면 같이 따라온다 */
-  body::before,
-  body::after {
-    content: "";
-    position: absolute;
-    top: calc(50% - min(422px, 50dvh - 1.25rem) + 140px);
-    width: 3px;
-    border-radius: 2px;
-    background: #0c0a09;
-  }
-  body::before {
-    left: calc(50% - 208px);
-    height: 56px;
-    box-shadow: 0 76px 0 #0c0a09;
-  }
-  body::after {
-    right: calc(50% - 208px);
-    top: calc(50% - min(422px, 50dvh - 1.25rem) + 180px);
-    height: 88px;
-  }
+  /*
+   * 옆 버튼(음량·전원)은 뺐다. 어두운 배경에서는 베젤과 같은 검정이라 안 보였는데,
+   * 흰 배경으로 바꾸니 프레임 밖으로 삐져나온 검은 막대로 드러났다.
+   * 실물 사진 목업은 금속 측면에 음영이 있어 버튼이 자연스럽지만, 우리 프레임은 납작한
+   * 검정 테두리라 3px 막대만으로는 그 느낌이 안 난다 — 붙일수록 군더더기로 보인다.
+   * 폰이라는 신호는 둥근 모서리·베젤·아일랜드·상태바로 충분하다.
+   */
 }
 
 button,

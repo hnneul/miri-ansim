@@ -42,15 +42,17 @@ function Signal() {
 
 /**
  * 와이파이 — 아래 점에서 퍼지는 부채꼴 세 겹.
- * 각 호는 (8, 11.5)를 중심으로 반지름만 키운 것이고, 끝점은 수직에서 ±55° 자리다.
+ * 호 셋은 (8, 10.9)를 중심으로 반지름만 키운 것이고(2.8 / 6.2 / 9.6), 끝점은 수직에서 ±50° 자리다.
+ * 굵기 2 에 반지름 간격이 3.4 라 띠 사이 틈이 1.4 로 일정하다 — 실물이 성긴 선 셋이 아니라
+ * 거의 꽉 찬 부채로 보이는 게 이 비율 때문이다. 얇게 그리면 대번에 가짜 티가 난다.
  */
 function Wifi() {
   return (
-    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-      <path d="M0.3 6.1 A9.4 9.4 0 0 1 15.7 6.1" />
-      <path d="M2.84 7.89 A6.3 6.3 0 0 1 13.16 7.89" />
-      <path d="M5.38 9.66 A3.2 3.2 0 0 1 10.62 9.66" />
-      <circle cx="8" cy="10.9" r="0.6" fill="currentColor" stroke="none" />
+    <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M0.65 4.73 A9.6 9.6 0 0 1 15.35 4.73" />
+      <path d="M3.25 6.91 A6.2 6.2 0 0 1 12.75 6.91" />
+      <path d="M5.86 9.10 A2.8 2.8 0 0 1 10.14 9.10" />
+      <circle cx="8" cy="10.9" r="1" fill="currentColor" stroke="none" />
     </svg>
   );
 }
