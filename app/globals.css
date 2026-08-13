@@ -5,11 +5,23 @@
   --foreground: #172033;
 }
 
+/*
+ * 로고 전용 서체. 와이어프레임(ONB-01)은 Jalnan 2 를 쓰는데 구글 폰트에 없어서 파일을 직접 받아야 한다.
+ * public/fonts/Jalnan2.woff2 를 넣으면 자동으로 잡히고, 없으면 조용히 Noto Sans KR 로 떨어진다 —
+ * 파일이 없다고 화면이 깨지지는 않되, 그때는 로고만 디자인과 다르게 보인다.
+ */
+@font-face {
+  font-family: "Jalnan2";
+  src: url("/fonts/Jalnan2.woff2") format("woff2");
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto-kr);
   --font-mono: var(--font-geist-mono);
+  --font-logo: "Jalnan2", var(--font-noto-kr), sans-serif;
 }
 
 /* 다크모드 제거 — 심사위원 노트북 설정에 따라 톤이 달라지면 안 됨 (PLAN.md §11 디자인 방향) */
@@ -17,7 +29,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-noto-kr), sans-serif;
 }
 
 .phone {
