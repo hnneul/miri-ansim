@@ -8,25 +8,14 @@
 // 같은 방식이고, 덕분에 서버 컴포넌트 그대로다. 바깥을 눌러 닫는 동작은 없다 (레일도 마찬가지다).
 
 import Link from "next/link";
-import { LABELS } from "@/lib/profile";
+import { LABELS, characterOf } from "@/lib/profile";
 import type { DriverProfile } from "@/lib/score";
 
-/** 파일명이 프로필의 experienceYears 값(lib/profile.ts의 OPTIONS)이라 매핑이 표 하나로 끝난다. */
-const CHARACTERS: Record<number, { src: string; alt: string; tier: string }> = {
-  1: { src: "/character/exp1.png", alt: "씨앗 캐릭터", tier: "1년 이하" },
-  3: { src: "/character/exp3.png", alt: "새싹 캐릭터", tier: "2~5년" },
-  10: { src: "/character/exp10.png", alt: "감귤 캐릭터", tier: "5년 이상" },
-};
-
-/**
- * 배경을 지운 PNG라(scripts/cutout.swift) 원 안에서 캐릭터만 뜬다 — 세 장의 배경 톤이
- * 달라 원 색이 서로 어긋나던 게 없어졌다. 비율도 서로 달라 정사각 칸에 object-contain 으로 담는다.
- */
+/** 세 장의 배경 톤이 달라 원 색이 어긋나던 걸 흰 원으로 통일한다 (원본 매핑은 lib/profile.ts). */
 const AVATAR = "rounded-full bg-white object-contain ring-1 ring-orange-100";
 
 export default function ProfileMenu({ profile }: { profile: DriverProfile }) {
-  // 허용값 밖이면 초보 쪽으로 떨어뜨린다 (DEFAULT_PROFILE 과 같은 방향)
-  const me = CHARACTERS[profile.experienceYears] ?? CHARACTERS[1];
+  const me = characterOf(profile.experienceYears);
   return (
     // self-center: 이미지의 베이스라인은 아래 끝이라, 헤더의 items-baseline 을 그대로 두면 제목 줄이 밀린다
     <details className="relative ml-auto shrink-0 self-center">
@@ -50,7 +39,7 @@ export default function ProfileMenu({ profile }: { profile: DriverProfile }) {
           </div>
         </div>
         <Link
-          href="/profile"
+          href="/onboarding"
           className="mt-3 block border-t border-slate-100 pt-3 font-medium text-slate-700 hover:text-slate-900 hover:underline"
         >
           프로필 재설정

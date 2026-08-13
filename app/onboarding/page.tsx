@@ -1,11 +1,14 @@
 "use client";
 
 // 프로필 온보딩 — 최종 와이어프레임 ONB 섹션에 그려진 네 장(운전 빈도·제주 경험·차량 크기·부담 유형)이 전부다.
-// 나머지 프로필 값(운전 경력·주행 시간대)은 여기서 묻지 않고 /profile 의 칩으로 고른다 —
 // 그려지지 않은 화면을 지어내면 와이어프레임과 앱이 갈라진다.
 //
-// 고른 값은 URL 쿼리로 /profile 에 넘긴다(lib/profile.ts toProfileQuery). 저장소가 따로 없어서
-// 새로고침하면 처음부터지만, 네 탭짜리 플로우라 다시 하는 비용이 저장 코드보다 싸다.
+// 여기서 묻지 않는 나머지 프로필 값(운전 경력·주행 시간대)은 DEFAULT_PROFILE 로 남는다 —
+// 기본값이 가장 부담 큰 쪽(초보·주간)이라 모르는 값을 안전한 척 계산하지는 않는다.
+//
+// 고른 값은 URL 쿼리로 메인화면(/home)에 넘기고, 거기서 목적지를 붙여 /result 까지 그대로 흘러간다
+// (lib/profile.ts). 저장소가 따로 없어서 새로고침하면 처음부터지만, 네 탭짜리 플로우라
+// 다시 하는 비용이 저장 코드보다 싸다.
 //
 // 좌표는 390x844 절대배치를 flex 로 옮겼다 (app/page.tsx 와 같은 이유 — .phone 높이가
 // 노트북에서 844 보다 낮아질 수 있고, 그때 여백(flex-1)부터 줄어야 버튼이 안 잘린다).
@@ -120,7 +123,7 @@ export default function Onboarding() {
       (acc, s, idx) => ({ ...acc, ...s.options[picks[idx][0]]?.patch }),
       DEFAULT_PROFILE,
     );
-    router.push(`/profile${toProfileQuery(profile)}`);
+    router.push(`/home${toProfileQuery(profile)}`);
   }
 
   return (

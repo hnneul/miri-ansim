@@ -38,6 +38,21 @@ export const LABELS = {
   timeOfDay: { day: "주간", night: "야간" },
 };
 
+/**
+ * 프로필 아바타. 파일명이 experienceYears 값(OPTIONS)이라 매핑이 표 하나로 끝난다 —
+ * 경력이 씨앗(1년 이하) → 새싹(2~5년) → 감귤(5년 이상)로 자란다.
+ * 메인화면 히어로(app/home)와 결과 화면 프로필 메뉴(app/ProfileMenu.tsx)가 같이 쓴다.
+ * 배경을 지운 PNG라(scripts/cutout.swift) 원 안에서 캐릭터만 뜬다 — 비율이 서로 달라 object-contain 으로 담는다.
+ */
+export const CHARACTERS: Record<number, { src: string; alt: string; tier: string }> = {
+  1: { src: "/character/exp1.png", alt: "씨앗 캐릭터", tier: "1년 이하" },
+  3: { src: "/character/exp3.png", alt: "새싹 캐릭터", tier: "2~5년" },
+  10: { src: "/character/exp10.png", alt: "감귤 캐릭터", tier: "5년 이상" },
+};
+
+/** 허용값 밖이면 초보 쪽으로 떨어뜨린다 (DEFAULT_PROFILE 과 같은 방향) */
+export const characterOf = (experienceYears: number) => CHARACTERS[experienceYears] ?? CHARACTERS[1];
+
 /** ?key=value&key=value 형태에서 같은 키가 여러 번 오면 첫 값을 쓴다. 결과 페이지도 같은 규칙을 쓴다. */
 export const oneOf = (sp: Record<string, string | string[] | undefined>, k: string) =>
   Array.isArray(sp[k]) ? sp[k][0] : sp[k];
@@ -68,7 +83,7 @@ const profileParams = (profile: DriverProfile) => ({
   time: profile.timeOfDay,
 });
 
-/** 프로필만 → "?exp=1&freq=low&..." — 온보딩(/onboarding)이 고른 값을 /profile 에 미리 채울 때 쓴다. */
+/** 프로필만 → "?exp=1&freq=low&..." — 온보딩(/onboarding)이 고른 값을 메인화면(/home)에 넘길 때 쓴다. */
 export function toProfileQuery(profile: DriverProfile): string {
   return `?${new URLSearchParams(profileParams(profile))}`;
 }
