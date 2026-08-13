@@ -1,15 +1,17 @@
-"use client";
-
 // 주차장 상세 — 최종 와이어프레임 PARK-02 | 주차장 상세 · P2 (Figma 2153:3136).
 // 목적지 흐름의 마지막 화면이다: 목록(PARK-01) → 확인 모달(PARK-01-a) → 여기.
 //
 // 주차장은 좌표로 가리켜 받는다 (app/parking/page.tsx detailQuery). 그 좌표로 공공데이터에서
 // 원본을 되찾아 요금·규모·주차형태를 꺼내고, 못 찾으면(카카오 POI) 이름·주소만 쓴다 —
 // 카카오 쪽은 유형·구획수·요금을 모르므로 없는 값을 지어내지 않는다 (lib/parking.ts 주석).
+//
+// **서버 컴포넌트다.** 이 화면이 데이터에서 꺼내는 건 1,572곳 중 딱 한 줄인데, 클라이언트였을
+// 때는 그 한 줄을 찾자고 parking-data.json 전체(224KB, gzip 30KB)를 폰으로 내려보냈다.
+// 여기서 찾아 결과만 넘기면 번들에서 통째로 빠진다. 대신 쿼리를 서버에서 읽으므로 이 라우트는
+// 정적 프리렌더가 아니라 요청마다 렌더된다 — 1,572개 스캔이라 그 비용은 없는 셈이다.
 
-import { Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../../StatusBar";
+import BackButton from "./BackButton";
 import { meters, walkMinutes, parkingKind, feeText, feeDetail, type Lot } from "@/lib/parking";
 import PARKING from "@/data/parking-data.json";
 
@@ -29,22 +31,12 @@ const STEPS = [
   { n: 4, src: "/parking/step4.png", lines: ["차를 곧게 맞추고", "천천히 후진"] },
 ];
 
-// useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
-export default function ParkingDetailPage() {
-  return (
-    <Suspense>
-      <ParkingDetail />
-    </Suspense>
-  );
-}
+export default async function ParkingDetailPage({ searchParams }: PageProps<"/parking/detail">) {
+  const sp = await searchParams;
 
-function ParkingDetail() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const name = searchParams.get("name") ?? "주차장";
-  const at = coord(searchParams.get("lat"), searchParams.get("lng"));
-  const dest = coord(searchParams.get("destLat"), searchParams.get("destLng"));
+  const name = one(sp.name) ?? "주차장";
+  const at = coord(one(sp.lat), one(sp.lng));
+  const dest = coord(one(sp.destLat), one(sp.destLng));
 
   /*
    * 좌표가 정확히 같은 행을 찾는다. 이름으로 찾지 않는 이유 — 원본에 이름도 좌표도 똑같은 행이
@@ -61,13 +53,7 @@ function ParkingDetail() {
 
       {/* AppBar/Back — 44px 터치 영역 + 24px 화살표 (공통 앱바 규격) */}
       <div className="mx-4 flex h-14 shrink-0 items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          aria-label="뒤로"
-          className="flex size-11 shrink-0 items-center justify-center"
-        >
-          <img src="/icon-arrow-left.svg" alt="" className="size-6" />
-        </button>
+        <BackButton />
         <h1 className="min-w-0 truncate text-[18px] leading-[26px] font-bold text-[#1f1f1f]">{name}</h1>
       </div>
 
@@ -101,8 +87,13 @@ function ParkingDetail() {
   );
 }
 
+/** 서버의 searchParams 는 `?lat=1&lat=2` 면 배열로 온다. 손으로 고친 URL 이니 첫 값만 본다. */
+function one(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
 /** "33.4996" 같은 쿼리 두 개를 좌표로. 숫자가 아니면 없는 셈 친다 — URL 은 손으로 고칠 수 있는 입력이다. */
-function coord(lat: string | null, lng: string | null): [number, number] | null {
+function coord(lat: string | undefined, lng: string | undefined): [number, number] | null {
   const la = Number(lat);
   const ln = Number(lng);
   return lat && lng && Number.isFinite(la) && Number.isFinite(ln) ? [la, ln] : null;

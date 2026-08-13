@@ -105,6 +105,23 @@ function detailQuery(spot: ParkingSpot, sp: URLSearchParams) {
   return String(q);
 }
 
+/**
+ * 카카오맵 길찾기로 넘긴다.
+ *
+ * 이 앱에 길 안내를 만들 이유가 없다 — 초보 운전자도 내비는 이미 쓰던 걸 쓴다.
+ * 여기가 답하는 질문은 "어느 주차장이냐"까지고, 거기서 끊는 게 맞다.
+ * 폰에서는 카카오맵 앱이 열리고, 없으면 웹 지도로 뜬다.
+ *
+ * 이름에 쉼표가 든 곳이 있어("함덕리 1002-83, 1004-5, 6") 반드시 인코딩해야 한다 —
+ * 카카오 링크가 쉼표로 이름·위도·경도를 가르기 때문에 안 하면 좌표가 밀린다.
+ */
+const navigateTo = (spot: ParkingSpot) =>
+  window.open(
+    `https://map.kakao.com/link/to/${encodeURIComponent(spot.name)},${spot.at[0]},${spot.at[1]}`,
+    "_blank",
+    "noopener",
+  );
+
 /** 같은 주차장인가. 이름이 겹치는 곳("금능리 1428" 류)이 있어 좌표까지 본다. */
 const same = (a: ParkingSpot | null, b: ParkingSpot) =>
   !!a && a.name === b.name && a.at[0] === b.at[0] && a.at[1] === b.at[1];
@@ -370,6 +387,7 @@ function Parking() {
             walkM={Math.round(meters(anchor, selected.at))}
             anchored={false}
             onClose={() => setSelected(null)}
+            onDetail={() => router.push(`/parking/detail?${detailQuery(selected, searchParams)}`)}
           />
         ))}
 
@@ -464,11 +482,13 @@ function SpotSheet({
   walkM,
   anchored,
   onClose,
+  onDetail,
 }: {
   spot: ParkingSpot;
   walkM: number;
   anchored: boolean;
   onClose: () => void;
+  onDetail: () => void;
 }) {
   // 와이어프레임의 "무료 · 24시간 · 120면"에서 24시간을 뺐다 — 예시로 적힌 값이고, 데이터로
   // 뒷받침되지 않는다. 원본 CSV 는 1,657곳이 전부 00:00~23:59 인데 유료 117곳도 그렇다.
@@ -531,22 +551,17 @@ function SpotSheet({
         </p>
       )}
 
-      {/*
-        두 버튼 다 아직 갈 곳이 없어 비활성이다.
-        · 상세 보기 → PARK-02(Figma 2153:3136) 화면이 아직 없다
-        · 바로 안내 → 이 앱에 길 안내가 없다
-        ponytail: 그 화면·경로가 생기면 disabled 를 떼고 onClick 을 붙인다.
-      */}
+      {/* 상세는 PARK-02(/parking/detail), 안내는 카카오맵으로 나간다 (navigateTo 주석) */}
       <div className="mt-5 flex gap-2.5">
         <button
-          disabled
-          className="h-[52px] shrink-0 rounded-xl bg-[#f2f2f2] px-6 text-[14px] font-bold text-[#1f1f1f] disabled:opacity-45"
+          onClick={onDetail}
+          className="h-[52px] shrink-0 rounded-xl bg-[#f2f2f2] px-6 text-[14px] font-bold text-[#1f1f1f] transition active:scale-[0.98]"
         >
           상세 보기
         </button>
         <button
-          disabled
-          className="h-[52px] flex-1 rounded-xl bg-[#ff6114] text-[14px] font-bold text-white disabled:opacity-45"
+          onClick={() => navigateTo(spot)}
+          className="h-[52px] flex-1 rounded-xl bg-[#ff6114] text-[14px] font-bold text-white transition active:scale-[0.98]"
         >
           이 주차장으로 바로 안내
         </button>
