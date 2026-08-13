@@ -6,7 +6,7 @@
 //
 // 메인화면(/home)의 "탐나는전 사용처" 카드로 들어온다.
 //
-// 찍는 것은 **탐나는전 캐시백 가맹점**뿐이다 (data/tamna-data.json, 12,115곳).
+// 찍는 것은 **탐나는전 캐시백 가맹점**뿐이다 (data/tamna-data.json, 11,912곳).
 // 착한가격업소는 여기 섞지 않는다 — 둘 다 놓으면 "여기서 결제하면 10% 돌려받는다"는
 // 이 화면 한 줄이 흐려진다. 착한가격 데이터와 lib/goodprice.ts 는 그대로 남아 있다.
 
@@ -25,7 +25,7 @@ const SHOPS = TAMNA.shops as Shop[];
  * 반경 — 도보권 1km.
  *
  * 착한가격업소(417곳)는 1km로 자르면 성산 1곳·협재 0곳이라 3km를 써야 했다.
- * 탐나는전은 12,115곳이라 그 전제가 뒤집힌다 — 실측으로 1km 안에 제주시청 823곳,
+ * 탐나는전은 11,912곳이라 그 전제가 뒤집힌다 — 실측으로 1km 안에 제주시청 823곳,
  * 서귀포 올레시장 682곳, 협재 111곳, 성산 47곳이다. 걸어갈 거리 밖까지 넓힐 이유가 없다.
  */
 const RADIUS_M = 1000;
@@ -34,8 +34,24 @@ const RADIUS_M = 1000;
 const START: LatLng = [33.4996, 126.5312];
 const START_LEVEL = 5;
 
-/** 검색으로 옮겨갈 때 축척. 반경 1km가 화면에 담기는 정도다. */
-const FOCUS_LEVEL = 5;
+/**
+ * 옮겨갈 때 축척을 데이터에 맞춘다 — 화면에 담을 반경.
+ *
+ * 반경(1km)에 맞춰 고정하면 밀집 지역에서 화면이 이상해진다: 제주시청 1km 안에 823곳인데
+ * 40곳만 찍으니 가까운 40곳이 150m 안에 다 들어와, 지도는 1.5km를 보여주는데 핀은 한 덩어리로
+ * 뭉쳐 서로를 가린다. 그래서 반경이 아니라 **실제로 찍는 40곳이 퍼진 범위**에 축척을 맞춘다.
+ */
+function fitRadius(at: LatLng): number {
+  const near = nearbyTamna("", at, SHOPS, RADIUS_M);
+  if (!near) return RADIUS_M;
+  return Math.max(near.shops[near.shops.length - 1].distM, MIN_FIT_M);
+}
+
+/**
+ * 아무리 뭉쳐 있어도 이보다 더 당기지는 않는다.
+ * 40곳이 30m 안에 있는 골목이 있는데, 거기 맞춰 당기면 건물 몇 채만 남고 어디인지 알 수 없다.
+ */
+const MIN_FIT_M = 250;
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function AroundPage() {
@@ -66,15 +82,17 @@ function Around() {
 
   /**
    * 기준 장소 이름. 와이어프레임의 "성판악 탐방안내소 주변" 자리다.
-   * 검색하기 전에는 지도를 움직이는 대로 기준이 바뀌므로 장소 이름을 지어내지 않는다 —
-   * 어디서 잰 거리인지 밝히지 않으면 "도보 3분"이 근거 없는 숫자가 된다 (/parking 과 같은 판단).
+   *
+   * **사용자가 지도를 직접 끌면 버린다** (아래 onIdle). 현위치를 눌러 "현재 위치에서"가 뜬 뒤
+   * 지도를 반대편으로 끌었는데 문구가 그대로면 거짓말이 된다 — 어디서 잰 거리인지 밝히는 게
+   * 이 줄의 일이라, 틀린 이름보다 이름 없는 쪽이 낫다.
    */
   const [label, setLabel] = useState<string | null>(null);
 
-  const move = useRef<((at: LatLng, level?: number) => void) | null>(null);
+  const move = useRef<((at: LatLng, radiusM: number) => void) | null>(null);
 
   const near = useMemo(
-    () => nearbyTamna(label ?? "지도 가운데", center, SHOPS, RADIUS_M),
+    () => nearbyTamna(label ?? "이 근처", center, SHOPS, RADIUS_M),
     [label, center],
   );
 
@@ -101,6 +119,51 @@ function Around() {
     document.getElementById(idOf(selected))?.scrollIntoView({ block: "nearest" });
   }, [selected]);
 
+  /**
+   * 현재 위치로 옮긴다 (/parking 의 locate 와 같다).
+   *
+   * 좌표를 받은 **뒤에만** anchor 를 세운다 — 위치를 못 받았는데 머리글에 "현재 위치에서"가
+   * 떠 있으면 제주시청에서 잰 숫자를 내 옆이라고 말하는 셈이 된다.
+   */
+  function locate(silent = false) {
+    if (!("geolocation" in navigator)) {
+      if (!silent) setError("이 브라우저는 위치 확인을 지원하지 않습니다");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setBusy(false);
+        setSelected(null);
+        setLabel("현재 위치");
+        move.current?.([coords.latitude, coords.longitude], fitRadius([coords.latitude, coords.longitude]));
+      },
+      (err) => {
+        setBusy(false);
+        // 열자마자 부른 건(silent) 실패해도 조용히 넘어간다. 위치를 쓸 생각이 없는 사람에게
+        // 묻지도 않은 경고가 화면에 계속 붙어 있으면, 정작 버튼을 눌렀을 때의 경고가 안 읽힌다.
+        if (silent) return;
+        setError(
+          err.code === err.PERMISSION_DENIED
+            ? "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해주세요."
+            : "현재 위치를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }
+
+  // 열자마자 한 번 물어본다. 이 화면은 "내 주변"이 기본값이라 버튼을 눌러야만 현재 위치가
+  // 되면 첫 화면은 늘 제주시청이다. 지도가 만들어진 뒤여야 move 로 옮길 수 있어 ready 를 기다린다.
+  // 거부당하면 START(제주시청)에 머물고 머리글도 "이 근처에서"로 남는다.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (ready) locate(true);
+    // locate 는 매 렌더 새로 만들어지지만 여기서는 지도가 준비된 그 순간에만 부르면 된다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
   async function search(e: React.FormEvent) {
     e.preventDefault();
     const q = query.trim();
@@ -112,12 +175,23 @@ function Around() {
     if ("error" in found) return setError(found.error);
     setSelected(null);
     setLabel(found.label);
-    move.current?.(found.coord, FOCUS_LEVEL);
+    move.current?.(found.coord, fitRadius(found.coord));
   }
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f2f5f0]">
-      <Map pins={pins} selected={selected} onPick={setSelected} onIdle={setCenter} move={move} />
+      <Map
+        pins={pins}
+        selected={selected}
+        onPick={setSelected}
+        onIdle={(at, byUser) => {
+          setCenter(at);
+          if (byUser) setLabel(null);
+        }}
+        move={move}
+        onReady={() => setReady(true)}
+        fy={focusY(open)}
+      />
 
       {/* 지도가 화면을 꽉 채우고 나머지는 그 위에 뜬다 (/parking 과 같은 full-map) */}
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
@@ -125,24 +199,24 @@ function Around() {
           <StatusBar tone="" />
         </div>
 
-        {/* 앱바 — 와이어프레임은 ← 와 제목만 있다. 프로필 쿼리를 그대로 돌려줘야
-            메인화면이 프로필을 되읽는다 (lib/profile.ts). */}
-        <div className="pointer-events-auto flex shrink-0 items-center gap-2 px-4">
+        {/*
+          기준 장소 — 와이어프레임의 "성판악 탐방안내소 주변" 자리를 검색 입력으로 쓴다.
+          제목("가는 길 주변")은 따로 두지 않고 ← 를 검색바 안에 넣었다 (/parking 과 같은 모양) —
+          지도 위에 제목 줄을 한 겹 더 얹으면 그만큼 지도가 가려지고, 실제로 핀 위에 글자가 겹쳤다.
+          프로필 쿼리를 그대로 돌려줘야 메인화면이 프로필을 되읽는다 (lib/profile.ts).
+        */}
+        <form
+          onSubmit={search}
+          className="pointer-events-auto mx-[18px] flex h-[58px] shrink-0 items-center gap-2 rounded-[29px] bg-white pr-[18px] pl-3 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]"
+        >
           <button
+            type="button"
             onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="뒤로"
             className="grid size-9 shrink-0 place-items-center rounded-full text-[18px] text-[#1f1f1f] active:bg-black/5"
           >
             ←
           </button>
-          <h1 className="text-[18px] font-bold text-[#1f1f1f]">가는 길 주변</h1>
-        </div>
-
-        {/* 기준 장소 — 와이어프레임의 "성판악 탐방안내소 주변" 자리를 검색 입력으로 쓴다 */}
-        <form
-          onSubmit={search}
-          className="pointer-events-auto mx-[18px] mt-2.5 flex h-[46px] shrink-0 items-center gap-2 rounded-[23px] bg-white pr-4 pl-[18px] shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]"
-        >
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -172,6 +246,7 @@ function Around() {
       <Sheet
         open={open}
         onToggle={() => setOpen((v) => !v)}
+        onLocate={locate}
         label={label}
         kinds={kinds}
         kind={kind}
@@ -187,6 +262,7 @@ function Around() {
 type SheetProps = {
   open: boolean;
   onToggle: () => void;
+  onLocate: () => void;
   label: string | null;
   kinds: string[];
   kind: string | null;
@@ -200,13 +276,23 @@ type SheetProps = {
  * 하단 시트 — 와이어프레임 두 프레임(올린 / 내린)이 여기 한 상태값이다.
  * 접어도 칩은 남긴다. 칩까지 사라지면 지도만 남아 무엇을 보고 있는지 알 수 없다.
  */
-function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, onPick }: SheetProps) {
+function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, selected, onPick }: SheetProps) {
   return (
     <aside
       className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] transition-[max-height] duration-200 ${
         open ? "max-h-[62%]" : "max-h-[122px]"
       }`}
     >
+      {/* 현위치 버튼은 시트에 붙여 둔다 — 화면 아래에 두면 시트(62%)가 덮고, 시트를 접었다
+          폈다 할 때마다 자리를 다시 계산해야 한다. 시트에 붙이면 시트를 따라 같이 움직인다. */}
+      <button
+        onClick={onLocate}
+        aria-label="현재 위치"
+        className="absolute -top-[58px] right-5 grid size-[46px] place-items-center rounded-full bg-white text-[20px] text-[#2e9c85] shadow-[0_2px_8px_rgba(0,0,0,0.15)] active:bg-black/5"
+      >
+        ◎
+      </button>
+
       <button
         onClick={onToggle}
         aria-label={open ? "목록 접기" : "목록 펼치기"}
@@ -228,7 +314,10 @@ function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, on
       </div>
 
       <p className="shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]">
-        {label ? `${label}에서` : "지도 가운데에서"} 가까운 순 · {shops.length}곳
+        {/* label 이 없다는 건 위치를 못 받았거나(권한 거부) 사용자가 지도를 직접 움직였다는 뜻이다.
+            그때 "현재 위치에서"라고 적으면 제주시청에서 잰 숫자를 내 옆이라고 말하게 된다.
+            "이 근처"는 기준을 지도에 맡기는 말이다 — 지도가 눈앞에 있으니 어디인지는 이미 보인다. */}
+        {label ? `${label}에서` : "이 근처에서"} 가까운 순 · {shops.length}곳
       </p>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
@@ -326,36 +415,62 @@ const PIN_ON = pin(
 );
 
 /**
- * 지도의 세로 어디를 "여기"로 삼을지 (컨테이너 높이 대비).
- *
- * 지도는 화면을 꽉 채우지만 아래 62%는 하단 시트가 덮는다. 그래서 지도 한가운데(0.5)를
- * 기준으로 잡으면 반경 1km 안 가맹점이 **전부 시트 뒤에 숨는다** — 실제로 그랬다.
- * 시트 위로 보이는 띠(0~0.38)의 한가운데를 기준으로 삼아야 핀과 목록이 같은 곳을 가리킨다.
+ * 우리가 지도를 옮긴 뒤 멎기까지 넉넉히 잡은 시간.
+ * 한 번 옮기면 idle 이 여러 번 온다(setCenter·setLevel·panBy). 이 안에 온 건 사용자가 끈 게 아니다.
  */
-const FOCUS_Y = 0.19;
+const SETTLE_MS = 1200;
 
 /**
- * 지도에서 기준으로 삼을 좌표. 화면 위쪽 띠의 가운데다 (FOCUS_Y).
+ * 하단 시트가 덮는 높이 (화면 대비). Sheet 의 max-h 클래스와 **같이** 움직여야 한다 —
+ * 한쪽만 바뀌면 기준점이 시트 뒤로 숨거나 화면 꼭대기로 올라붙는다.
+ */
+const SHEET_OPEN = 0.62;
+const SHEET_SHUT = 0.15; // max-h-[122px] ÷ 폰 높이(812)
+
+/** 위에서 지도를 덮는 것 — 상태바 + 검색바 (약 120px ÷ 812). 여기도 핀을 두면 안 보인다. */
+const TOP_CHROME = 0.15;
+
+/**
+ * 지도의 세로 어디를 "여기"로 삼을지 (컨테이너 높이 대비).
+ *
+ * 지도는 화면을 꽉 채우지만 아래쪽은 하단 시트가 덮는다. 그래서 지도 한가운데(0.5)를
+ * 기준으로 잡으면 반경 1km 안 가맹점이 **전부 시트 뒤에 숨는다** — 실제로 그랬다.
+ * 위로는 검색바(TOP_CHROME)가, 아래로는 시트가 덮는다. 그 사이 **진짜 보이는 띠**의
+ * 한가운데를 기준으로 삼아야 핀과 목록이 같은 곳을 가리킨다. 검색바를 안 빼면 핀이
+ * 검색바 뒤에 숨는다 — 이것도 실제로 그랬다.
+ *
+ * 시트를 접으면 보이는 띠가 넓어지므로 기준점도 같이 내려가야 한다. 고정값으로 두면
+ * 접었을 때 핀이 전부 검색바 밑으로 몰리고 아래쪽 지도가 텅 빈다 — 이것도 실제로 그랬다.
+ */
+const focusY = (open: boolean) => (TOP_CHROME + (1 - (open ? SHEET_OPEN : SHEET_SHUT))) / 2;
+
+/**
+ * 지도에서 기준으로 삼을 좌표. 시트 위로 보이는 띠의 가운데다 (focusY).
  *
  * 픽셀 → 좌표 변환(coordsFromContainerPoint)은 쓰지 않는다. 실려 오는 SDK 빌드의
  * Projection 에는 그 메서드가 없어서 조용히 지도 한가운데로 물러났다 — 핀이 전부
  * 시트 뒤에 숨은 채로. 대신 문서화된 getBounds() 로 화면 전체가 덮는 위도 폭을 재고,
- * 그 폭의 (0.5 - FOCUS_Y) 만큼 북쪽으로 올린다. 화면 높이 = 위도 폭이라 비율이 그대로 맞는다.
+ * 그 폭의 (0.5 - fy) 만큼 북쪽으로 올린다. 화면 높이 = 위도 폭이라 비율이 그대로 맞는다.
  */
-function focus(map: any): LatLng {
+function focus(map: any, fy: number): LatLng {
   const c = map.getCenter();
   const b = map.getBounds?.();
   if (!b) return [c.getLat(), c.getLng()];
   const latSpan = b.getNorthEast().getLat() - b.getSouthWest().getLat();
-  return [c.getLat() + latSpan * (0.5 - FOCUS_Y), c.getLng()];
+  return [c.getLat() + latSpan * (0.5 - fy), c.getLng()];
 }
 
 type MapProps = {
   pins: TamnaShop[];
   selected: TamnaShop | null;
   onPick: (s: TamnaShop) => void;
-  onIdle: (at: LatLng) => void;
-  move: React.RefObject<((at: LatLng, level?: number) => void) | null>;
+  /** byUser 는 우리가 옮긴 게 아니라 사용자가 지도를 끌었다는 뜻이다. */
+  onIdle: (at: LatLng, byUser: boolean) => void;
+  move: React.RefObject<((at: LatLng, radiusM: number) => void) | null>;
+  /** 지도가 만들어져 move 를 쓸 수 있게 된 순간. 부모가 현위치로 옮기는 시점이다. */
+  onReady: () => void;
+  /** 기준으로 삼을 세로 위치 (focusY). 시트를 접었다 펴면 바뀐다. */
+  fy: number;
 };
 
 /**
@@ -363,7 +478,7 @@ type MapProps = {
  * 거기는 경로가 다 담기도록 매번 setBounds 를 다시 걸어서, 지도를 움직이는 족족 되돌아온다.
  * (/parking 의 Map 과 같은 이유·같은 골격이다.)
  */
-function Map({ pins, selected, onPick, onIdle, move }: MapProps) {
+function Map({ pins, selected, onPick, onIdle, move, onReady, fy }: MapProps) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
@@ -374,6 +489,12 @@ function Map({ pins, selected, onPick, onIdle, move }: MapProps) {
   pick.current = onPick;
   const idle = useRef(onIdle);
   idle.current = onIdle;
+  const ready = useRef(onReady);
+  ready.current = onReady;
+  const focusRef = useRef(fy);
+  focusRef.current = fy;
+  /** 마지막으로 **우리가** 지도를 옮긴 시각. 이후 SETTLE_MS 안에 온 idle 은 사용자 조작이 아니다. */
+  const movedAt = useRef(0);
 
   useEffect(() => {
     loadSdk().then(
@@ -390,33 +511,64 @@ function Map({ pins, selected, onPick, onIdle, move }: MapProps) {
     const m = new kakao.maps.Map(box.current, { center: pt(START), level: START_LEVEL });
     map.current = m;
 
+    // move 로 옮기면 idle 이 여러 번 온다(setCenter·setLevel·panBy). 그 사이에 온 건 전부
+    // 우리가 옮긴 것으로 친다 — 사용자가 끈 것만 기준 장소 이름을 버리게 해야 한다.
     kakao.maps.event.addListener(m, "idle", () => {
-      idle.current(focus(m));
+      idle.current(focus(m, focusRef.current), Date.now() - movedAt.current > SETTLE_MS);
     });
 
     // idle 은 사용자가 지도를 움직여야 온다. 처음 열었을 때는 오지 않아서 기준점이 START(=지도
     // 한가운데) 로 남았고, 그러면 반경 안 가맹점이 전부 시트 뒤에 숨는다. 첫 타일이 깔린 뒤
     // 한 번만 직접 부른다 — 그때는 getBounds() 도 값을 준다. 이후는 idle 이 맡는다.
     const first = () => {
-      idle.current(focus(m));
+      idle.current(focus(m, focusRef.current), false);
       kakao.maps.event.removeListener(m, "tilesloaded", first);
     };
     kakao.maps.event.addListener(m, "tilesloaded", first);
 
-    move.current = (at, level) => {
-      if (level) m.setLevel(level);
-      m.setCenter(pt(at));
-      // 검색한 곳을 지도 한가운데(=시트 뒤)가 아니라 FOCUS_Y 자리에 올려둔다.
-      // 안 하면 "성판악에서 가까운 순"이라 적어놓고 성판악 북쪽 어딘가를 기준으로 재게 된다.
+    move.current = (at, radiusM) => {
+      movedAt.current = Date.now();
       const h = box.current?.clientHeight ?? 0;
-      if (h) m.panBy(0, h * (0.5 - FOCUS_Y));
+      const fy = focusRef.current;
+
+      m.setCenter(pt(at));
+
+      /*
+        축척을 데이터에 맞춘다.
+
+        setBounds(bounds, ...padding) 은 쓰지 않는다 — 이 SDK 빌드에서는 여백 인자가 먹지 않고,
+        뒤이어 부른 setCenter·panBy 까지 덮어써서 핀이 시트 뒤 한가운데로 돌아갔다.
+        (Projection 의 coordsFromContainerPoint 가 없던 것과 같은 종류의 함정이다.)
+
+        대신 지금 축척에서 **보이는 띠**가 몇 미터인지 직접 재고, 지름(2·radiusM)이 들어갈
+        때까지 한 단계씩 조인다. 레벨 한 단계는 대략 두 배라 몇 번 안에 끝난다.
+      */
+      const band = 2 * (fy - TOP_CHROME); // 검색바와 시트 사이, 실제로 보이는 세로 비율
+      const visibleM = () => {
+        const b = m.getBounds();
+        return (b.getNorthEast().getLat() - b.getSouthWest().getLat()) * 111_000 * band;
+      };
+      for (let i = 0; i < 8 && visibleM() < radiusM * 2 && m.getLevel() < 12; i++) m.setLevel(m.getLevel() + 1);
+      for (let i = 0; i < 8 && visibleM() / 2 > radiusM * 2 && m.getLevel() > 1; i++) m.setLevel(m.getLevel() - 1);
+
+      // 옮겨간 곳을 지도 한가운데(=시트 뒤)가 아니라 기준점(focusY) 자리로 올린다.
+      // 안 하면 "성판악에서 가까운 순"이라 적어놓고 성판악 북쪽 어딘가를 기준으로 재게 된다.
+      if (h) m.panBy(0, h * (0.5 - fy));
     };
+
+    ready.current();
 
     // 컨테이너가 0폭인 동안 만들어지면 축척이 터진다 (RouteMap 과 같은 이유)
     const ro = new ResizeObserver(() => m.relayout());
     ro.observe(box.current);
     return () => ro.disconnect();
   }, [sdk, move]);
+
+  // 시트를 접었다 펴면 보이는 띠가 달라지므로 기준점도 달라진다. 그런데 지도 자체는 가만히
+  // 있어서 idle 이 오지 않는다 — 여기서 직접 다시 잡아준다.
+  useEffect(() => {
+    if (sdk === "ready" && map.current) idle.current(focus(map.current, fy), false);
+  }, [sdk, fy]);
 
   useEffect(() => {
     if (sdk !== "ready" || !map.current) return;

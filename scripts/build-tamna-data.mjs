@@ -149,9 +149,20 @@ console.log(`부를 주소 ${queries.length}건 (중복 제거)`);
  */
 const save = () => {
   writeFileSync(CACHE, JSON.stringify(Object.fromEntries(cache)));
+
+  // 이름도 좌표도 같은 줄은 한 곳으로 친다 (203곳). 원본에 한 가맹점이 여러 줄로 올라온
+  // 경우이거나(관광협회처럼 4줄), 같은 건물 다른 층이 같은 좌표로 지오코딩된 경우다.
+  // 화면에서는 어차피 구분할 수 없는 핀 두 개고, 목록에도 같은 이름이 나란히 찍힌다.
+  const seen = new Set();
   const shops = targets
     .map((t) => ({ name: t.name, kind: t.kind, at: cache.get(t.query) }))
-    .filter((s) => s.at);
+    .filter((s) => {
+      if (!s.at) return false;
+      const key = `${s.name}|${s.at[0]}|${s.at[1]}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   writeFileSync(
     OUT,
     JSON.stringify({
