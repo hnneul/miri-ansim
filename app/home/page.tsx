@@ -115,7 +115,6 @@ function Home() {
       {/*
         프로모 카드 세 장. 갈 화면이 있는 것만 누를 수 있다 —
         누를 수 있어 보이는데 아무 일도 없으면 시연에서 더 나쁘다.
-        ponytail: 탐나는전(Figma 2160:2236) 화면을 만들면 그 카드에도 href 를 준다.
       */}
       <div className="mt-9 grid shrink-0 grid-cols-2 gap-3 px-6">
         <div className="flex h-[190px] flex-col rounded-2xl border border-[#dbe0e0] bg-[#f7fafa] p-[15px]">
@@ -133,7 +132,7 @@ function Home() {
         <div className="flex flex-col gap-2.5">
           {/* 쿼리를 그대로 넘겨야 주차 화면에서 뒤로 나올 때 프로필이 살아 있다 (lib/profile.ts) */}
           <PromoCard eyebrow="내 목적지 가까이" title="주차장 찾기" mark="P" href={`/parking?${searchParams}`} />
-          <PromoCard eyebrow="제주 관광객 혜택" title="탐나는전 사용처" mark="₩" />
+          <PromoCard eyebrow="제주 관광객 혜택" title="탐나는전 사용처" mark="₩" href={`/around?${searchParams}`} />
         </div>
       </div>
 
