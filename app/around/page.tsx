@@ -112,17 +112,10 @@ function Around() {
     [shops, selected],
   );
 
-  // 핀을 누르면 목록에서 그 카드로 데려간다. 목록을 접어둔 상태면 먼저 편다.
-  useEffect(() => {
-    if (!selected) return;
-    setOpen(true);
-    document.getElementById(idOf(selected))?.scrollIntoView({ block: "nearest" });
-  }, [selected]);
-
   /**
    * 현재 위치로 옮긴다 (/parking 의 locate 와 같다).
    *
-   * 좌표를 받은 **뒤에만** anchor 를 세운다 — 위치를 못 받았는데 머리글에 "현재 위치에서"가
+   * 좌표를 받은 **뒤에만** 이름을 세운다 — 위치를 못 받았는데 머리글에 "현재 위치에서"가
    * 떠 있으면 제주시청에서 잰 숫자를 내 옆이라고 말하는 셈이 된다.
    */
   function locate(silent = false) {
@@ -254,6 +247,7 @@ function Around() {
         shops={shops}
         selected={selected}
         onPick={setSelected}
+        onClear={() => setSelected(null)}
       />
     </div>
   );
@@ -270,17 +264,21 @@ type SheetProps = {
   shops: TamnaShop[];
   selected: TamnaShop | null;
   onPick: (s: TamnaShop) => void;
+  onClear: () => void;
 };
 
 /**
  * 하단 시트 — 와이어프레임 두 프레임(올린 / 내린)이 여기 한 상태값이다.
  * 접어도 칩은 남긴다. 칩까지 사라지면 지도만 남아 무엇을 보고 있는지 알 수 없다.
+ *
+ * 핀을 고르면 목록 대신 **그 한 곳만** 보여준다 (/parking 의 SpotSheet 와 같다).
+ * 목록을 그대로 두고 강조만 하면, 핀을 눌러도 화면이 그대로라 무엇을 골랐는지 알 수 없다.
  */
-function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, selected, onPick }: SheetProps) {
+function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, selected, onPick, onClear }: SheetProps) {
   return (
     <aside
       className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] transition-[max-height] duration-200 ${
-        open ? "max-h-[62%]" : "max-h-[122px]"
+        selected || open ? "max-h-[62%]" : "max-h-[122px]"
       }`}
     >
       {/* 현위치 버튼은 시트에 붙여 둔다 — 화면 아래에 두면 시트(62%)가 덮고, 시트를 접었다
@@ -293,13 +291,52 @@ function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, se
         ◎
       </button>
 
+      {/* 한 곳을 고른 상태에서는 손잡이가 목록으로 되돌아가는 문이다 (/parking 과 같은 규칙) */}
       <button
-        onClick={onToggle}
-        aria-label={open ? "목록 접기" : "목록 펼치기"}
-        aria-expanded={open}
+        onClick={selected ? onClear : onToggle}
+        aria-label={selected ? "목록으로 돌아가기" : open ? "목록 접기" : "목록 펼치기"}
+        aria-expanded={selected ? undefined : open}
         className="mx-auto block h-1 w-[38px] shrink-0 rounded-full bg-[#bfbfbf]"
       />
 
+      {selected ? (
+        <Picked shop={selected} onClose={onClear} />
+      ) : (
+        <List label={label} kinds={kinds} kind={kind} onKind={onKind} shops={shops} onPick={onPick} />
+      )}
+    </aside>
+  );
+}
+
+/** 고른 한 곳. 지도에서 핀을 눌렀을 때 목록 대신 여기가 뜬다. */
+function Picked({ shop, onClose }: { shop: TamnaShop; onClose: () => void }) {
+  return (
+    <div className="px-5 pt-4 pb-6">
+      <p className="text-[12px] font-bold text-[#ff6114]">선택한 가맹점</p>
+      <h2 className="mt-1.5 text-[19px] leading-tight font-bold text-[#1f1f1f]">{shop.name}</h2>
+      <p className="mt-2 text-[13px] text-[#525252]">
+        도보 {walkMinutes(shop.distM)}분 · {shop.kind}
+      </p>
+      <span className="mt-3 inline-block rounded-md bg-[#ffebd6] px-2 py-1 text-[11px] font-bold text-[#ff6114]">
+        탐나는전 캐시백
+      </span>
+
+      <button
+        onClick={onClose}
+        className="mt-5 h-[52px] w-full rounded-xl bg-[#f2f2f2] text-[14px] font-bold text-[#1f1f1f] active:scale-[0.99]"
+      >
+        목록으로 돌아가기
+      </button>
+    </div>
+  );
+}
+
+type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops" | "onPick">;
+
+/** 반경 안 가맹점 목록 — 시트의 기본 상태다. */
+function List({ label, kinds, kind, onKind, shops, onPick }: ListProps) {
+  return (
+    <>
       {/* 업종 칩. "전체"만 우리가 넣고 나머지(음식점·숙박·주유)는 데이터에서 나온다 (byKind).
           와이어프레임의 "관광지·카페" 칩은 그리지 않는다 — 원본 업종에 그런 값이 없다. */}
       <div className="mt-3.5 flex shrink-0 gap-2 overflow-x-auto px-5 [&::-webkit-scrollbar]:hidden">
@@ -329,10 +366,10 @@ function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, se
           </p>
         )}
         {shops.map((s) => (
-          <ShopCard key={idOf(s)} shop={s} on={same(selected, s)} onClick={() => onPick(s)} />
+          <ShopCard key={idOf(s)} shop={s} onClick={() => onPick(s)} />
         ))}
       </div>
-    </aside>
+    </>
   );
 }
 
@@ -357,14 +394,12 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
  * 와이어프레임에는 왼쪽에 음식 사진이, 아래에 "한식 · 8,000원~" 같은 대표 품목이 있다.
  * 원본 데이터에는 둘 다 없다 — 가맹점명·주소·업종뿐이다. 없는 걸 지어내느니 업종만 둔다.
  */
-function ShopCard({ shop, on, onClick }: { shop: TamnaShop; on: boolean; onClick: () => void }) {
+function ShopCard({ shop, onClick }: { shop: TamnaShop; onClick: () => void }) {
   return (
     <button
       id={idOf(shop)}
       onClick={onClick}
-      className={`mt-2.5 flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:bg-black/[0.03] ${
-        on ? "border-[#ff6114] bg-[#fff8f4]" : "border-[#ececec] bg-white"
-      }`}
+      className="mt-2.5 flex w-full items-center gap-3 rounded-2xl border border-[#ececec] bg-white p-3 text-left transition active:bg-black/[0.03]"
     >
       <span
         aria-hidden
