@@ -26,6 +26,7 @@ import {
   walkMinutes,
   isEasyParking,
   parkingKind,
+  onStreetBlind,
   feeText,
   feeDetail,
   meters,
@@ -36,6 +37,12 @@ import {
 import PARKING from "@/data/parking-data.json";
 
 const LOTS = PARKING.spots as Lot[];
+
+/**
+ * 요금·구획수 밑에 붙는 출처. 날짜를 문자열로 박지 않고 데이터에서 꺼낸다 —
+ * 데이터를 새로 받으면 화면 날짜도 같이 움직여야 한다.
+ */
+const SOURCE = `출처: ${PARKING.source} · 요금은 그 뒤로 바뀌었을 수 있습니다`;
 
 /**
  * 처음 보고 있을 곳 — 제주시청.
@@ -82,6 +89,22 @@ function emptyText(filtered: boolean, anchored: boolean) {
     : "이 근처에 등록된 주차장이 없습니다. 지도를 옮겨보세요.";
 }
 
+/**
+ * 상세 화면(/parking/detail)으로 넘길 쿼리.
+ *
+ * 주차장을 좌표로 가리킨다 — 이름은 겹치는 곳이 있어 그것만으로는 한 곳을 못 집는다.
+ * 상세 화면은 이 좌표로 공공데이터에서 원본을 되찾고, 못 찾으면(카카오 POI) 이름·주소만 쓴다.
+ * 목적지 쿼리(dest*)는 그대로 얹어 보낸다 — 거기서도 "목적지까지 도보 N분"을 쓰고, 뒤로가기가 여기로 돌아온다.
+ */
+function detailQuery(spot: ParkingSpot, sp: URLSearchParams) {
+  const q = new URLSearchParams(sp);
+  q.set("name", spot.name);
+  q.set("lat", String(spot.at[0]));
+  q.set("lng", String(spot.at[1]));
+  if (spot.addr) q.set("addr", spot.addr);
+  return String(q);
+}
+
 /** 같은 주차장인가. 이름이 겹치는 곳("금능리 1428" 류)이 있어 좌표까지 본다. */
 const same = (a: ParkingSpot | null, b: ParkingSpot) =>
   !!a && a.name === b.name && a.at[0] === b.at[0] && a.at[1] === b.at[1];
@@ -109,6 +132,9 @@ function Parking() {
   const [center, setCenter] = useState<LatLng>(dest ?? START);
   const [walk10, setWalk10] = useState(false);
   const [free, setFree] = useState(false);
+  // 와이어프레임 ChipRow 의 "공영". 굳혀둔 공공데이터 1,572곳이 전부 공영이고 카카오만 source 가
+  // 붙으므로, 켜면 카카오 쪽을 통째로 빼는 것과 같다 — lib 에 필터를 새로 뚫을 일이 아니다.
+  const [publicOnly, setPublicOnly] = useState(false);
   const [selected, setSelected] = useState<ParkingSpot | null>(null);
   // 목적지를 물고 오면 목록을 펴둔 채로 연다 — 와이어프레임(PARK-01)이 지도 아래에 목록을
   // 늘 펴두는 화면이고, 목적지 주변을 비교하러 온 사람에게 첫 화면이 빈 지도면 한 번 더 눌러야 한다.
@@ -148,9 +174,9 @@ function Parking() {
     () =>
       mergeSpots(
         spotsAround(anchor, LOTS, { walk10, free }),
-        spotsAround(anchor, pois, { walk10, free }, POI_CAP),
+        publicOnly ? [] : spotsAround(anchor, pois, { walk10, free }, POI_CAP),
       ),
-    [anchor, walk10, free, pois],
+    [anchor, walk10, free, publicOnly, pois],
   );
 
   // 고른 주차장이 화면을 옮기다 40곳 밖으로 밀려도 핀은 남긴다 —
@@ -199,7 +225,9 @@ function Parking() {
   // 시트의 "도보 N분"이 고르는 순간 0분이 된다. 고른 곳을 보여주려다 숫자를 거짓말로 만드는 셈이다.
   function pick(spot: ParkingSpot) {
     setSelected(spot);
-    setList(false);
+    // 목적지 모드에서는 확인 모달이 목록을 덮으므로 목록을 닫지 않는다 —
+    // 그래야 "다시 고르기"가 곧장 원래 목록으로 돌아온다.
+    if (!dest) setList(false);
   }
 
   return (
@@ -272,6 +300,9 @@ function Parking() {
           <Chip on={free} onClick={() => setFree((v) => !v)}>
             무료
           </Chip>
+          <Chip on={publicOnly} onClick={() => setPublicOnly((v) => !v)}>
+            공영
+          </Chip>
         </div>
 
         {/* 핀이 0곳일 때 말해주지 않으면 빈 지도만 남는다 — 칩을 켠 채 한적한 곳을 검색하면
@@ -279,7 +310,7 @@ function Parking() {
         {(error || busy || !spots.length) && (
           <p className="pointer-events-auto mx-[18px] mt-2 shrink-0 rounded-lg bg-white/95 px-3 py-2 text-[12px] leading-relaxed shadow">
             <span className={error ? "text-rose-600" : "text-[#616161]"}>
-              {error ?? (busy ? "찾는 중…" : emptyText(walk10 || free, !!dest))}
+              {error ?? (busy ? "찾는 중…" : emptyText(walk10 || free || publicOnly, !!dest))}
             </span>
           </p>
         )}
@@ -317,21 +348,36 @@ function Parking() {
         )}
       </div>
 
-      {/* 거리는 고를 때 재둔 값이 아니라 기준점에서 다시 잰다 (목적지가 있으면 고정, 없으면 지도 중심) */}
-      {selected && (
-        <SpotSheet
-          spot={selected}
-          walkM={Math.round(meters(anchor, selected.at))}
-          anchored={!!dest}
-          onClose={() => setSelected(null)}
-        />
-      )}
+      {/*
+        거리는 고를 때 재둔 값이 아니라 기준점에서 다시 잰다 (목적지가 있으면 고정, 없으면 지도 중심).
+
+        고른 뒤 무엇을 띄우는지가 두 흐름에서 다르다 — 와이어프레임이 그렇게 그려져 있다.
+        · 목적지가 있으면 PARK-01-a 확인 모달("이 주차장까지 안내해 드릴까요?")
+        · 없으면 PARK-HOME-02B 정보 시트 (요금·면수·주차형태)
+        목적지 흐름에서 정보는 다음 화면(PARK-02 상세)이 맡는다.
+      */}
+      {selected &&
+        (dest ? (
+          <ConfirmModal
+            spot={selected}
+            walkM={Math.round(meters(anchor, selected.at))}
+            onClose={() => setSelected(null)}
+            onGo={() => router.push(`/parking/detail?${detailQuery(selected, searchParams)}`)}
+          />
+        ) : (
+          <SpotSheet
+            spot={selected}
+            walkM={Math.round(meters(anchor, selected.at))}
+            anchored={false}
+            onClose={() => setSelected(null)}
+          />
+        ))}
 
       {list && (
         <SpotList
           spots={spots}
           anchored={!!dest}
-          empty={emptyText(walk10 || free, !!dest)}
+          empty={emptyText(walk10 || free || publicOnly, !!dest)}
           onPick={pick}
           onClose={() => setList(false)}
         />
@@ -352,6 +398,58 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * PARK-01-a — 목적지 흐름에서 주차장을 고르면 뜨는 확인 모달 (Figma 2153:1793).
+ *
+ * 목록을 닫지 않고 그 위를 덮는다 — "다시 고르기"가 곧장 원래 목록으로 돌아와야 한다.
+ * 캐릭터는 카드 뒤에서 고개만 내민다. 스플래시와 같은 이미지라(파일이 바이트까지 같다) 에셋을 새로 안 넣었다.
+ */
+function ConfirmModal({
+  spot,
+  walkM,
+  onClose,
+  onGo,
+}: {
+  spot: ParkingSpot;
+  walkM: number;
+  onClose: () => void;
+  onGo: () => void;
+}) {
+  return (
+    // 바깥을 누르면 닫힌다 — 모달 안 클릭이 새어 나가지 않게 카드에서 전파를 끊는다
+    <div className="absolute inset-0 z-30 flex flex-col justify-end bg-[#1f1f1f]/[0.38]" onClick={onClose}>
+      <div className="relative mx-5 mb-8" onClick={(e) => e.stopPropagation()}>
+        <img
+          src="/character/splash.png"
+          alt=""
+          className="pointer-events-none absolute -top-[84px] -right-[15px] h-[132px] w-[154px] rotate-[2.09deg] object-contain"
+        />
+        <div className="relative rounded-[18px] border border-[#c7c7c7] bg-white px-[19px] pt-[25px] pb-[38px]">
+          <h2 className="text-[18px] leading-normal font-bold text-[#1f1f1f]">이 주차장까지 안내해 드릴까요?</h2>
+          <p className="mt-[10px] truncate text-[13px] leading-normal text-[#8f8f8f]">{spot.name}</p>
+          <p className="mt-[15px] text-[14px] leading-normal font-medium text-[#1f1f1f]">
+            목적지에서 걸어서 <span className="text-[#fc7f35]">{walkMinutes(walkM)}분</span>
+          </p>
+          <div className="mt-[21px] flex gap-2.5">
+            <button
+              onClick={onClose}
+              className="h-[52px] w-[145px] shrink-0 rounded-lg border border-[#9e9e9e] bg-white text-[14px] leading-[22px] font-medium text-[#1f1f1f] active:bg-black/5"
+            >
+              다시 고르기
+            </button>
+            <button
+              onClick={onGo}
+              className="h-[52px] flex-1 rounded-lg bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.98]"
+            >
+              네, 여기로 갈게요
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -396,6 +494,12 @@ function SpotSheet({
           {spot.source === "카카오" && (
             <p className="mt-1 text-[12px] text-[#9e9e9e]">카카오맵에서 찾은 곳 · 구획수·요금은 알 수 없습니다</p>
           )}
+          {/*
+            출처와 기준일. 요금·구획수를 사실로 내놓으면서 언제 기준인지 안 밝히면,
+            넉 달 전 요금을 오늘 값인 것처럼 보여주는 셈이 된다 (착한가격업소 패널이 선정
+            시점을 적는 것과 같은 이유다). 지워진 result 화면에도 이 줄이 있었다.
+          */}
+          {spot.source !== "카카오" && <p className="mt-2 text-[11px] text-[#bdbdbd]">{SOURCE}</p>}
         </div>
         {/*
           확인된 평행주차는 초보에게 경고할 값어치가 있어 배지를 낸다. 추정 평행(노상 643곳)은
@@ -475,6 +579,16 @@ function SpotList({
       <p className="shrink-0 px-5 pt-4 pb-3 text-[15px] font-bold text-[#1f1f1f]">
         {anchored ? "목적지 주변" : "이 근처"} 주차장 {spots.length}곳
       </p>
+      {/*
+        지역 한계. 판정을 지우는 대신 못 보는 게 뭔지 말한다 (lib/parking.ts onStreetBlind).
+        여기가 목록 맨 위인 이유 — 카드마다 붙이면 같은 말을 40번 하게 되고, 시트에만 두면
+        목록을 훑는 사람은 못 본다.
+      */}
+      {onStreetBlind(spots) && (
+        <p className="mx-5 mb-3 shrink-0 rounded-lg bg-[#fff5eb] px-3 py-2 text-[11px] leading-relaxed text-[#8a6d3b]">
+          서귀포시는 공개 데이터에 도로변 주차장이 없습니다. 실제보다 적게 나오고, 평행주차 안내도 뜨지 않습니다.
+        </p>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
         {spots.length === 0 && <p className="py-6 text-center text-[13px] leading-relaxed text-[#616161]">{empty}</p>}
         {/* key 가 순번인 이유 — 원본 데이터에 이름도 좌표도 똑같은 행이 15쌍 있다
