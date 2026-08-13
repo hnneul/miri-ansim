@@ -29,6 +29,7 @@ import {
   feeText,
   feeDetail,
   meters,
+  REACH_M,
   type Lot,
   type ParkingSpot,
 } from "@/lib/parking";
@@ -66,6 +67,21 @@ export default function ParkingPage() {
   );
 }
 
+/**
+ * 주차장이 0곳일 때 할 말.
+ *
+ * 칩 때문에 비었는지, 원래 그 동네에 없는지를 갈라서 말한다 — 칩이 다 꺼져 있는데
+ * "칩을 꺼보세요"라고 하면 사용자가 할 수 있는 일이 없는 안내가 된다.
+ * 실제로 성판악(와이어프레임의 예시 목적지)이 그렇다: 국립공원이 직접 운영하는 주차장이라
+ * 시·군 공공데이터에도, 카카오 주차장 카테고리에도 안 잡혀 두 출처 모두 0곳이 나온다.
+ */
+function emptyText(filtered: boolean, anchored: boolean) {
+  if (filtered) return "조건에 맞는 주차장이 없습니다. 칩을 꺼보세요.";
+  return anchored
+    ? `목적지에서 걸어갈 만한 거리(${REACH_M / 1000}km) 안에 등록된 주차장이 없습니다.`
+    : "이 근처에 등록된 주차장이 없습니다. 지도를 옮겨보세요.";
+}
+
 /** 같은 주차장인가. 이름이 겹치는 곳("금능리 1428" 류)이 있어 좌표까지 본다. */
 const same = (a: ParkingSpot | null, b: ParkingSpot) =>
   !!a && a.name === b.name && a.at[0] === b.at[0] && a.at[1] === b.at[1];
@@ -74,13 +90,29 @@ function Parking() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  /*
+   * 목적지를 물고 들어왔는가 (/destination 의 "근처 주차장 보기").
+   * 좌표까지 받는 이유는 거기 onParking 주석에 있다. URL 은 사용자가 고칠 수 있는 입력이라
+   * 숫자가 아니면 없는 셈 친다 — 그때는 목적지 없는 원래 화면(메인의 "주차장 찾기")으로 돈다.
+   */
+  const destName = searchParams.get("dest");
+  const destLat = searchParams.get("destLat");
+  const destLng = searchParams.get("destLng");
+  const dest = useMemo<LatLng | null>(() => {
+    const la = Number(destLat);
+    const ln = Number(destLng);
+    return Number.isFinite(la) && Number.isFinite(ln) && destLat && destLng ? [la, ln] : null;
+  }, [destLat, destLng]);
+
   // 지도가 알려주는 값이다 — 여기서 지도로 되돌려 주지 않는다. 되돌리면 핀이 갱신될 때마다
   // 중심이 다시 잡혀서 사용자가 지도를 움직일 수 없다 (RouteMap 이 경로에 맞춰 하는 일).
-  const [center, setCenter] = useState<LatLng>(START);
+  const [center, setCenter] = useState<LatLng>(dest ?? START);
   const [walk10, setWalk10] = useState(false);
   const [free, setFree] = useState(false);
   const [selected, setSelected] = useState<ParkingSpot | null>(null);
-  const [list, setList] = useState(false);
+  // 목적지를 물고 오면 목록을 펴둔 채로 연다 — 와이어프레임(PARK-01)이 지도 아래에 목록을
+  // 늘 펴두는 화면이고, 목적지 주변을 비교하러 온 사람에게 첫 화면이 빈 지도면 한 번 더 눌러야 한다.
+  const [list, setList] = useState(!!dest);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,25 +123,34 @@ function Parking() {
   const [pois, setPois] = useState<Lot[]>([]);
   const fetched = useRef<LatLng | null>(null);
 
+  /*
+   * 거리·목록의 기준점. 목적지가 있으면 거기에 못 박고, 없으면 예전처럼 지도 가운데를 따라간다.
+   *
+   * 목적지가 있을 때 지도를 따라가면 안 된다 — 카드에 적히는 "목적지까지 도보 N분"이 지도를
+   * 밀 때마다 바뀌어 버려서, 목적지까지의 거리가 아니라 지금 보고 있는 자리까지의 거리가 된다.
+   * 그러면 이 화면이 답하려는 질문("목적지 옆에 뭐가 있나")에 답을 못 한다.
+   */
+  const anchor = dest ?? center;
+
   // 지도를 조금 움직일 때마다 부르면 팬 한 번에 요청이 여러 개 나간다. 반경 2km 로 받아오므로
-  // REFETCH_M 만큼 움직이기 전에는 받아둔 걸 그대로 쓴다.
+  // REFETCH_M 만큼 움직이기 전에는 받아둔 걸 그대로 쓴다. (목적지가 있으면 기준이 안 움직여 한 번만 돈다.)
   useEffect(() => {
-    if (fetched.current && meters(fetched.current, center) < REFETCH_M) return;
-    fetched.current = center;
+    if (fetched.current && meters(fetched.current, anchor) < REFETCH_M) return;
+    fetched.current = anchor;
     // 실패해도 화면엔 알리지 않는다 — 공공데이터 40곳은 그대로 떠 있어서 화면이 비지 않고,
     // 여기서 오류 문구를 띄우면 사용자가 할 수 있는 일이 없는 경고만 하나 더 얹는 셈이다.
-    findParkingNear(center).then((r) => !("error" in r) && setPois(r.spots));
-  }, [center]);
+    findParkingNear(anchor).then((r) => !("error" in r) && setPois(r.spots));
+  }, [anchor]);
 
-  // 두 출처를 같은 기준으로 잰다 — 카카오 쪽 거리도 지금 지도 중심에서 다시 계산한다.
+  // 두 출처를 같은 기준으로 잰다 — 카카오 쪽 거리도 기준점에서 다시 계산한다.
   // "무료" 칩을 켜면 카카오 쪽은 통째로 빠진다. 요금을 모르는 곳을 무료라고 보여줄 수는 없다.
   const spots = useMemo(
     () =>
       mergeSpots(
-        spotsAround(center, LOTS, { walk10, free }),
-        spotsAround(center, pois, { walk10, free }, POI_CAP),
+        spotsAround(anchor, LOTS, { walk10, free }),
+        spotsAround(anchor, pois, { walk10, free }, POI_CAP),
       ),
-    [center, walk10, free, pois],
+    [anchor, walk10, free, pois],
   );
 
   // 고른 주차장이 화면을 옮기다 40곳 밖으로 밀려도 핀은 남긴다 —
@@ -163,7 +204,7 @@ function Parking() {
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f2f5f0]">
-      <Map pins={pins} selected={selected} onPick={setSelected} onIdle={setCenter} move={move} />
+      <Map pins={pins} selected={selected} onPick={setSelected} onIdle={setCenter} move={move} start={dest ?? START} dest={dest} />
 
       {/* 지도가 화면을 꽉 채우고 나머지는 그 위에 뜬다 (와이어프레임의 full-map) */}
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
@@ -177,29 +218,50 @@ function Parking() {
           동그란 버튼을 따로 띄우면 검색바와 겹치고, 지도를 그만큼 더 가린다.
           프로필 쿼리를 그대로 돌려줘야 메인화면이 프로필을 되읽는다 (lib/profile.ts).
         */}
-        <form
-          onSubmit={search}
-          className="pointer-events-auto mx-[18px] flex h-[58px] shrink-0 items-center gap-2 rounded-[29px] bg-white pr-[18px] pl-3 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]"
-        >
-          <button
-            type="button"
-            onClick={() => router.push(`/home?${searchParams}`)}
-            aria-label="뒤로"
-            className="grid size-9 shrink-0 place-items-center rounded-full text-[18px] text-[#1f1f1f] active:bg-black/5"
+        {/*
+          목적지를 물고 왔으면 검색칸 대신 그 이름을 보여준다 (와이어프레임 PARK-01 의 destination 칩).
+          여기서 검색을 열어두면 지도만 움직이고 목록은 목적지에 붙어 있어 둘이 어긋난다 —
+          기준을 바꾸고 싶으면 목적지 화면에서 다시 고르는 게 맞는 길이다.
+        */}
+        {dest ? (
+          <div className="pointer-events-auto mx-[18px] flex h-[58px] shrink-0 items-center gap-2 rounded-[29px] bg-white pr-[18px] pl-3 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]">
+            <button
+              onClick={() => router.push(`/destination?${searchParams}`)}
+              aria-label="뒤로"
+              className="grid size-9 shrink-0 place-items-center rounded-full text-[18px] text-[#1f1f1f] active:bg-black/5"
+            >
+              ←
+            </button>
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#1f1f1f]">
+              {destName ?? "목적지"}
+            </span>
+            <span className="shrink-0 text-[12px] text-[#9e9e9e]">주변 주차장</span>
+          </div>
+        ) : (
+          <form
+            onSubmit={search}
+            className="pointer-events-auto mx-[18px] flex h-[58px] shrink-0 items-center gap-2 rounded-[29px] bg-white pr-[18px] pl-3 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]"
           >
-            ←
-          </button>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="목적지 또는 주소 검색"
-            aria-label="목적지 또는 주소"
-            className="min-w-0 flex-1 text-[14px] text-[#1f1f1f] outline-none placeholder:text-[#a6a6a6]"
-          />
-          <button type="submit" aria-label="검색" disabled={busy} className="shrink-0 text-[17px] leading-none text-[#1f1f1f] disabled:opacity-40">
-            ⌕
-          </button>
-        </form>
+            <button
+              type="button"
+              onClick={() => router.push(`/home?${searchParams}`)}
+              aria-label="뒤로"
+              className="grid size-9 shrink-0 place-items-center rounded-full text-[18px] text-[#1f1f1f] active:bg-black/5"
+            >
+              ←
+            </button>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="목적지 또는 주소 검색"
+              aria-label="목적지 또는 주소"
+              className="min-w-0 flex-1 text-[14px] text-[#1f1f1f] outline-none placeholder:text-[#a6a6a6]"
+            />
+            <button type="submit" aria-label="검색" disabled={busy} className="shrink-0 text-[17px] leading-none text-[#1f1f1f] disabled:opacity-40">
+              ⌕
+            </button>
+          </form>
+        )}
 
         {/* 필터 칩. 켠 값은 spotsAround 가 그대로 받는다 — 칩 이름과 기준이 어긋나지 않게
             도보 10분의 반경(WALK10_M)은 lib/parking.check.ts 가 분수 표시와 묶어 검증한다. */}
@@ -217,7 +279,7 @@ function Parking() {
         {(error || busy || !spots.length) && (
           <p className="pointer-events-auto mx-[18px] mt-2 shrink-0 rounded-lg bg-white/95 px-3 py-2 text-[12px] leading-relaxed shadow">
             <span className={error ? "text-rose-600" : "text-[#616161]"}>
-              {error ?? (busy ? "찾는 중…" : "조건에 맞는 주차장이 없습니다. 칩을 끄거나 지도를 옮겨보세요.")}
+              {error ?? (busy ? "찾는 중…" : emptyText(walk10 || free, !!dest))}
             </span>
           </p>
         )}
@@ -255,17 +317,24 @@ function Parking() {
         )}
       </div>
 
-      {/* 거리는 고를 때 재둔 값이 아니라 지금 지도 중심에서 다시 잰다 — 지도를 옮기면 같이 바뀐다 */}
+      {/* 거리는 고를 때 재둔 값이 아니라 기준점에서 다시 잰다 (목적지가 있으면 고정, 없으면 지도 중심) */}
       {selected && (
         <SpotSheet
           spot={selected}
-          walkM={Math.round(meters(center, selected.at))}
+          walkM={Math.round(meters(anchor, selected.at))}
+          anchored={!!dest}
           onClose={() => setSelected(null)}
         />
       )}
 
       {list && (
-        <SpotList spots={spots} onPick={pick} onClose={() => setList(false)} />
+        <SpotList
+          spots={spots}
+          anchored={!!dest}
+          empty={emptyText(walk10 || free, !!dest)}
+          onPick={pick}
+          onClose={() => setList(false)}
+        />
       )}
     </div>
   );
@@ -289,11 +358,20 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 /**
  * PARK-HOME-02B — 고른 주차장 한 곳.
  *
- * "도보 N분"의 기준은 목적지가 아니라 **지도 가운데**다. 이 화면에는 목적지가 없어서
- * 와이어프레임의 "목적지까지 도보 4분"을 그대로 쓸 수 없다 — 기준을 안 밝히면 어디서
- * 잰 값인지 알 수 없는 숫자가 된다.
+ * "도보 N분"이 어디서 잰 값인지 문구로 밝힌다. 목적지를 물고 왔으면(anchored) 목적지까지고,
+ * 아니면 지도 가운데까지다 — 기준을 안 밝히면 어디서 잰 값인지 알 수 없는 숫자가 된다.
  */
-function SpotSheet({ spot, walkM, onClose }: { spot: ParkingSpot; walkM: number; onClose: () => void }) {
+function SpotSheet({
+  spot,
+  walkM,
+  anchored,
+  onClose,
+}: {
+  spot: ParkingSpot;
+  walkM: number;
+  anchored: boolean;
+  onClose: () => void;
+}) {
   // 와이어프레임의 "무료 · 24시간 · 120면"에서 24시간을 뺐다 — 예시로 적힌 값이고, 데이터로
   // 뒷받침되지 않는다. 원본 CSV 는 1,657곳이 전부 00:00~23:59 인데 유료 117곳도 그렇다.
   // 유료 주차장이 24시간 개방일 리 없으니 그 컬럼은 운영시간이 아니라 미입력 기본값이다.
@@ -309,7 +387,9 @@ function SpotSheet({ spot, walkM, onClose }: { spot: ParkingSpot; walkM: number;
           <h2 className="mt-1.5 text-[19px] leading-tight font-bold text-[#1f1f1f]">{spot.name}</h2>
           {/* 이름이 번지뿐인 곳이 91%다 — 시·읍면동을 붙여야 어디인지 보인다 */}
           {spot.addr && <p className="mt-1 text-[12px] text-[#9e9e9e]">{spot.addr}</p>}
-          <p className="mt-2 text-[13px] text-[#525252]">지도 가운데에서 도보 {walkMinutes(walkM)}분</p>
+          <p className="mt-2 text-[13px] text-[#525252]">
+            {anchored ? "목적지까지" : "지도 가운데에서"} 도보 {walkMinutes(walkM)}분
+          </p>
           <p className="mt-1.5 text-[13px] text-[#525252]">{info}</p>
           {feeDetail(spot) && <p className="mt-1 text-[12px] text-[#9e9e9e]">{feeDetail(spot)}</p>}
           {/* 어디서 온 정보인지 밝힌다 — 구획수·요금이 왜 비어 있는지가 여기서 설명된다 */}
@@ -375,17 +455,28 @@ function SpotSheet({ spot, walkM, onClose }: { spot: ParkingSpot; walkM: number;
  * "목록으로 보기" — 지도에 찍힌 그 40곳을 그대로 글로 본다.
  * 핀은 겹치면 서로를 가리지만 목록은 안 가린다. 새 데이터도 새 화면도 필요 없다.
  */
-function SpotList({ spots, onPick, onClose }: { spots: ParkingSpot[]; onPick: (s: ParkingSpot) => void; onClose: () => void }) {
+function SpotList({
+  spots,
+  anchored,
+  empty,
+  onPick,
+  onClose,
+}: {
+  spots: ParkingSpot[];
+  anchored: boolean;
+  /** 0곳일 때 할 말. 부르는 쪽이 만든다 — 지도 위 알림줄과 문구가 갈리면 안 된다 (emptyText) */
+  empty: string;
+  onPick: (s: ParkingSpot) => void;
+  onClose: () => void;
+}) {
   return (
     <aside className="absolute inset-x-0 bottom-0 z-20 flex max-h-[62%] flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]">
       <button onClick={onClose} aria-label="닫기" className="mx-auto block h-1 w-[38px] shrink-0 rounded-full bg-[#bfbfbf]" />
       <p className="shrink-0 px-5 pt-4 pb-3 text-[15px] font-bold text-[#1f1f1f]">
-        이 근처 주차장 {spots.length}곳
+        {anchored ? "목적지 주변" : "이 근처"} 주차장 {spots.length}곳
       </p>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
-        {spots.length === 0 && (
-          <p className="py-6 text-center text-[13px] text-[#616161]">조건에 맞는 주차장이 없습니다. 칩을 끄거나 지도를 옮겨보세요.</p>
-        )}
+        {spots.length === 0 && <p className="py-6 text-center text-[13px] leading-relaxed text-[#616161]">{empty}</p>}
         {/* key 가 순번인 이유 — 원본 데이터에 이름도 좌표도 똑같은 행이 15쌍 있다
             ("이도이동 1053" 3면/2면처럼 구획수만 다른 별개 등록건이라 합칠 수도 없다).
             목록은 매번 통째로 다시 만들고 행이 스스로 들고 있는 상태도 없어 순번으로 충분하다. */}
@@ -431,6 +522,13 @@ const PIN_ON = pin(
    </svg>`,
 );
 
+/** 목적지 핀 — 주차장 P 핀과 안 헷갈리게 파란 점으로 둔다 (와이어프레임 지도의 destination 색). */
+const DEST_PIN = pin(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+     <circle cx="13" cy="13" r="9" fill="#2f6fed" stroke="#fff" stroke-width="4"/>
+   </svg>`,
+);
+
 type MapProps = {
   pins: ParkingSpot[];
   selected: ParkingSpot | null;
@@ -438,6 +536,10 @@ type MapProps = {
   onIdle: (at: LatLng) => void;
   /** 지도를 밖에서 움직이는 손잡이. level 이 ±1 이면 그만큼 축척을 바꾼다(줌 버튼). */
   move: React.RefObject<((at: LatLng, level?: number) => void) | null>;
+  /** 처음 보고 있을 곳. 목적지를 물고 오면 거기서 연다. */
+  start: LatLng;
+  /** 목적지 핀. 없으면 안 찍는다 — 주차장만 있으면 어디 옆인지 알 수 없다. */
+  dest: LatLng | null;
 };
 
 /**
@@ -445,7 +547,7 @@ type MapProps = {
  * 다시 건다. 여기서는 핀이 지도를 움직일 때마다 바뀌므로, 그 규칙이면 사용자가 지도를
  * 움직이는 족족 화면이 되돌아온다. 공통인 건 SDK 로더뿐이라 그것만 가져다 쓴다.
  */
-function Map({ pins, selected, onPick, onIdle, move }: MapProps) {
+function Map({ pins, selected, onPick, onIdle, move, start, dest }: MapProps) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
@@ -469,7 +571,8 @@ function Map({ pins, selected, onPick, onIdle, move }: MapProps) {
     const { kakao } = window;
     const pt = ([lat, lng]: LatLng) => new kakao.maps.LatLng(lat, lng);
 
-    const m = new kakao.maps.Map(box.current, { center: pt(START), level: START_LEVEL });
+    // start 는 첫 프레임에 한 번만 쓴다 — 의존성에 넣으면 값이 바뀔 때마다 지도를 새로 만든다
+    const m = new kakao.maps.Map(box.current, { center: pt(start), level: START_LEVEL });
     map.current = m;
 
     // 팬·줌이 멎은 뒤에 한 번 온다. 그리는 도중마다 다시 계산하지 않아도 되는 지점이다.
@@ -509,7 +612,21 @@ function Map({ pins, selected, onPick, onIdle, move }: MapProps) {
       marker.setMap(map.current);
       return marker;
     });
-  }, [sdk, pins, selected]);
+
+    // 목적지는 맨 위에 둔다. offset 을 안 주면 이미지 아래 끝이 좌표에 맞아 점이 위로 뜬다 —
+    // 꼬리 없는 동그라미라 가운데가 좌표에 앉아야 맞다.
+    if (dest) {
+      const mark = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(dest[0], dest[1]),
+        zIndex: 3,
+        image: new kakao.maps.MarkerImage(DEST_PIN, new kakao.maps.Size(26, 26), {
+          offset: new kakao.maps.Point(13, 13),
+        }),
+      });
+      mark.setMap(map.current);
+      drawn.current.push(mark);
+    }
+  }, [sdk, pins, selected, dest]);
 
   const notice =
     !process.env.NEXT_PUBLIC_KAKAO_MAP_KEY

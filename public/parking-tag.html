@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>주차장 위성 판독</title>
+<!--
+  위성 태깅 보조 화면 — data/parking-tags.json 을 채울 때 쓴다.
+
+  왜 만들었나 — 카카오맵 사이트에서 스카이뷰를 켜고 확대해 좌표를 맞추려면 클릭을 여러 번
+  해야 하는데, 그때마다 중심이 조금씩 밀려서 정작 그 주차장이 화면 밖으로 나간다.
+  여기서는 좌표·축척·지도종류를 URL 로 못박아 열기 때문에 열자마자 그 주차장이 가운데에 있다.
+
+  열기:
+    http://localhost:3000/parking-tag.html?key=<JS키>&lat=33.54&lng=126.66&name=이름&guess=직각
+
+  key 는 NEXT_PUBLIC_KAKAO_MAP_KEY 를 넣는다 — 파일에 박아두지 않는 건 이게 공개 저장소에
+  남을 값이 아니어서다. 브라우저로 나가는 값이라 비밀은 아니지만, 굳이 커밋할 이유도 없다.
+
+  판독 기준:
+    평행 = 차가 도로와 같은 방향으로 앞뒤로 늘어선다 (연석 옆 한 줄)
+    직각 = 차가 옆으로 나란히 서고 앞코가 통행로를 향한다
+-->
+<style>
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+  #map { position: absolute; inset: 0; }
+  #tag {
+    position: absolute; z-index: 10; top: 12px; left: 12px;
+    background: rgba(255, 255, 255, 0.94); border-radius: 10px; padding: 10px 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); font-size: 14px; line-height: 1.5;
+  }
+  #tag b { font-size: 16px; }
+  #tag i { color: #ff6114; font-style: normal; font-weight: 700; }
+  /* 정가운데를 짚는 십자선 — 사진에 주차장이 여럿 걸릴 때 어느 게 대상인지 알려준다 */
+  #x {
+    position: absolute; z-index: 9; top: 50%; left: 50%; width: 28px; height: 28px;
+    margin: -14px 0 0 -14px; border: 2px solid #ff2d00; border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9); pointer-events: none;
+  }
+</style>
+<div id="map"></div>
+<div id="x"></div>
+<div id="tag"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const lat = +q.get("lat"), lng = +q.get("lng");
+  const level = +(q.get("level") ?? 1); // 1 = 가장 확대. 구획선이 보이는 배율이다.
+
+  document.getElementById("tag").innerHTML =
+    `<b>${q.get("name") ?? ""}</b><br>지금 추정: <i>${q.get("guess") ?? "?"}</i>`;
+
+  const s = document.createElement("script");
+  s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${q.get("key")}&autoload=false`;
+  s.onload = () =>
+    kakao.maps.load(() => {
+      const map = new kakao.maps.Map(document.getElementById("map"), {
+        center: new kakao.maps.LatLng(lat, lng),
+        level,
+        // 스카이뷰(위성). HYBRID 는 도로명 글자가 구획선을 덮어서 판독을 방해한다.
+        mapTypeId: kakao.maps.MapTypeId.SKYVIEW,
+      });
+      // 확대 버튼은 남겨둔다 — 큰 주차장은 한 화면에 다 안 들어와 사람이 물러나 봐야 한다
+      map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+    });
+  document.head.append(s);
+</script>
