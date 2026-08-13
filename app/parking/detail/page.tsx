@@ -126,11 +126,23 @@ function Row({ label, value }: { label: string; value: string }) {
 function Steps({ kind }: { kind: { parallel: boolean; confirmed: boolean } | null }) {
   if (!kind) return null;
 
-  if (kind.parallel && kind.confirmed) {
+  // confirmed 를 따지지 않고 parallel 만 본다. 확인된 평행에만 이 갈래를 태우면 **추정 평행**
+  // (노상 643곳)이 아래 직각 4단계로 떨어져서, 평행주차를 만날 사람에게 정반대 방법을 가르치게 된다.
+  // 확실한지 아닌지는 단계를 보일지 말지가 아니라 문구의 세기로 말한다.
+  if (kind.parallel) {
     return (
       <p className="mx-4 mt-6 shrink-0 rounded-[12px] bg-[#f7f7f7] p-4 text-[13px] leading-relaxed text-[#525252]">
-        연석 옆에 칸을 그린 <b className="font-bold text-[#1f1f1f]">평행주차</b> 구획입니다. 아래 직각주차 순서와 대는
-        방법이 달라 안내를 띄우지 않았습니다.
+        {kind.confirmed ? (
+          <>
+            위성사진으로 확인한 결과 연석 옆에 칸을 그린 <b className="font-bold text-[#1f1f1f]">평행주차</b> 구획입니다.
+          </>
+        ) : (
+          <>
+            도로 노면에 칸을 그린 주차장이라 연석 옆 <b className="font-bold text-[#1f1f1f]">평행주차</b>일 확률이 높습니다
+            (공개 데이터로 추정한 값입니다).
+          </>
+        )}{" "}
+        직각주차와 대는 방법이 달라 아래 순서 안내를 띄우지 않았습니다.
       </p>
     );
   }
@@ -140,6 +152,12 @@ function Steps({ kind }: { kind: { parallel: boolean; confirmed: boolean } | nul
       <h2 className="mx-4 mt-6 shrink-0 text-[14px] leading-[22px] font-medium text-[#fc7f35]">
         직각 주차, 이렇게 하세요
       </h2>
+      {/* 목록·시트가 "확률이 높습니다"라고 말한 곳에서 상세만 단정하면 두 화면이 어긋난다 */}
+      {!kind.confirmed && (
+        <p className="mx-4 mt-1 shrink-0 text-[11px] leading-relaxed text-[#9e9e9e]">
+          도로 밖에 따로 만든 주차장이라 직각주차일 확률이 높습니다. 공개 데이터로 추정한 값입니다.
+        </p>
+      )}
       <div className="mx-4 mt-3 grid shrink-0 grid-cols-2 gap-4">
         {STEPS.map((s) => (
           <div key={s.n} className="rounded-[12px] border border-[#e5e5e5] bg-white p-[7px]">
