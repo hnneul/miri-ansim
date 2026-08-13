@@ -29,9 +29,9 @@ const JEJU_CENTER: LatLng = [33.38, 126.55];
  * 파일째 남긴다. 되돌리려면 아래 markers 의 MASCOT 을 PIN 으로 바꾸면 된다.
  */
 const PIN = { src: "/icon-pin.png", size: [50, 56] as [number, number], anchor: [25, 56] as [number, number] };
-// 크기·앵커는 scripts/build-marker.py 가 만들어 낸 값 그대로다 (스크립트가 실행 끝에 찍어 준다).
-// 그림자 자리가 아래에 남아 있어 앵커 y 는 이미지 높이(74)가 아니라 꼬리 끝(68)이다.
-const MASCOT = { src: "/icon-pin-character.png", size: [56, 74] as [number, number], anchor: [28, 68] as [number, number] };
+// 크기·앵커는 scripts/build-marker.py 가 실행 끝에 찍어 주는 값을 그대로 옮긴 것이다.
+// 그림자 자리가 아래에 남아 있어 앵커 y 는 이미지 높이(106)가 아니라 꼬리 끝(97)이다.
+const MASCOT = { src: "/icon-pin-character.png", size: [80, 106] as [number, number], anchor: [40, 97] as [number, number] };
 void PIN; // 지금은 안 쓴다 — 위 주석의 되돌리기용이다
 
 /** 최근 검색어. 저장소가 없어 브라우저에 둔다 — 새로고침에 살아남으면 되고, 기기 간 동기화는 필요 없다. */
@@ -66,6 +66,17 @@ function Destination() {
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const input = useRef<HTMLInputElement>(null);
+
+  // 시트가 지도 아래쪽을 얼마나 덮는지. 지도가 그만큼 위로 잡아야 마커가 시트에 안 걸린다.
+  // 상수로 박지 않는 이유 — 시트 높이는 내용(장소명 줄바꿈·거리 유무)에 따라 달라지고,
+  // 나중에 부담 설명 카드가 들어오면 또 달라진다. 재는 쪽이 한 번 쓰고 안 썩는다.
+  const [sheetH, setSheetH] = useState(0);
+  const sheetBox = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return setSheetH(0);
+    const ro = new ResizeObserver(() => setSheetH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect(); // React 19 는 ref 콜백의 정리 함수를 받는다
+  }, []);
 
   useEffect(() => {
     // localStorage 는 서버에 없다. 망가진 값이 들어 있어도 화면이 죽지는 않게 감싼다.
@@ -142,6 +153,7 @@ function Destination() {
             level={place ? 5 : 10}
             routes={[]}
             markers={place ? [{ coord: place.coord, label: place.label, icon: MASCOT }] : []}
+            padBottom={sheetH}
           />
         </div>
 
@@ -236,8 +248,12 @@ function Destination() {
             </div>
           )}
 
-          {/* HOME-01 b — 목적지를 고르면 아래에서 올라오는 시트 */}
-          {place && !searching && <PlaceSheet place={place} origin={origin} onClose={() => setPlace(null)} />}
+          {/* HOME-01 b — 목적지를 고르면 아래에서 올라오는 시트. 높이를 재서 지도에 넘긴다 */}
+          {place && !searching && (
+            <div ref={sheetBox} className="pointer-events-auto mt-auto">
+              <PlaceSheet place={place} origin={origin} onClose={() => setPlace(null)} />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -253,7 +269,7 @@ function PlaceSheet({ place, origin, onClose }: { place: Place; origin: LatLng |
   const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
 
   return (
-    <div className="pointer-events-auto mt-auto shrink-0 rounded-t-[24px] bg-white pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+    <div className="rounded-t-[24px] bg-white pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
       {/* grab — 끌어올릴 수 있어 보이게 하는 표시다. 실제로 끌리지는 않는다 (와이어프레임도 장식이다) */}
       <div aria-hidden className="mx-auto mt-[10px] h-1 w-12 rounded-[2px] bg-[#d6d6d6]" />
 

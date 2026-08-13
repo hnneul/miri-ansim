@@ -5,11 +5,11 @@
 # 캐릭터만 마커로 쓰면 카카오가 그리는 제 POI 아이콘들 사이에 묻히고, 어디가 정확히 목적지인지도
 # 안 보인다 — 핀 실루엣이 그 두 가지를 동시에 푼다.
 #
-# 크기와 대비가 이 그림의 본론이다. 처음엔 44px 로 만들었는데 지도 아이콘(20~24px)과 덩치가
-# 비슷해 눈에 안 들어왔다. 세 가지를 같이 올린다:
-#   1) 56px 로 키운다 — 지도 아이콘의 두 배가 넘어야 "이건 다른 종류"로 읽힌다
-#   2) 주황 테두리 바깥에 흰 테두리를 한 겹 더 — 초록 공원이든 노란 도로든 어디 위에서나 윤곽이 산다
-#   3) 그림자 — 지도에서 한 겹 떠 보이게 한다. 납작하면 지도 무늬의 일부로 보인다
+# 크기와 대비가 이 그림의 본론이다. 44 → 56 → 80 으로 두 번 키웠다. 지도 아이콘이 20~24px 이라
+# 그 두 배로는 "조금 큰 아이콘"이지 목적지로 안 읽힌다 — 세 배는 돼야 눈이 먼저 여기로 온다.
+# 같이 올린 것 둘:
+#   1) 주황 테두리 바깥에 흰 테두리를 한 겹 더 — 초록 공원이든 노란 도로든 어디 위에서나 윤곽이 산다
+#   2) 그림자 — 지도에서 한 겹 떠 보이게 한다. 납작하면 지도 무늬의 일부로 보인다
 #
 # PIL 다각형은 안티에일리어싱이 없어서 4배로 그린 뒤 줄인다.
 # 결과는 표시 크기의 2배로 저장한다 — 레티나에서 안 뭉개질 만큼이고, 그 이상은 용량만 는다.
@@ -17,14 +17,24 @@
 from PIL import Image, ImageDraw, ImageFilter
 
 S = 4                       # 초과표본 배수
-DW, DH = 56, 74             # 표시 크기 (그림자 자리 포함)
-TIP_PAD = 6                 # 꼬리 끝 아래로 남기는 그림자 자리
+
+# 크기는 이 한 값이 정한다. 나머지는 비율로 따라가므로 키우고 줄일 때 여기만 고치면 된다.
+# app/destination/page.tsx 의 MASCOT size/anchor 는 이 스크립트가 끝에 찍어 주는 값을 옮겨 적는다.
+DW = 80                     # 표시 폭 (px)
+
+R_D = round(DW * 0.465)     # 바깥 원 반지름
+RING_D = round(DW * 0.05)   # 테두리 한 겹 두께 (흰색·주황 각각)
+TAIL_D = round(DW * 0.27)   # 원 아래로 뻗는 꼬리 길이
+PAD_D = round(DW * 0.11)    # 꼬리 끝 아래로 남기는 그림자 자리
+DH = 1 + R_D * 2 + TAIL_D + PAD_D
+ANCHOR_Y = DH - PAD_D       # 좌표에 앉는 점 = 꼬리 끝
+
 W, H = DW * S, DH * S
-TIP_Y = H - TIP_PAD * S     # 좌표에 앉는 점
-R = 26 * S                  # 바깥 원 반지름
+TIP_Y = ANCHOR_Y * S
+R = R_D * S
 CX, CY = W // 2, R + 1 * S
-WHITE_RING = 3 * S          # 바깥 흰 테두리
-ORANGE_RING = 3 * S         # 그 안쪽 주황 테두리
+WHITE_RING = RING_D * S     # 바깥 흰 테두리
+ORANGE_RING = RING_D * S    # 그 안쪽 주황 테두리
 ORANGE = (252, 127, 53, 255)
 WHITE = (255, 255, 255, 255)
 
@@ -32,8 +42,9 @@ WHITE = (255, 255, 255, 255)
 def pin(draw: ImageDraw.ImageDraw, grow: int, fill) -> None:
     """핀 실루엣(원 + 꼬리) 한 겹. grow 만큼 부풀려 테두리·그림자로 쓴다."""
     r = R + grow
+    half = round(R * 0.42) + grow  # 꼬리 밑변 절반 — 원 반지름에 비례해야 굵기가 같이 자란다
     draw.polygon(
-        [(CX - 11 * S - grow, CY + r - 6 * S), (CX + 11 * S + grow, CY + r - 6 * S), (CX, TIP_Y + grow)],
+        [(CX - half, CY + r - round(R * 0.23)), (CX + half, CY + r - round(R * 0.23)), (CX, TIP_Y + grow)],
         fill=fill,
     )
     draw.ellipse([CX - r, CY - r, CX + r, CY + r], fill=fill)
@@ -72,4 +83,4 @@ mascot.thumbnail((inner, inner), Image.LANCZOS)
 img.alpha_composite(mascot, (CX - mascot.width // 2, CY - mascot.height // 2))
 
 img.resize((DW * 2, DH * 2), Image.LANCZOS).save("public/icon-pin-character.png")
-print(f"public/icon-pin-character.png  표시 {DW}x{DH}, 앵커 ({DW // 2}, {TIP_Y // S})")
+print(f"public/icon-pin-character.png  size: [{DW}, {DH}], anchor: [{DW // 2}, {ANCHOR_Y}]")
