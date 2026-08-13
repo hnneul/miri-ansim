@@ -35,7 +35,13 @@ body {
 .phone {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  /*
+   * 진짜 폰(<480px)에서 화면을 꽉 채우는 기준. %가 아니라 dvh 인 이유 — 부모(body)가
+   * min-height 만 있고 height 가 없어서 % 는 auto 로 풀려 페이지가 콘텐츠 높이로 주저앉는다
+   * (하단 고정 버튼이 카드 바로 밑에 붙는다). 노트북(≥480px)에서는 아래 블록이 min-height: 0
+   * 으로 되돌리고 height 를 따로 잡으므로 영향 없다.
+   */
+  min-height: 100dvh;
 }
 
 /*
@@ -68,8 +74,11 @@ body {
   }
 
   /*
-   * Dynamic Island. sticky 라 스크롤해도 프레임 위에 붙어 있고, 음수 마진이 자기 높이를
-   * 되돌려서 앱 화면은 top:0 부터 그대로 시작한다 (상태바 9:41 은 좌우 끝이라 안 겹친다).
+   * Dynamic Island. sticky 라 스크롤해도 프레임 위에 붙어 있다.
+   * 음수 마진이 자기 높이(32)+위 마진(10) 중 30px 만 되돌린다 — 12px 을 남겨 앱 화면을 그만큼
+   * 내리는 게 핵심이다. 42 를 다 되돌리면 앱바가 아일랜드 코앞에 붙는다.
+   * 남은 12px 로 상태바 9:41 은 아일랜드와 세로 중앙이 맞고(좌우 끝이라 안 겹친다),
+   * 그 아래 앱바는 아일랜드 바닥에서 20px 남짓 떨어진다 — 진짜 아이폰의 상태바 배치와 같다.
    * 진짜 폰(<480px)에는 제 살 붙은 아일랜드가 있으니 이 블록째 꺼진다.
    */
   .phone::before {
@@ -79,7 +88,7 @@ body {
     z-index: 50;
     width: 118px;
     height: 32px;
-    margin: 10px auto -42px;
+    margin: 10px auto -30px;
     flex: none;
     border-radius: 999px;
     background: #0c0a09;

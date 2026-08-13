@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import StatusBar from "./StatusBar";
 
 /** 스플래시가 소개 화면으로 넘어가기까지 (ms). 와이어프레임에 시간 표기가 없어 정한 값이다. */
 const SPLASH_MS = 1600;
@@ -23,20 +24,6 @@ export default function Onboarding() {
   }, []);
 
   return splash ? <Splash /> : <Intro />;
-}
-
-/**
- * 상태바. 와이어프레임에 그려진 목업이라 실제 시각이 아니라 9:41 로 고정한다 —
- * 시연 화면에서 폰처럼 보이게 하는 장식이고, 진짜 시계를 넣으면 리허설 스크린샷마다 값이 달라진다.
- */
-function StatusBar({ tone }: { tone: string }) {
-  return (
-    <div className={`flex shrink-0 justify-between px-4 pt-2 text-[11px] leading-4 font-medium ${tone}`}>
-      <span>9:41</span>
-      {/* 배터리·신호 아이콘 자리 — 와이어프레임이 문자로 그려둔 것을 그대로 쓴다 */}
-      <span aria-hidden>●&nbsp;&nbsp;◒&nbsp;&nbsp;▮</span>
-    </div>
-  );
 }
 
 /** 이용약관·개인정보 처리방침. 두 화면 모두 하단 28px 자리에 같은 문구가 앉는다 (글자색만 다르다). */
@@ -84,7 +71,7 @@ function Intro() {
       <div className="flex-1" />
 
       <Link
-        href="/profile"
+        href="/onboarding"
         className="mx-4 flex h-[52px] shrink-0 items-center justify-center rounded-lg bg-[#1f1f1f] text-[14px] font-medium text-white transition active:scale-[0.98]"
       >
         프로필 만들기

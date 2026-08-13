@@ -68,6 +68,11 @@ const profileParams = (profile: DriverProfile) => ({
   time: profile.timeOfDay,
 });
 
+/** 프로필만 → "?exp=1&freq=low&..." — 온보딩(/onboarding)이 고른 값을 /profile 에 미리 채울 때 쓴다. */
+export function toProfileQuery(profile: DriverProfile): string {
+  return `?${new URLSearchParams(profileParams(profile))}`;
+}
+
 /** 프로필 + 구간 → "?exp=1&freq=low&..." */
 export function toQuery(profile: DriverProfile, scenarioId: string): string {
   return `?${new URLSearchParams({ route: scenarioId, ...profileParams(profile) })}`;

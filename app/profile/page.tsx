@@ -8,16 +8,27 @@
 // 기본값이 선택된 것처럼 보이면 사용자가 칩을 안 건드리고 넘어가, 자기 값이 아닌 프로필로 점수가 나온다.
 // 선택 색은 slate-800이다. 주황은 5.16도로 경로 색이라 여기 쓰면 의미가 겹친다.
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { type DriverProfile } from "@/lib/score";
-import { DEFAULT_PROFILE, toCustomQuery } from "@/lib/profile";
+import { parseProfile, toCustomQuery } from "@/lib/profile";
 
+// useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function Home() {
+  return (
+    <Suspense>
+      <ProfileForm />
+    </Suspense>
+  );
+}
+
+function ProfileForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
-  const [profile, setProfile] = useState<DriverProfile>(DEFAULT_PROFILE);
+  // 온보딩(/onboarding)을 거쳐 왔으면 URL 쿼리의 값으로 미리 채운다. 직접 진입하면 기본값.
+  const [profile, setProfile] = useState<DriverProfile>(() => parseProfile(Object.fromEntries(searchParams)));
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof DriverProfile>(k: K, v: DriverProfile[K]) =>
