@@ -177,9 +177,27 @@ function Destination() {
               배경은 와이어프레임의 주황 15% 반투명을 흰 바탕에 미리 섞어 불투명하게 굳힌 값이다.
               반투명 그대로 두면 회색 목업 위에서나 읽히고, 진짜 지도 위에서는 상호명이 비쳐 글자가 묻힌다.
               보이는 색은 같고 뒤만 안 비친다.
+
+              min-w-0 이 없으면 안쪽 내용 폭이 최소 폭이 돼서 폼이 안 줄고, 오른쪽 아바타가
+              패딩 밖으로 15px 밀려났다 (input 의 min-w-0 만으로는 폼 자신이 안 줄어든다).
             */
-            className="flex h-16 flex-1 items-center gap-3 rounded-[12px] border border-[#fc7f35] bg-[#ffece1] px-4"
+            className="flex h-16 min-w-0 flex-1 items-center gap-2 rounded-[12px] border border-[#fc7f35] bg-[#ffece1] pr-4 pl-3"
           >
+            {/*
+              뒤로가기. 와이어프레임은 나가는 길을 하단 탭바로 두는데 아직 탭바가 없다.
+              지도 위에 동그란 버튼을 따로 띄웠더니 저 혼자 튀어서, 검색바 안에 넣는 /parking·/around 와
+              같은 모양으로 맞췄다 — 바가 이미 배경을 갖고 있어 아이콘에 원도 그림자도 필요 없다.
+              검색 패널이 열려 있으면 그것부터 닫는다. 한 번에 나가면 적던 검색어가 날아간다.
+              ponytail: 하단 탭바(Figma 2153:1985)를 만들면 이 버튼을 뺀다.
+            */}
+            <button
+              type="button"
+              onClick={() => (searching ? setSearching(false) : router.push(`/home?${searchParams}`))}
+              aria-label={searching ? "검색 닫기" : "뒤로"}
+              className="grid size-9 shrink-0 place-items-center rounded-full text-[18px] text-[#1f1f1f] active:bg-black/5"
+            >
+              ←
+            </button>
             <span aria-hidden className="size-3 shrink-0 rounded-full bg-[#fc7f35]" />
             <input
               ref={input}
