@@ -8,7 +8,11 @@
 import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { parallelOdds, recommendedSpots, nearestSpots, nearbyParking, type Parking, type ParkingSpot, type Lot } from "./parking.ts";
+import {
+  parallelOdds, recommendedSpots, nearestSpots, nearbyParking,
+  spotsAround, walkMinutes, isEasyParking, WALK10_M,
+  type Parking, type ParkingSpot, type Lot,
+} from "./parking.ts";
 
 const DATA = JSON.parse(readFileSync(fileURLToPath(new URL("../data/parking-data.json", import.meta.url)), "utf8"));
 
@@ -116,6 +120,37 @@ for (const [id, d] of 계산) {
   assert.ok(d.spots.every((s) => s.type === "노상" || s.type === "노외"), `${id}: 모르는 주차장유형`);
   if (d.total) parallelOdds(d); // 실데이터로도 던지지 않는다
 }
+
+// --- ③ 주차장 찾기 화면(/parking) ---
+// 목적지가 없는 화면이라 "반경 안 전부"가 아니라 "지금 보는 곳에서 가까운 몇 곳"을 준다.
+// 칩 이름과 실제 기준이 어긋나면 사용자가 거짓말을 읽게 되므로 그 짝을 여기서 묶어둔다.
+assert.equal(walkMinutes(WALK10_M), 10, `"도보 10분" 칩 반경(${WALK10_M}m)이 표시 분수와 어긋난다`);
+assert.equal(walkMinutes(0), 1, "도보 0분이라고 말하지 않는다");
+assert.ok(isEasyParking({ type: "노외" }) && !isEasyParking({ type: "노상" }));
+
+const 시청: [number, number] = [33.4996, 126.5312];
+const LOTS = DATA.spots as Lot[];
+
+const 주변 = spotsAround(시청, LOTS);
+assert.equal(주변.length, 40, "핀이 개수 상한(SPOT_CAP)에서 안 잘렸다");
+assert.deepEqual(주변.map((s) => s.walkM), [...주변.map((s) => s.walkM)].sort((a, b) => a - b), "가까운 순이 아니다");
+
+// "무료" 칩은 혼합을 통과시키면 안 된다 — 돈을 낼 수도 있는 곳을 무료라고 보여주는 셈이다
+const 무료 = spotsAround(시청, LOTS, { free: true });
+assert.ok(무료.length && 무료.every((s) => s.fee === "무료"), "무료 칩에 유료·혼합이 섞였다");
+assert.ok(LOTS.some((s) => s.fee === "혼합"), "혼합 표본이 사라졌다 — 위 검증이 무의미해진다");
+
+// "도보 10분" 칩은 반경 밖을 자른다
+assert.ok(spotsAround(시청, LOTS, { walk10: true }).every((s) => s.walkM <= WALK10_M));
+
+// 한적한 곳(한라산 정상)에서도 핀은 뜬다 — 반경이 아니라 개수로 자르는 이유가 이것이다.
+// 다만 칩을 켜면 그때는 반경이 기준이라 0곳이 맞다.
+const 한라산: [number, number] = [33.3617, 126.5292];
+assert.ok(spotsAround(한라산, LOTS).length > 0, "반경 없이도 가까운 주차장은 나와야 한다");
+assert.equal(spotsAround(한라산, LOTS, { walk10: true }).length, 0);
+
+// 24시간은 칩이 아니다 — 원본 CSV 1,657곳이 전부 00:00~23:59 라 걸러낼 게 없다.
+// 걸러지지 않는 칩을 그려두면 눌러도 아무 일이 없다. 하단 시트 정보 줄에만 남긴다.
 
 console.log("✅ 주차장 평행·직각 프록시 판정 정상");
 console.log(`   좌표 있는 주차장 ${DATA.spots.length}곳 · 유형별 구획수:`, DATA.stats);

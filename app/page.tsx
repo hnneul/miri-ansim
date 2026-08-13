@@ -12,8 +12,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import StatusBar from "./StatusBar";
 
-/** 스플래시가 소개 화면으로 넘어가기까지 (ms). 와이어프레임에 시간 표기가 없어 정한 값이다. */
-const SPLASH_MS = 1600;
+/**
+ * 스플래시가 완전히 사라지기까지 (ms). 와이어프레임에 시간 표기가 없어 정한 값이다.
+ * globals.css 의 .splash-layer 딜레이(1700) + 길이(500) 와 같아야 한다 — 자세한 건 거기 주석에.
+ */
+const SPLASH_MS = 2200;
 
 export default function Onboarding() {
   const [splash, setSplash] = useState(true);
@@ -23,7 +26,20 @@ export default function Onboarding() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  return splash ? <Splash /> : <Intro />;
+  /*
+   * 소개 화면을 처음부터 깔아두고 스플래시를 그 위에 덮는다 — 예전처럼 둘을 갈아끼우면
+   * 겹치는 순간이 없어 페이드할 대상이 없다. 주황 레이어가 투명해지는 동안 이미 아래에 있는
+   * 흰 화면이 그대로 드러난다.
+   *
+   * 상태바와 하단 약관 줄은 두 화면에서 위치가 같아 페이드 내내 제자리에 머문다.
+   * 덕분에 화면이 통째로 바뀌는 게 아니라 주황만 걷히는 것처럼 보인다.
+   */
+  return (
+    <div className="relative flex flex-1 flex-col">
+      <Intro />
+      {splash && <Splash />}
+    </div>
+  );
 }
 
 /** 이용약관·개인정보 처리방침. 두 화면 모두 하단 28px 자리에 같은 문구가 앉는다 (글자색만 다르다). */
@@ -48,13 +64,17 @@ function Legal({ tone }: { tone: string }) {
  *
  * 캐릭터는 원본이 1086x1448 이라 표시 크기(248)의 두 배가 넘어 900px 로 줄여 넣었다.
  * 투명 PNG 라 주황 위에 바로 뜬다 — 와이어프레임의 rounded-full 은 보이지 않으므로 옮기지 않았다.
+ *
+ * 소개 화면 위에 덮이는 레이어라 flex-1 대신 absolute 다.
+ * z-40 인 이유 — Dynamic Island(globals.css .phone::before)가 z-50 이라 그보다 낮아야 안 가린다.
+ * 애니메이션은 globals.css 의 .splash-char(캐릭터 통통) / .splash-layer(레이어째 페이드)가 쥔다.
  */
 function Splash() {
   return (
-    <div className="flex flex-1 flex-col bg-[#fc7f35]">
+    <div className="splash-layer absolute inset-0 z-40 flex flex-col bg-[#fc7f35]">
       <StatusBar tone="text-[#525252]" />
       <div className="flex flex-1 flex-col items-center justify-center pb-[88px]">
-        <img src="/character/splash.png" alt="" className="size-[248px] shrink-0 object-cover" />
+        <img src="/character/splash.png" alt="" className="splash-char size-[248px] shrink-0 object-cover" />
         <h1 className="font-logo shrink-0 text-[43.267px] leading-[59px] text-white">미리 안심</h1>
       </div>
       <Legal tone="text-[#1f1f1f]" />
