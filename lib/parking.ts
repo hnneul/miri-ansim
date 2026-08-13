@@ -274,13 +274,33 @@ export type SpotFilter = { walk10?: boolean; free?: boolean };
  */
 const NAME_GAP_M = 300;
 
+/**
+ * 이름이 사실은 주소인가. 공공데이터 1,657곳 중 1,514곳(91%)이 "함덕리 1002-83, 1004-5, 6"
+ * 처럼 번지·도로명 그대로다 — 숫자가 들어 있으면 그렇게 본다.
+ * "동문공설시장주차빌딩" 같은 진짜 이름 143곳은 숫자가 없어서 걸리지 않는다.
+ */
+const looksLikeAddress = (name: string) => /\d/.test(name);
+
 export function mergeSpots(base: ParkingSpot[], extra: ParkingSpot[], gapM = 30): ParkingSpot[] {
   const same = (b: ParkingSpot, e: ParkingSpot) => {
     const d = meters(b.at, e.at);
     return d <= gapM || (b.name === e.name && d <= NAME_GAP_M);
   };
+
+  // 겹치는 카카오 항목은 버리되 **이름만은 빌려온다.**
+  // 공공 쪽 "함덕리 1002-83, 1004-5, 6"은 사람이 부르는 이름이 아니라 번지고,
+  // 같은 자리를 카카오는 "조천읍무료노외공영주차장"이라고 부른다. 면수·요금·주차형태는
+  // 공공만 아는 사실이라 그대로 두고, 이름표만 읽을 수 있는 쪽으로 바꾸는 것이다.
+  const merged = base.map((b) => {
+    if (!looksLikeAddress(b.name)) return b; // 진짜 이름이 있으면 그게 낫다
+    const twin = extra
+      .filter((e) => same(b, e))
+      .sort((x, y) => meters(b.at, x.at) - meters(b.at, y.at))[0];
+    return twin ? { ...b, name: twin.name } : b;
+  });
+
   const fresh = extra.filter((e) => !base.some((b) => same(b, e)));
-  return [...base, ...fresh].sort((a, b) => a.walkM - b.walkM);
+  return [...merged, ...fresh].sort((a, b) => a.walkM - b.walkM);
 }
 
 /**

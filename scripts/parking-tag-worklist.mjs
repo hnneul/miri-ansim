@@ -121,10 +121,21 @@ for (const l of 이번) {
     near: `${l.near} ${l.distM}m`,
     spaces: l.spaces,
     추정: l.type === "노상" ? "평행" : "직각", // 지금 프록시가 뭐라고 하는지 — 위성으로 확인할 대상이다
-    // 카카오맵을 연 뒤 오른쪽 위 "스카이뷰"를 누르면 위성사진이다.
+    /*
+      링크를 셋 준다. 하나로 안 되는 경우가 실제로 있어서다.
+
+      roadview 를 맨 앞에 둔다 — 평행/직각 판독에는 위에서 내려다보는 것보다 눈높이가 낫다.
+      연석 옆에 그은 흰 선은 위성에서 차에 가려 안 보이는데, 로드뷰에서는 차가 어느 방향으로
+      서 있는지가 그대로 보인다. 그게 곧 답이다.
+
+      kakao 는 스카이뷰 버튼을 눌러야 하지만 제주 사진이 구글보다 최신인 곳이 있다.
+      google 은 /place/ 를 앞에 붙여야 핀이 찍힌다 — /@ 만 쓰면 화면 가운데만 맞추고 마커가
+      없어서, 이름이 "함덕리 1002-83" 같은 번지일 때 어느 부지가 그 주차장인지 알 수가 없다.
+      (위성 타일이 검게 뜨는 환경이 있다. 그때는 앞의 둘을 쓴다.)
+    */
+    roadview: `https://map.kakao.com/link/roadview/${l.at[0]},${l.at[1]}`,
     kakao: `https://map.kakao.com/link/map/${encodeURIComponent(l.name)},${l.at[0]},${l.at[1]}`,
-    // 위성사진이 바로 열리는 쪽 (구획선 판독은 이쪽이 빠를 때가 많다)
-    satellite: `https://www.google.com/maps/@${l.at[0]},${l.at[1]},19z/data=!3m1!1e3`,
+    satellite: `https://www.google.com/maps/place/${l.at[0]},${l.at[1]}/@${l.at[0]},${l.at[1]},19z/data=!3m1!1e3`,
   };
 }
 

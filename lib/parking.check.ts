@@ -149,7 +149,20 @@ const 카카오別: ParkingSpot = { name: "성산일출봉 주차장", addr: "�
 
 const 합친 = mergeSpots([공공], [카카오同, 카카오別]);
 assert.equal(합친.length, 2, "좌표가 겹치는 주차장이 두 번 들어갔다");
-assert.ok(!합친.some((s) => s.name === "제주시청 공영주차장"), "이름이 달라도 같은 좌표면 공공 쪽만 남아야 한다");
+assert.equal(합친.find((s) => s.spaces === 24)?.fee, "유료", "겹치면 사실은 공공 쪽을 남겨야 한다");
+
+// 겹친 카카오 항목은 버리되 **이름은 빌려온다** — 공공 이름 91%가 번지라서 그대로 두면 못 읽는다
+const 번지: ParkingSpot = { ...공공, name: "함덕리 1002-83, 1004-5, 6" };
+const 이름있음: ParkingSpot = { ...카카오同, name: "조천읍무료노외공영주차장" };
+const 빌린 = mergeSpots([번지], [이름있음]);
+assert.equal(빌린.length, 1);
+assert.equal(빌린[0].name, "조천읍무료노외공영주차장", "카카오 이름을 안 빌려왔다");
+assert.equal(빌린[0].spaces, 24, "이름만 빌려야 하는데 사실까지 덮어썼다");
+assert.equal(빌린[0].fee, "유료");
+// 공공에 진짜 이름이 있으면(숫자 없음) 그게 낫다 — 굳이 바꾸지 않는다
+assert.equal(mergeSpots([공공], [이름있음])[0].name, "시청 앞", "진짜 이름을 카카오 이름으로 덮어썼다");
+// 빌릴 상대가 없으면 번지 그대로 둔다
+assert.equal(mergeSpots([번지], [])[0].name, "함덕리 1002-83, 1004-5, 6");
 assert.deepEqual(합친.map((s) => s.walkM), [50, 100], "합친 뒤 가까운 순이 아니다");
 // 30m 밖이면 옆 주차장이다 — 삼키면 안 된다
 assert.equal(mergeSpots([공공], [{ ...카카오同, at: [33.4999, 126.5312] }]).length, 2);
