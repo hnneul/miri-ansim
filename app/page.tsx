@@ -59,23 +59,31 @@ function Legal({ tone }: { tone: string }) {
  *
  * 세로 위치는 좌표로 박지 않고 flex-1 로 가운데를 먹인다 — .phone 이 노트북에서 844 보다
  * 낮아질 수 있어 좌표를 박으면 그때 잘린다 (파일 첫 주석 참고). 다만 와이어프레임은 이 묶음을
- * 정중앙이 아니라 44px 위(top:232)에 두므로, 아래에만 그 두 배(88px)를 비워 그만큼 끌어올린다.
+ * 정중앙보다 33px 위(top:255)에 두므로, 아래에만 그 두 배(66px)를 비워 그만큼 끌어올린다.
  * 시선이 가운데보다 살짝 위에 머무는 게 스플래시에서는 더 가운데처럼 보인다.
  *
- * 캐릭터는 원본이 1086x1448 이라 표시 크기(248)의 두 배가 넘어 900px 로 줄여 넣었다.
- * 투명 PNG 라 주황 위에 바로 뜬다 — 와이어프레임의 rounded-full 은 보이지 않으므로 옮기지 않았다.
+ * 캐릭터 상자는 263x225 다. 원본(1358x1159)이 이 비율과 똑같아 object-cover 로도 잘리지 않고,
+ * 표시 크기의 두 배가 넘어 700px 로 줄여 넣었다. 투명 PNG 라 주황 위에 바로 뜬다 —
+ * 와이어프레임의 rounded-[19px] 는 투명 배경이라 보이지 않으므로 옮기지 않았다.
  *
  * 소개 화면 위에 덮이는 레이어라 flex-1 대신 absolute 다.
  * z-40 인 이유 — Dynamic Island(globals.css .phone::before)가 z-50 이라 그보다 낮아야 안 가린다.
- * 애니메이션은 globals.css 의 .splash-char(캐릭터 통통) / .splash-layer(레이어째 페이드)가 쥔다.
+ * 애니메이션은 globals.css 가 쥔다 — .splash-rise(아래에서 떠오르며 등장) / .splash-layer(레이어째 페이드).
+ * 로고는 같은 등장 동작을 120ms 늦게 받아 캐릭터 뒤를 따라 올라온다.
  */
 function Splash() {
   return (
     <div className="splash-layer absolute inset-0 z-40 flex flex-col bg-[#fc7f35]">
       <StatusBar tone="text-[#525252]" />
-      <div className="flex flex-1 flex-col items-center justify-center pb-[88px]">
-        <img src="/character/splash.png" alt="" className="splash-char size-[248px] shrink-0 object-cover" />
-        <h1 className="font-logo shrink-0 text-[43.267px] leading-[59px] text-white">미리 안심</h1>
+      <div className="flex flex-1 flex-col items-center justify-center pb-[66px]">
+        <img
+          src="/character/splash.png"
+          alt=""
+          className="splash-rise h-[225px] w-[263px] shrink-0 object-cover"
+        />
+        <h1 className="splash-rise splash-rise-late font-logo shrink-0 text-[43.267px] leading-[59px] text-white">
+          미리 안심
+        </h1>
       </div>
       <Legal tone="text-[#1f1f1f]" />
     </div>

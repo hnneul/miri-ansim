@@ -30,24 +30,23 @@
  * 타이밍이 JS 와 나뉘어 있다 — 여기 딜레이(1700) + 길이(500) = 2200 이 page.tsx 의 SPLASH_MS 와
  * 같아야 한다. 한쪽만 고치면 다 사라진 뒤 빈 화면이 남거나, 페이드 도중에 잘린다.
  */
-@keyframes splash-pop {
+/*
+ * 등장 — 아래에서 떠오르며 나타난다.
+ * 60% 지점에서 제자리를 8px 지나쳤다가 되돌아오는 게 곧 "통통"이라, 바운스를 따로 두지 않는다.
+ * 한 요소에 transform 애니메이션 둘을 걸면 서로 덮어써서 어차피 합칠 수밖에 없다.
+ */
+@keyframes splash-rise {
   0% {
-    transform: translateY(0) scale(1);
+    opacity: 0;
+    transform: translateY(28px);
   }
-  /* 통 튀어오르고 */
-  40% {
-    transform: translateY(-16px) scale(1.03);
-  }
-  /* 내려앉으며 커지고 */
-  65% {
-    transform: translateY(0) scale(1.05);
-  }
-  /* 여운으로 한 번 더 작게 */
-  82% {
-    transform: translateY(-6px) scale(1.06);
+  60% {
+    opacity: 1;
+    transform: translateY(-8px);
   }
   100% {
-    transform: translateY(0) scale(1.06);
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -57,9 +56,22 @@
   }
 }
 
-/* both: 딜레이 동안 0% 를 물고 있다가 끝나면 100% 로 멈춘다 — 안 주면 시작·끝에 한 프레임 튄다 */
-.splash-char {
-  animation: splash-pop 700ms cubic-bezier(0.34, 1.2, 0.64, 1) 200ms both;
+/*
+ * both: 딜레이 동안 0%(투명·아래)를 물고 있다가 끝나면 100% 로 멈춘다 —
+ * 안 주면 딜레이 중에 제자리에 그려졌다가 튀어 내려간다.
+ */
+.splash-rise {
+  animation: splash-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/*
+ * 로고를 캐릭터보다 늦게 띄워 계단식으로 올라오게 한다.
+ * Tailwind 의 [animation-delay:120ms] 로는 안 된다 — 위 animation 단축 속성이 딜레이를 0 으로
+ * 같이 세팅하는데, 레이어 밖 CSS 인 이 규칙이 Tailwind 유틸리티(레이어 안)보다 우선이라 덮어버린다.
+ * 그래서 같은 자리에 클래스를 하나 더 둔다 (.splash-rise 뒤에 와야 이긴다).
+ */
+.splash-rise-late {
+  animation-delay: 120ms;
 }
 
 .splash-layer {
@@ -68,7 +80,7 @@
 
 /* 움직임을 줄여달라고 한 환경에서는 연출 없이 2.2초 뒤 그냥 바뀐다 */
 @media (prefers-reduced-motion: reduce) {
-  .splash-char,
+  .splash-rise,
   .splash-layer {
     animation: none;
   }
