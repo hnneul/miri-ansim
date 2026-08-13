@@ -45,6 +45,13 @@ next-env.d.ts
 *.md
 !README.md
 
+# 에이전트 도구 설정 — 개인 환경이라 사람마다 다르다
+.claude/
+
+# 작업 중 잘라둔 중간 산출물. 와이어프레임은 Figma 가 원본이고 여기 PDF 렌더는 사본이라
+# 금방 낡는다 (v24 스냅샷은 이미 Figma 최신본과 문구가 다르다).
+/tmp/
+
 # GIS 중간 산출물 — 표준노드링크 전국 데이터(257MB zip)에서 잘라낸 것.
 # scripts/build-route-data.mjs 주석의 ogr2ogr 명령으로 다시 만든다.
 # 최종 산출물 data/route-data.json 은 작아서 커밋한다.
