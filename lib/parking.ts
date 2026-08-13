@@ -44,7 +44,7 @@ const SPOT_CAP = 40;
 const rad = (d: number) => (d * Math.PI) / 180;
 
 /** 두 좌표 사이 미터. 제주 크기에선 평면 근사로 충분하다 (빌드 스크립트와 같은 식). */
-const meters = (
+export const meters = (
   [la1, lo1]: [number, number],
   [la2, lo2]: [number, number],
 ): number => Math.hypot(la2 - la1, (lo2 - lo1) * Math.cos(rad(la1))) * rad(1) * 6371000;

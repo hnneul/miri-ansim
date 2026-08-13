@@ -35,13 +35,27 @@ function Legal({ tone }: { tone: string }) {
   );
 }
 
-/** ONB-01 | 시작 1 — 주황 전면에 로고만. 로고는 프레임 정중앙이다 (390x844 기준 194.5, 422.5). */
+/**
+ * ONB-01 | 시작 1 — 주황 전면에 캐릭터와 로고.
+ *
+ * 와이어프레임은 캐릭터 상자(248x248)를 top:232 에, 로고를 top:480 에 둔다 — 둘이 딱 붙어 있고,
+ * 눈에 보이는 사이 간격은 PNG 의 투명 여백이 만든다. 그래서 여기서도 gap 없이 그냥 쌓는다.
+ *
+ * 세로 위치는 좌표로 박지 않고 flex-1 로 가운데를 먹인다 — .phone 이 노트북에서 844 보다
+ * 낮아질 수 있어 좌표를 박으면 그때 잘린다 (파일 첫 주석 참고). 다만 와이어프레임은 이 묶음을
+ * 정중앙이 아니라 44px 위(top:232)에 두므로, 아래에만 그 두 배(88px)를 비워 그만큼 끌어올린다.
+ * 시선이 가운데보다 살짝 위에 머무는 게 스플래시에서는 더 가운데처럼 보인다.
+ *
+ * 캐릭터는 원본이 1086x1448 이라 표시 크기(248)의 두 배가 넘어 900px 로 줄여 넣었다.
+ * 투명 PNG 라 주황 위에 바로 뜬다 — 와이어프레임의 rounded-full 은 보이지 않으므로 옮기지 않았다.
+ */
 function Splash() {
   return (
     <div className="flex flex-1 flex-col bg-[#fc7f35]">
       <StatusBar tone="text-[#525252]" />
-      <div className="flex flex-1 items-center justify-center">
-        <h1 className="font-logo text-[43.267px] leading-[59px] text-white">길 안심 제주</h1>
+      <div className="flex flex-1 flex-col items-center justify-center pb-[88px]">
+        <img src="/character/splash.png" alt="" className="size-[248px] shrink-0 object-cover" />
+        <h1 className="font-logo shrink-0 text-[43.267px] leading-[59px] text-white">미리 안심</h1>
       </div>
       <Legal tone="text-[#1f1f1f]" />
     </div>
@@ -57,9 +71,9 @@ function Intro() {
       {/* 상태바(24px) 아래로 102px → 와이어프레임의 제목 top:126px */}
       <div className="mt-[102px] shrink-0 px-[31px]">
         <h1 className="text-[22px] leading-[30px] font-bold text-[#1f1f1f]">
-          제주 운전,
+          제주 운전
           <br />
-          오늘은 <span className="text-[#fc7f35]">덜 무섭게</span>.
+          오늘은 <span className="text-[#fc7f35]">덜 무섭게</span>
         </h1>
         <p className="mt-4 text-[14px] leading-[22px] text-[#525252]">
           제주를 찾는 초보 운전자에게 부담이 적은 길과
