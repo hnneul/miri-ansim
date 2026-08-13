@@ -25,6 +25,7 @@ import {
   mergeSpots,
   walkMinutes,
   isEasyParking,
+  parkingKind,
   feeText,
   feeDetail,
   meters,
@@ -297,6 +298,7 @@ function SpotSheet({ spot, walkM, onClose }: { spot: ParkingSpot; walkM: number;
   // 뒷받침되지 않는다. 원본 CSV 는 1,657곳이 전부 00:00~23:59 인데 유료 117곳도 그렇다.
   // 유료 주차장이 24시간 개방일 리 없으니 그 컬럼은 운영시간이 아니라 미입력 기본값이다.
   const info = [feeText(spot), spot.spaces != null ? `${spot.spaces}면` : null].filter(Boolean).join(" · ");
+  const kind = parkingKind(spot);
   return (
     <aside className="absolute inset-x-0 bottom-0 z-20 rounded-t-[20px] bg-white px-5 pt-2.5 pb-6 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]">
       <button onClick={onClose} aria-label="닫기" className="mx-auto block h-1 w-[38px] rounded-full bg-[#bfbfbf]" />
@@ -315,22 +317,33 @@ function SpotSheet({ spot, walkM, onClose }: { spot: ParkingSpot; walkM: number;
             <p className="mt-1 text-[12px] text-[#9e9e9e]">카카오맵에서 찾은 곳 · 구획수·요금은 알 수 없습니다</p>
           )}
         </div>
-        {isEasyParking(spot) && (
-          <span className="mt-6 shrink-0 rounded-full bg-[#ffebd6] px-3 py-1.5 text-[12px] font-bold text-[#ff6114]">
-            주차 쉬움
+        {/*
+          확인된 평행주차는 초보에게 경고할 값어치가 있어 배지를 낸다. 추정 평행(노상 643곳)은
+          배지를 안 낸다 — 간접 추론으로 겁을 주면 절반은 헛경고가 되고, 경고가 흔해지면 안 읽힌다.
+        */}
+        {kind && (kind.parallel ? kind.confirmed : true) && (
+          <span
+            className={`mt-6 shrink-0 rounded-full px-3 py-1.5 text-[12px] font-bold ${
+              kind.parallel ? "bg-[#eeeeee] text-[#525252]" : "bg-[#ffebd6] text-[#ff6114]"
+            }`}
+          >
+            {kind.parallel ? "평행주차" : "주차 쉬움"}
           </span>
         )}
       </div>
 
       {/*
-        배지 "주차 쉬움"은 단정적으로 읽히는데 실제로는 추정이다 — 공개 데이터에 구획이 평행식인지
-        직각식인지가 없어 주차장유형(노상/노외)을 프록시로 쓴다 (lib/parking.ts isEasyParking).
-        추정이라는 걸 배지 옆에 적지 않으면, 말로 안 한 추정을 배지로 단언하는 셈이 된다.
+        배지는 단정적으로 읽힌다. 그러니 그 값이 어디서 왔는지를 바로 밑에 적는다 —
+        위성으로 사람이 본 곳은 사실이고, 아닌 곳은 주차장유형으로 추정한 확률이다.
         화면 문구에 "노상·노외"는 쓰지 않는다 — 주차장법 제2조 법령 용어다.
       */}
-      {isEasyParking(spot) && (
+      {kind && (kind.parallel ? kind.confirmed : true) && (
         <p className="mt-3 text-[11px] leading-relaxed text-[#9e9e9e]">
-          도로 밖에 따로 만든 주차장이라 칸에 맞춰 대는 직각주차일 확률이 높습니다. 공개 데이터로 추정한 값입니다.
+          {kind.confirmed
+            ? kind.parallel
+              ? "위성사진으로 확인한 결과 연석 옆에 칸을 그린 평행주차 구획입니다."
+              : "위성사진으로 확인한 결과 칸에 맞춰 대는 직각주차 구획입니다."
+            : "도로 밖에 따로 만든 주차장이라 칸에 맞춰 대는 직각주차일 확률이 높습니다. 공개 데이터로 추정한 값입니다."}
         </p>
       )}
 

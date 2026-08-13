@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   parallelOdds, recommendedSpots, nearestSpots, nearbyParking,
-  spotsAround, mergeSpots, walkMinutes, isEasyParking, feeText, feeDetail, WALK10_M, REACH_M,
+  spotsAround, mergeSpots, walkMinutes, isEasyParking, parkingKind, feeText, feeDetail, WALK10_M, REACH_M,
   type Parking, type ParkingSpot, type Lot,
 } from "./parking.ts";
 
@@ -129,6 +129,18 @@ assert.equal(walkMinutes(0), 1, "도보 0분이라고 말하지 않는다");
 assert.ok(isEasyParking({ type: "노외" }) && !isEasyParking({ type: "노상" }));
 // 카카오에서 온 곳은 유형을 모른다 — 모르는 걸 "쉽다"고 단언하면 안 된다
 assert.ok(!isEasyParking({ type: "" }), "유형을 모르는 주차장에 주차 쉬움 배지가 붙는다");
+
+// 위성 태깅(data/parking-tags.json)은 프록시를 덮어쓴다 — 직접 본 값이 간접 추론보다 낫다
+assert.deepEqual(parkingKind({ type: "노외" }), { parallel: false, confirmed: false });
+assert.deepEqual(parkingKind({ type: "노상" }), { parallel: true, confirmed: false });
+assert.equal(parkingKind({ type: "" }), null, "모르는 곳은 판정하지 않는다");
+// 프록시와 반대로 태깅된 경우가 이 기능의 존재 이유다 — 태그가 이겨야 한다
+assert.deepEqual(parkingKind({ type: "노상", parallel: false }), { parallel: false, confirmed: true });
+assert.deepEqual(parkingKind({ type: "노외", parallel: true }), { parallel: true, confirmed: true });
+assert.ok(isEasyParking({ type: "노상", parallel: false }), "직각으로 확인된 노상이 어렵다고 나온다");
+assert.ok(!isEasyParking({ type: "노외", parallel: true }), "평행으로 확인된 노외가 쉽다고 나온다");
+// 카카오에서 온 곳도 태깅되면 판정이 선다 (유형은 여전히 모른다)
+assert.deepEqual(parkingKind({ type: "", parallel: false }), { parallel: false, confirmed: true });
 
 // 두 출처 합치기 — 같은 주차장이면 정보가 더 많은 공공 쪽을 남긴다
 const 공공: ParkingSpot = { name: "시청 앞", addr: "제주시 동광로", type: "노상", spaces: 24, fee: "유료", walkM: 100, at: [33.4996, 126.5312] };

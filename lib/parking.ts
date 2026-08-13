@@ -36,6 +36,11 @@ export type ParkingSpot = {
    */
   addr: string | null;
   type: string; // "노상" | "노외"
+  /**
+   * 위성사진으로 사람이 확인한 주차 형태 (data/parking-tags.json).
+   * true = 평행, false = 직각. 없으면 아직 아무도 안 본 곳이라 아래 type 프록시로 추정한다.
+   */
+  parallel?: boolean;
   spaces: number | null;
   fee: string | null;
   rate?: Rate; // 유료·혼합만 있다
@@ -200,9 +205,28 @@ export const walkMinutes = (m: number): number => Math.max(1, Math.round(m / 67)
  * 하단 시트 배지("주차 쉬움"). parallelOdds 와 같은 프록시를 한 곳에만 쓴 것이다 —
  * 노외는 칸에 맞춰 대는 직각주차일 확률이 높다. 확정이 아니라 확률이라 배지도 단정하지 않는다.
  */
-// "노상이 아니면"이 아니라 "노외일 때만"이다. 카카오에서 온 주차장은 유형을 모르는데(type ""),
-// 부정으로 쓰면 모르는 곳까지 전부 쉽다고 단언하게 된다 — 모르면 아무 말도 안 하는 게 맞다.
-export const isEasyParking = (s: { type: string }): boolean => s.type === "노외";
+/** 주차 형태 판정. confirmed 면 위성으로 사람이 본 값이고, 아니면 주차장유형으로 추정한 값이다. */
+export type ParkingKind = { parallel: boolean; confirmed: boolean };
+
+/**
+ * 이 주차장이 평행인가 직각인가.
+ *
+ * 태깅된 곳(data/parking-tags.json)이 먼저다 — 위성으로 구획을 직접 본 값이라, 도로변이면
+ * 평행일 것이라는 간접 추론보다 언제나 낫다. 태그가 없으면 그 추론(프록시)으로 떨어진다.
+ *
+ * 유형도 태그도 없으면 null 이다. 카카오에서 온 주차장이 그렇다 — 모르면 아무 말도 안 한다.
+ * "노상이 아니면 직각"으로 쓰면 모르는 곳까지 전부 직각이라고 단언하게 된다.
+ */
+export function parkingKind(s: { type: string; parallel?: boolean }): ParkingKind | null {
+  if (typeof s.parallel === "boolean") return { parallel: s.parallel, confirmed: true };
+  if (s.type === "노외") return { parallel: false, confirmed: false };
+  if (s.type === "노상") return { parallel: true, confirmed: false };
+  return null;
+}
+
+/** 초보가 편한 쪽(직각)인가. 배지 하나를 붙일지 말지에만 쓴다. */
+export const isEasyParking = (s: { type: string; parallel?: boolean }): boolean =>
+  parkingKind(s)?.parallel === false;
 
 /** 1000 → "1,000". toLocaleString 은 실행 환경 로케일을 타서 검증과 화면이 갈릴 수 있다. */
 const won = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");

@@ -17,10 +17,31 @@
 // 한계 — 서귀포시 데이터(113곳)는 전부 노외라 노상 표본이 아예 없다.
 // 부설주차장도 이 데이터셋엔 없다(전부 공영). 즉 프록시는 사실상 제주시에서만 갈린다.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const DATA = fileURLToPath(new URL("../data/", import.meta.url));
+
+/**
+ * 손으로 태깅한 주차 형태 (data/parking-tags.json) — 위성사진을 보고 사람이 채운다.
+ *
+ * 이게 있으면 프록시(노상/노외 추정)를 덮어쓴다. 프록시는 "도로변이니 평행일 확률이 높다"는
+ * 간접 추론이라 개별 주차장에서는 얼마든지 틀릴 수 있는데, 위성으로 구획을 직접 본 값은 사실이다.
+ * 태깅된 곳만 화면에서 "추정"이라는 말을 뗀다 (lib/parking.ts parkingKind).
+ *
+ * 키는 주차장관리번호다 — 1,657곳 전부 고유하고 데이터가 갱신돼도 유지된다.
+ * 이름은 "이도일동 1307"처럼 겹치는 게 15쌍 있어 키로 못 쓴다.
+ * 목록은 scripts/parking-tag-worklist.mjs 가 만든다.
+ */
+const TAGS = (() => {
+  const path = `${DATA}parking-tags.json`;
+  if (!existsSync(path)) return {};
+  const raw = JSON.parse(readFileSync(path, "utf8"));
+  // parallel 이 true/false 인 것만 태깅된 것으로 본다. null 은 "아직 안 봤다"는 뜻이다.
+  return Object.fromEntries(
+    Object.entries(raw).filter(([, v]) => typeof v?.parallel === "boolean").map(([id, v]) => [id, v.parallel]),
+  );
+})();
 
 /** 도보로 갈 만한 거리. 이 밖은 "목적지 주차장"이라 부르기 어렵다. */
 const WALK_M = 1000;
@@ -60,6 +81,40 @@ function parseCsv(text) {
   return rows.filter((r) => r.length === head.length).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i]])));
 }
 
+/**
+ * 화면에 붙일 짧은 주소 — "제주특별자치도 제주시 이도이동 1175-16" → "제주시 이도이동".
+ *
+ * 왜 필요한가 — `주차장명` 1,657곳 중 1,514곳(91%)이 이름이 아니라 번지·도로명 그 자체다
+ * ("이도이동 1307"의 지번주소가 곧 "제주시 이도이동 1307"이다). 이름만 크게 띄우면 제주
+ * 지리를 모르는 사람에게는 어디인지 안 보이므로, 시·읍면동을 한 줄 붙인다.
+ *
+ * 도 이름은 뺀다 — 제주 안만 다루니 늘 같은 값이라 자리만 차지한다 (lib/geocode.ts 와 같은 판단).
+ * 뒤에 붙은 번지도 뺀다 — 그건 이미 주차장명에 들어 있다.
+ */
+const shortAddr = (r) => {
+  const full = (r.소재지지번주소?.trim() || r.소재지도로명주소?.trim() || "").replace(/^제주특별자치도\s*/, "");
+  return full.split(" ").filter((t) => t && !/^\d/.test(t)).join(" ") || null;
+};
+
+/**
+ * 유료 주차장 요금. 원본에 기본·추가·1일권이 다 있는데 "유료" 한 단어만 쓰면
+ * 초보에게 쓸모가 없다 — 얼마인지가 갈 곳을 정한다.
+ * 실제 값은 사실상 한 종류다 (유료 117곳 중 116곳이 30분 1,000원·추가 15분 500원·1일 10,000원).
+ * 그래도 굳혀두는 건 숫자를 화면에 적으려면 데이터에서 와야 하기 때문이다.
+ */
+const num = (v) => (/^\d+$/.test(v?.trim() ?? "") && +v > 0 ? +v : null);
+const rateOf = (r) => {
+  const rate = {
+    baseMin: num(r.주차기본시간),
+    baseWon: num(r.주차기본요금),
+    addMin: num(r.추가단위시간),
+    addWon: num(r.추가단위요금),
+    dayWon: num(r["1일주차권요금"]), // 숫자로 시작하는 컬럼명이라 점 표기가 안 된다
+  };
+  // 무료는 전부 0원이라 통째로 빠진다. 요금이 하나도 없으면 굳혀둘 것도 없다.
+  return Object.values(rate).some((v) => v != null) ? rate : null;
+};
+
 const rad = (d) => (d * Math.PI) / 180;
 /** 두 좌표 사이 미터. 제주 크기에선 평면 근사로 충분하다 (build-route-data.mjs 와 같은 방식) */
 const meters = ([la1, lo1], [la2, lo2]) =>
@@ -81,13 +136,19 @@ for (const type of ["노상", "노외", "부설"]) {
 // 1,657곳에서 좌표 결측을 뺀 전량이 약 150KB라 번들에 지고 갈 만하다.
 const spots = [];
 for (const r of lots) {
+  const id = r.주차장관리번호?.trim();
   const la = +r.위도, lo = +r.경도;
   if (!Number.isFinite(la) || !Number.isFinite(lo) || (la === 0 && lo === 0)) continue; // 위경도 결측 85곳
   spots.push({
     name: r.주차장명.trim(),
+    addr: shortAddr(r), // "제주시 이도이동" — 이름 91%가 번지라서 시·읍면동을 따로 붙인다
     type: r.주차장유형, // 노상 / 노외 — 평행·직각 프록시
     spaces: spacesOf(r),
     fee: r.요금정보?.trim() || null, // 무료 / 유료 / 혼합
+    // 무료 1,455곳에 "rate":null 을 적으면 그것만 17KB다. 없으면 없는 대로 둔다.
+    ...(rateOf(r) ? { rate: rateOf(r) } : {}),
+    // 관리번호는 굳혀두지 않는다 — 태그를 붙이는 데만 쓰고 화면에서는 안 쓴다 (1,572곳이면 30KB다).
+    ...(id in TAGS ? { parallel: TAGS[id] } : {}),
     at: [+la.toFixed(6), +lo.toFixed(6)],
   });
 }
@@ -102,6 +163,14 @@ const out = {
 writeFileSync(`${DATA}parking-data.json`, JSON.stringify(out));
 console.log(`주차장 ${lots.length}곳 중 좌표 있는 ${spots.length}곳 → data/parking-data.json`);
 console.log("  유형별 구획수:", stats);
+
+// 태깅 진척은 매번 찍는다 — 안 보이면 "언젠가"가 "영영"이 된다
+const 태깅 = spots.filter((s) => "parallel" in s);
+const 프록시와다름 = 태깅.filter((s) => s.parallel !== (s.type === "노상"));
+console.log(
+  `  위성 태깅 ${태깅.length}곳 (평행 ${태깅.filter((s) => s.parallel).length} · 직각 ${태깅.filter((s) => !s.parallel).length})` +
+    (태깅.length ? ` — 그중 ${프록시와다름.length}곳은 노상/노외 추정과 반대였다` : " — scripts/parking-tag-worklist.mjs 참고"),
+);
 
 // 굳혀둔 3구간이 몇 곳으로 잡히는지는 찍어 둔다 — 데이터가 갱신되면 여기서 먼저 보인다
 for (const dest of DESTINATIONS) {

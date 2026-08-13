@@ -1,0 +1,362 @@
+{
+  "405-2-000296": {
+    "parallel": null,
+    "name": "함덕리 1002-83, 1004-5, 6",
+    "near": "함덕해수욕장 191m",
+    "spaces": 221,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%95%A8%EB%8D%95%EB%A6%AC%201002-83%2C%201004-5%2C%206,33.5413406,126.6693165",
+    "satellite": "https://www.google.com/maps/@33.5413406,126.6693165,19z/data=!3m1!1e3"
+  },
+  "405-2-000229": {
+    "parallel": null,
+    "name": "평대리 3164-1",
+    "near": "비자림 96m",
+    "spaces": 196,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%8F%89%EB%8C%80%EB%A6%AC%203164-1,33.4912424,126.8102477",
+    "satellite": "https://www.google.com/maps/@33.4912424,126.8102477,19z/data=!3m1!1e3"
+  },
+  "405-2-000231": {
+    "parallel": null,
+    "name": "하도리 3204-1",
+    "near": "세화해변 468m",
+    "spaces": 124,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%95%98%EB%8F%84%EB%A6%AC%203204-1,33.5226716,126.8643443",
+    "satellite": "https://www.google.com/maps/@33.5226716,126.8643443,19z/data=!3m1!1e3"
+  },
+  "406-2-000021": {
+    "parallel": null,
+    "name": "고성오일장 옆 공영주차장",
+    "near": "올레길 2코스(광치기-온평 올레) 311m",
+    "spaces": 97,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EA%B3%A0%EC%84%B1%EC%98%A4%EC%9D%BC%EC%9E%A5%20%EC%98%86%20%EA%B3%B5%EC%98%81%EC%A3%BC%EC%B0%A8%EC%9E%A5,33.451862,126.912815",
+    "satellite": "https://www.google.com/maps/@33.451862,126.912815,19z/data=!3m1!1e3"
+  },
+  "405-2-000220": {
+    "parallel": null,
+    "name": "세화리 1507-1",
+    "near": "세화해변 386m",
+    "spaces": 93,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%84%B8%ED%99%94%EB%A6%AC%201507-1,33.5247028,126.8561309",
+    "satellite": "https://www.google.com/maps/@33.5247028,126.8561309,19z/data=!3m1!1e3"
+  },
+  "405-2-001153": {
+    "parallel": null,
+    "name": "삼양일동 1657-8",
+    "near": "삼양해수욕장 172m",
+    "spaces": 90,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%BC%EB%8F%99%201657-8,33.5247744,126.5868576",
+    "satellite": "https://www.google.com/maps/@33.5247744,126.5868576,19z/data=!3m1!1e3"
+  },
+  "405-2-000213": {
+    "parallel": null,
+    "name": "김녕리 492-1, 493-3",
+    "near": "김녕해수욕장 331m",
+    "spaces": 76,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EA%B9%80%EB%85%95%EB%A6%AC%20492-1%2C%20493-3,33.5583978,126.7626978",
+    "satellite": "https://www.google.com/maps/@33.5583978,126.7626978,19z/data=!3m1!1e3"
+  },
+  "406-2-000012": {
+    "parallel": null,
+    "name": "용머리 공영주차장",
+    "near": "용머리해안 432m",
+    "spaces": 70,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%9A%A9%EB%A8%B8%EB%A6%AC%20%EA%B3%B5%EC%98%81%EC%A3%BC%EC%B0%A8%EC%9E%A5,33.233793,126.310842",
+    "satellite": "https://www.google.com/maps/@33.233793,126.310842,19z/data=!3m1!1e3"
+  },
+  "405-2-001158": {
+    "parallel": null,
+    "name": "삼양이동 2133-5",
+    "near": "삼양해수욕장 426m",
+    "spaces": 69,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%B4%EB%8F%99%202133-5,33.5221193,126.5845586",
+    "satellite": "https://www.google.com/maps/@33.5221193,126.5845586,19z/data=!3m1!1e3"
+  },
+  "405-2-001149": {
+    "parallel": null,
+    "name": "삼양일동 1592-2",
+    "near": "올레길 18코스(제주원도심-조천 올레) 469m",
+    "spaces": 55,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%BC%EB%8F%99%201592-2,33.5283176,126.5930449",
+    "satellite": "https://www.google.com/maps/@33.5283176,126.5930449,19z/data=!3m1!1e3"
+  },
+  "406-2-000001": {
+    "parallel": null,
+    "name": "돔베낭골공영주차장",
+    "near": "올레길 7코스(서귀포-월평 올레) 314m",
+    "spaces": 54,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EB%8F%94%EB%B2%A0%EB%82%AD%EA%B3%A8%EA%B3%B5%EC%98%81%EC%A3%BC%EC%B0%A8%EC%9E%A5,33.240168,126.531879",
+    "satellite": "https://www.google.com/maps/@33.240168,126.531879,19z/data=!3m1!1e3"
+  },
+  "405-2-001555": {
+    "parallel": null,
+    "name": "이호일동 1759-1",
+    "near": "이호테우해수욕장 272m",
+    "spaces": 47,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%9D%B4%ED%98%B8%EC%9D%BC%EB%8F%99%201759-1,33.4960569,126.4502173",
+    "satellite": "https://www.google.com/maps/@33.4960569,126.4502173,19z/data=!3m1!1e3"
+  },
+  "405-2-000042": {
+    "parallel": null,
+    "name": "협재리 2514",
+    "near": "협재해수욕장 168m",
+    "spaces": 44,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%98%91%EC%9E%AC%EB%A6%AC%202514,33.3930848,126.240701",
+    "satellite": "https://www.google.com/maps/@33.3930848,126.240701,19z/data=!3m1!1e3"
+  },
+  "405-2-000218": {
+    "parallel": null,
+    "name": "세화리 1491-2",
+    "near": "세화해변 345m",
+    "spaces": 44,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%84%B8%ED%99%94%EB%A6%AC%201491-2,33.5242848,126.8566849",
+    "satellite": "https://www.google.com/maps/@33.5242848,126.8566849,19z/data=!3m1!1e3"
+  },
+  "405-2-000364": {
+    "parallel": null,
+    "name": "연평리 611-1",
+    "near": "올레길 1-1코스(우도-올레) 365m",
+    "spaces": 36,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%97%B0%ED%8F%89%EB%A6%AC%20611-1,33.5093726,126.961805",
+    "satellite": "https://www.google.com/maps/@33.5093726,126.961805,19z/data=!3m1!1e3"
+  },
+  "405-2-001566": {
+    "parallel": null,
+    "name": "이호일동 1668",
+    "near": "이호테우해수욕장 107m",
+    "spaces": 35,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%9D%B4%ED%98%B8%EC%9D%BC%EB%8F%99%201668,33.4965525,126.4521005",
+    "satellite": "https://www.google.com/maps/@33.4965525,126.4521005,19z/data=!3m1!1e3"
+  },
+  "405-2-000228": {
+    "parallel": null,
+    "name": "월정리 555-4, 555-6",
+    "near": "월정리해수욕장 164m",
+    "spaces": 34,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%9B%94%EC%A0%95%EB%A6%AC%20555-4%2C%20555-6,33.5573037,126.7943496",
+    "satellite": "https://www.google.com/maps/@33.5573037,126.7943496,19z/data=!3m1!1e3"
+  },
+  "406-2-000039": {
+    "parallel": null,
+    "name": "고성리 구보건지소 공영주차장",
+    "near": "올레길 2코스(광치기-온평 올레) 348m",
+    "spaces": 33,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EA%B3%A0%EC%84%B1%EB%A6%AC%20%EA%B5%AC%EB%B3%B4%EA%B1%B4%EC%A7%80%EC%86%8C%20%EA%B3%B5%EC%98%81%EC%A3%BC%EC%B0%A8%EC%9E%A5,33.4509482,126.9138794",
+    "satellite": "https://www.google.com/maps/@33.4509482,126.9138794,19z/data=!3m1!1e3"
+  },
+  "405-2-001151": {
+    "parallel": null,
+    "name": "삼양일동 1628-7",
+    "near": "올레길 18코스(제주원도심-조천 올레) 245m",
+    "spaces": 30,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%BC%EB%8F%99%201628-7,33.5268657,126.5905213",
+    "satellite": "https://www.google.com/maps/@33.5268657,126.5905213,19z/data=!3m1!1e3"
+  },
+  "405-2-001154": {
+    "parallel": null,
+    "name": "삼양이동 2110-6",
+    "near": "삼양해수욕장 245m",
+    "spaces": 26,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%B4%EB%8F%99%202110-6,33.5236684,126.5853723",
+    "satellite": "https://www.google.com/maps/@33.5236684,126.5853723,19z/data=!3m1!1e3"
+  },
+  "405-2-000308": {
+    "parallel": null,
+    "name": "함덕리 272-24",
+    "near": "함덕해수욕장 329m",
+    "spaces": 25,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%95%A8%EB%8D%95%EB%A6%AC%20272-24,33.542473,126.6727221",
+    "satellite": "https://www.google.com/maps/@33.542473,126.6727221,19z/data=!3m1!1e3"
+  },
+  "405-2-000366": {
+    "parallel": null,
+    "name": "연평리 682-1",
+    "near": "올레길 1-1코스(우도-올레) 63m",
+    "spaces": 25,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%97%B0%ED%8F%89%EB%A6%AC%20682-1,33.5125468,126.9597071",
+    "satellite": "https://www.google.com/maps/@33.5125468,126.9597071,19z/data=!3m1!1e3"
+  },
+  "405-1-000256": {
+    "parallel": null,
+    "name": "세화7길 40, 48",
+    "near": "세화해변 255m",
+    "spaces": 24,
+    "추정": "평행",
+    "kakao": "https://map.kakao.com/link/map/%EC%84%B8%ED%99%947%EA%B8%B8%2040%2C%2048,33.5230458,126.8613796",
+    "satellite": "https://www.google.com/maps/@33.5230458,126.8613796,19z/data=!3m1!1e3"
+  },
+  "405-2-001159": {
+    "parallel": null,
+    "name": "삼양이동 2135-10",
+    "near": "삼양해수욕장 498m",
+    "spaces": 24,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%B4%EB%8F%99%202135-10,33.5214239,126.5848284",
+    "satellite": "https://www.google.com/maps/@33.5214239,126.5848284,19z/data=!3m1!1e3"
+  },
+  "405-2-001192": {
+    "parallel": null,
+    "name": "삼양이동 2128-7",
+    "near": "삼양해수욕장 495m",
+    "spaces": 24,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%B4%EB%8F%99%202128-7,33.5220904,126.5827065",
+    "satellite": "https://www.google.com/maps/@33.5220904,126.5827065,19z/data=!3m1!1e3"
+  },
+  "405-1-000372": {
+    "parallel": null,
+    "name": "연평리 682-10",
+    "near": "올레길 1-1코스(우도-올레) 25m",
+    "spaces": 22,
+    "추정": "평행",
+    "kakao": "https://map.kakao.com/link/map/%EC%97%B0%ED%8F%89%EB%A6%AC%20682-10,33.5120499,126.959745",
+    "satellite": "https://www.google.com/maps/@33.5120499,126.959745,19z/data=!3m1!1e3"
+  },
+  "405-2-001150": {
+    "parallel": null,
+    "name": "삼양일동 1598-2",
+    "near": "올레길 18코스(제주원도심-조천 올레) 151m",
+    "spaces": 22,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%BC%EB%8F%99%201598-2,33.526293,126.5878608",
+    "satellite": "https://www.google.com/maps/@33.526293,126.5878608,19z/data=!3m1!1e3"
+  },
+  "405-2-000216": {
+    "parallel": null,
+    "name": "세화리 1415-1",
+    "near": "세화해변 385m",
+    "spaces": 21,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%84%B8%ED%99%94%EB%A6%AC%201415-1,33.5228783,126.8571176",
+    "satellite": "https://www.google.com/maps/@33.5228783,126.8571176,19z/data=!3m1!1e3"
+  },
+  "406-2-000060": {
+    "parallel": null,
+    "name": "표선 시가지내 공영주차장",
+    "near": "표선해수욕장 427m",
+    "spaces": 21,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%91%9C%EC%84%A0%20%EC%8B%9C%EA%B0%80%EC%A7%80%EB%82%B4%20%EA%B3%B5%EC%98%81%EC%A3%BC%EC%B0%A8%EC%9E%A5,33.325078,126.833875",
+    "satellite": "https://www.google.com/maps/@33.325078,126.833875,19z/data=!3m1!1e3"
+  },
+  "405-2-000223": {
+    "parallel": null,
+    "name": "세화리 3641-1",
+    "near": "세화해변 417m",
+    "spaces": 20,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%84%B8%ED%99%94%EB%A6%AC%203641-1,33.5268905,126.8562701",
+    "satellite": "https://www.google.com/maps/@33.5268905,126.8562701,19z/data=!3m1!1e3"
+  },
+  "405-2-001558": {
+    "parallel": null,
+    "name": "이호일동 669",
+    "near": "이호테우해수욕장 487m",
+    "spaces": 20,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%9D%B4%ED%98%B8%EC%9D%BC%EB%8F%99%20669,33.4986734,126.4577065",
+    "satellite": "https://www.google.com/maps/@33.4986734,126.4577065,19z/data=!3m1!1e3"
+  },
+  "405-2-001146": {
+    "parallel": null,
+    "name": "삼양일동 1547-10, 1547-11",
+    "near": "올레길 18코스(제주원도심-조천 올레) 341m",
+    "spaces": 19,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%BC%EB%8F%99%201547-10%2C%201547-11,33.5293461,126.5911147",
+    "satellite": "https://www.google.com/maps/@33.5293461,126.5911147,19z/data=!3m1!1e3"
+  },
+  "405-2-001157": {
+    "parallel": null,
+    "name": "삼양이동 2124-6",
+    "near": "삼양해수욕장 366m",
+    "spaces": 19,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%82%BC%EC%96%91%EC%9D%B4%EB%8F%99%202124-6,33.5226698,126.5864648",
+    "satellite": "https://www.google.com/maps/@33.5226698,126.5864648,19z/data=!3m1!1e3"
+  },
+  "405-1-000147": {
+    "parallel": null,
+    "name": "수산4길 40, 2",
+    "near": "올레길 16코스(고내-광령 올레) 214m",
+    "spaces": 18,
+    "추정": "평행",
+    "kakao": "https://map.kakao.com/link/map/%EC%88%98%EC%82%B04%EA%B8%B8%2040%2C%202,33.4688957,126.3917251",
+    "satellite": "https://www.google.com/maps/@33.4688957,126.3917251,19z/data=!3m1!1e3"
+  },
+  "405-2-000236": {
+    "parallel": null,
+    "name": "행원리 655-1",
+    "near": "올레길 20코스(김녕-하도 올레) 89m",
+    "spaces": 18,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%96%89%EC%9B%90%EB%A6%AC%20655-1,33.5552969,126.8098976",
+    "satellite": "https://www.google.com/maps/@33.5552969,126.8098976,19z/data=!3m1!1e3"
+  },
+  "405-2-000235": {
+    "parallel": null,
+    "name": "행원리 1537-32",
+    "near": "월정리해수욕장 423m",
+    "spaces": 17,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%96%89%EC%9B%90%EB%A6%AC%201537-32,33.5551269,126.8000791",
+    "satellite": "https://www.google.com/maps/@33.5551269,126.8000791,19z/data=!3m1!1e3"
+  },
+  "405-1-000376": {
+    "parallel": null,
+    "name": "연평리 1290-5",
+    "near": "올레길 1-1코스(우도-올레) 272m",
+    "spaces": 17,
+    "추정": "평행",
+    "kakao": "https://map.kakao.com/link/map/%EC%97%B0%ED%8F%89%EB%A6%AC%201290-5,33.5137253,126.9573777",
+    "satellite": "https://www.google.com/maps/@33.5137253,126.9573777,19z/data=!3m1!1e3"
+  },
+  "406-2-000036": {
+    "parallel": null,
+    "name": "고성리 원광어린이집 인근 공영주차장",
+    "near": "올레길 2코스(광치기-온평 올레) 105m",
+    "spaces": 16,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EA%B3%A0%EC%84%B1%EB%A6%AC%20%EC%9B%90%EA%B4%91%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91%20%EC%9D%B8%EA%B7%BC%20%EA%B3%B5%EC%98%81%EC%A3%BC%EC%B0%A8%EC%9E%A5,33.449139,126.9106733",
+    "satellite": "https://www.google.com/maps/@33.449139,126.9106733,19z/data=!3m1!1e3"
+  },
+  "405-2-000044": {
+    "parallel": null,
+    "name": "협재리 2516",
+    "near": "협재해수욕장 193m",
+    "spaces": 15,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%ED%98%91%EC%9E%AC%EB%A6%AC%202516,33.3928519,126.2407674",
+    "satellite": "https://www.google.com/maps/@33.3928519,126.2407674,19z/data=!3m1!1e3"
+  },
+  "405-2-000219": {
+    "parallel": null,
+    "name": "세화리 1500-5, 1500-45",
+    "near": "세화해변 298m",
+    "spaces": 15,
+    "추정": "직각",
+    "kakao": "https://map.kakao.com/link/map/%EC%84%B8%ED%99%94%EB%A6%AC%201500-5%2C%201500-45,33.5261861,126.857297",
+    "satellite": "https://www.google.com/maps/@33.5261861,126.857297,19z/data=!3m1!1e3"
+  }
+}
