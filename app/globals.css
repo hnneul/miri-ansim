@@ -83,11 +83,12 @@ body {
   .phone::before {
     content: "";
     position: sticky;
-    top: 10px;
+    /* 실측값 — 아이폰 15/14 Pro 의 아일랜드는 125x37 이고 화면 위에서 11 떨어져 있다 */
+    top: 11px;
     z-index: 50;
-    width: 118px;
-    height: 32px;
-    margin: 10px auto -42px;
+    width: 125px;
+    height: 37px;
+    margin: 11px auto -48px;
     flex: none;
     border-radius: 999px;
     background: #0c0a09;

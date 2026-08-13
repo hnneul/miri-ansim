@@ -23,7 +23,8 @@ const geistMono = Geist_Mono({
 const notoSansKr = Noto_Sans_KR({
   variable: "--font-noto-kr",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  // 600 은 상태바 시각 전용이다 — 실제 아이폰이 SF Pro Semibold 라 500 은 얇고 700 은 두껍다
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 

@@ -56,12 +56,17 @@ function Home() {
 
   return (
     <div className="flex flex-1 flex-col bg-white pb-8">
-      {/* hero-promotion — 높이 218px 고정. 아래 검색바가 30px 겹쳐 올라온다 */}
-      <div className="relative h-[218px] shrink-0 bg-[#e2f1fe]">
+      {/*
+        hero-promotion. 와이어프레임 높이는 218 이지만 22px 키웠다 — 거기엔 Dynamic Island 가 없어서
+        상태바가 y:24 에서 끝나는데, 프레임에서는 아일랜드를 피하느라 y:59 까지 내려간다(app/StatusBar.tsx).
+        안쪽 간격은 와이어프레임 그대로 두고 히어로째 내리는 쪽이, 간격을 깎아 218 에 우겨넣는
+        것보다 낫다 — 깎으면 제목·아바타가 아일랜드에 붙는다. 아래 검색바가 30px 겹쳐 올라오는 건 그대로.
+      */}
+      <div className="relative h-[240px] shrink-0 bg-[#e2f1fe]">
         <StatusBar tone="text-[#1f1f1f]" />
-        {/* 상태바 아래 6px = 와이어프레임의 제목 top:54, 캐릭터 원 top:48 */}
+        {/* 상태바 아래 17px — 와이어프레임의 제목 top:54 와 같은 간격이다 */}
         <div className="flex items-start justify-between pl-6 pr-3">
-          <h1 className="mt-[6px] text-[23px] leading-[1.3] font-bold whitespace-nowrap text-[#1f1f1f]">
+          <h1 className="mt-[17px] text-[23px] leading-[1.3] font-bold whitespace-nowrap text-[#1f1f1f]">
             제주 초보 운전자라면?
             <br />
             부담 적은 길로 출발해요
@@ -69,7 +74,7 @@ function Home() {
           {/* 프로필 입구. 온보딩을 다시 돌면 값이 바뀐다 — 아바타는 운전 경력에 따라 자란다 */}
           <button
             onClick={() => router.push("/onboarding")}
-            className="flex shrink-0 flex-col items-center gap-1 transition active:scale-95"
+            className="mt-[11px] flex shrink-0 flex-col items-center gap-1 transition active:scale-95"
           >
             <img src={me.src} alt={me.alt} className="size-[90px] rounded-full bg-[#1f1f1f] object-contain" />
             <span className="text-[15px] font-bold text-black">프로필</span>
