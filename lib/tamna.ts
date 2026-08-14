@@ -51,6 +51,11 @@ export function nearbyTamna(
   at: [number, number],
   shops: Shop[],
   radiusM: number,
+  /**
+   * 업종 칩. **자르기 전에** 걸러야 한다 — 자른 뒤에 거르면 가까운 40곳이 전부 음식점인 동네에서
+   * "숙박"을 눌렀을 때 머리글은 49곳이라 적고 목록은 텅 빈다 (실제로 그랬다).
+   */
+  kind?: string | null,
 ): Nearby | null {
   const near: TamnaShop[] = [];
   for (const s of shops) {
@@ -66,6 +71,6 @@ export function nearbyTamna(
     radiusM,
     total: near.length,
     byKind: near.reduce<Record<string, number>>((o, s) => ({ ...o, [s.kind]: (o[s.kind] ?? 0) + 1 }), {}),
-    shops: near.slice(0, SHOP_CAP),
+    shops: (kind ? near.filter((s) => s.kind === kind) : near).slice(0, SHOP_CAP),
   };
 }

@@ -71,6 +71,15 @@ const FIT_SPAN = 1.4;
  */
 const WALK_LIMIT_M = 2000;
 
+/**
+ * 업종 칩을 놓을 순서.
+ *
+ * byKind 는 **가까운 순으로 처음 등장한 순서**라 지도를 조금만 옮겨도 칩이 자리를 바꾼다 —
+ * 같은 자리를 노리고 누르려던 손가락이 헛짚는다. 데이터가 세 종류뿐이라 순서를 못 박는다
+ * (scripts/build-tamna-data.mjs 의 KINDS 와 같은 차례).
+ */
+const KIND_ORDER = ["음식점", "숙박", "주유"];
+
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function AroundPage() {
   return (
@@ -130,18 +139,19 @@ function Around() {
   const move = useRef<((at: LatLng, radiusM: number) => void) | null>(null);
 
   const near = useMemo(
-    () => nearbyTamna(label ?? "이 근처", center, SHOPS, RADIUS_M),
-    [label, center],
+    () => nearbyTamna(label ?? "이 근처", center, SHOPS, RADIUS_M, kind),
+    [label, center, kind],
   );
 
   // 칩은 반경 안에 **실제로 있는 업종**으로만 만든다. 목록에 없는 업종을 칩으로 그리면
   // 눌러도 아무 일이 없다 (/parking 이 24시간 칩을 빼둔 것과 같은 이유).
-  const kinds = useMemo(() => Object.keys(near?.byKind ?? {}), [near]);
-
-  const shops = useMemo(
-    () => (near?.shops ?? []).filter((s) => !kind || s.kind === kind),
-    [near, kind],
+  const kinds = useMemo(
+    () => KIND_ORDER.filter((k) => near?.byKind[k]),
+    [near],
   );
+
+  // 업종 필터는 nearbyTamna 안에서 **자르기 전에** 걸린다 — 여기서 다시 거르면 안 된다.
+  const shops = near?.shops ?? [];
 
   // 고른 곳이 업종 칩 때문에 목록에서 빠져도 핀은 남긴다 — 지도에 그 핀만 없으면
   // 어디를 고른 건지 알 수 없다 (/parking 과 같은 규칙).
@@ -427,7 +437,7 @@ type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops
 
 /** 반경 안 가맹점 목록. 시트가 열려 있을 때만 그려진다. */
 function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListProps) {
-  const head = `${label ? `${label} 주변` : "이 지역"} ${shops.length}곳`;
+  const head = `${label ? `${label}에서 ` : ""}가까운 ${shops.length}곳`;
   const headClass = "shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]";
   return (
     <>
@@ -445,10 +455,11 @@ function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListPro
       </div>
 
       {/*
-        머리글은 거리를 **어디서 잰 값**인지 밝히는 자리다. label 이 없다는 건 위치를 못 받았거나
-        (권한 거부) 사용자가 지도를 직접 움직였다는 뜻이라, 그때 "현재 위치에서"라고 적으면
-        제주시청에서 잰 숫자를 내 옆이라고 말하게 된다. "이 근처"는 기준을 지도에 맡기는 말이다.
+        머리글은 **목록에 실제로 있는 개수**만 말한다. 반경 안 전체(817곳)를 적어봐야
+        관광객이 쓸 숫자가 아니고, "여기 많다"는 지도에 깔린 핀이 이미 말한다.
 
+        label 이 없다는 건 위치를 못 받았거나(권한 거부) 사용자가 지도를 직접 움직였다는 뜻이라,
+        그때 장소 이름을 적으면 거짓이 된다. 그럴 땐 기준을 말하지 않고 "가까운 N곳"만 남긴다.
       */}
       <p className={headClass}>{head}</p>
 
@@ -460,9 +471,11 @@ function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListPro
             지도를 옮기거나 칩을 눌러보세요.
           </p>
         )}
+        {/* 목록은 가까운 순으로 잘라 보여준다. 머리글 숫자와 카드 수가 다른 이유를 여기서 밝힌다. */}
         {shops.map((s) => (
           <ShopCard key={idOf(s)} shop={s} walkM={walkFromMe(s)} onClick={() => onPick(s)} />
         ))}
+
       </div>
     </>
   );
@@ -539,11 +552,30 @@ const PIN = pin(
    </svg>`,
 );
 
+/**
+ * 고른 곳만 탐나는전 캐릭터(모자 쓴 얼굴)로 바꾼다.
+ *
+ * 안 고른 39개까지 얼굴로 두지 않는 이유 — 얼굴은 사람 눈이 자동으로 쫓는 형태라 40개가 깔리면
+ * 기호보다 훨씬 시끄럽고, 32x24 에서는 눈이 1px 점이 돼 회색 얼룩으로 뭉갠다.
+ * 한 번에 하나만 뜨는 이 핀은 크기를 줘도 시끄럽지 않아서 46x46 으로 키웠다 (원래 44x34).
+ *
+ * **선이 아니라 면으로 그린다.** 참고 이미지는 얇은 선화인데, 그대로 옮기면 이 크기에서 획끼리
+ * 뭉쳐 덩어리로 보인다. 흰 면으로 채우고 눈·입만 주황으로 파내면 같은 인상이 작게도 읽힌다.
+ * 코는 뺐다 — 이 크기에서는 형태가 아니라 얼룩이 된다.
+ * 담는 판도 알약에서 원으로 바꿨다. 얼굴이 동그란데 가로로 긴 판에 넣으면 좌우가 끼어 답답하다.
+ *
+ * 공식 로고 파일이 아니라 참고 이미지를 보고 형태만 옮겨 그린 것이다 — 벡터 원본이 생기면
+ * 아래 도형들만 갈아끼우면 된다.
+ */
 const PIN_ON = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="34" viewBox="0 0 44 34">
-     <rect x="1.5" y="1.5" width="41" height="31" rx="15.5" fill="#ff6114" stroke="#1f1f1f" stroke-width="2"/>
-     <text x="22" y="23" font-family="system-ui,sans-serif" font-size="15" font-weight="700"
-           fill="#fff" text-anchor="middle">₩</text>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46">
+     <circle cx="23" cy="23" r="21" fill="#ff6114" stroke="#1f1f1f" stroke-width="2"/>
+     <circle cx="23" cy="26" r="9.5" fill="#fff"/>
+     <path d="M14 18 A9 9 0 0 1 32 18 Z" fill="#fff"/>
+     <rect x="8.5" y="15.7" width="29" height="4.5" rx="2.25" fill="#fff" transform="rotate(-4 23 17.95)"/>
+     <circle cx="19.6" cy="25" r="1.5" fill="#ff6114"/>
+     <circle cx="26.4" cy="25" r="1.5" fill="#ff6114"/>
+     <path d="M19.2 28.8 A4.6 4.6 0 0 0 26.8 28.8" fill="none" stroke="#ff6114" stroke-width="1.8" stroke-linecap="round"/>
    </svg>`,
 );
 
@@ -727,7 +759,7 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
     drawn.current.forEach((mk) => mk.setMap(null));
     drawn.current = pins.map((s) => {
       const on = same(selected, s);
-      const [w, h] = on ? [44, 34] : [32, 24];
+      const [w, h] = on ? [46, 46] : [32, 24];
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(s.at[0], s.at[1]),
         title: s.name,
