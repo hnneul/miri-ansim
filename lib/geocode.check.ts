@@ -8,7 +8,7 @@
 // 답하지 않을 때 우리가 무슨 말을 하느냐다.
 
 import assert from "node:assert";
-import { geocodePlace, reverseGeocode } from "./geocode.ts";
+import { geocodePlace, areaAt } from "./geocode.ts";
 
 const 응답 = (body: unknown, status = 200) =>
   (() => Promise.resolve(new Response(JSON.stringify(body), { status }))) as unknown as typeof fetch;
@@ -75,28 +75,43 @@ assert.ok(입력탓(없음) && "error" in 없음 && 없음.error.includes("서�
 
 // --- ⑥ 역지오코딩 (메인화면 "현위치" 줄) ---
 // 여기는 실패가 전부 null 이다 — 검증할 건 "무슨 말을 하느냐"가 아니라 "던지지 않느냐"와
-// 주소를 어느 필드에서 어떤 모양으로 꺼내느냐다.
+// **번지가 새어 나오지 않느냐**다. 동 단위로 끊는 게 이 함수의 요지라(lib/geocode.ts 주석) 거기가 새면
+// 화면이 GPS 오차를 번지까지 확대해 보여준다.
 const 좌표응답 = (doc: unknown) => 응답({ documents: doc ? [doc] : [] });
 
-// 도로명이 있으면 도로명, 도 이름은 떼고 — 와이어프레임의 "제주시 아란4길 89-4" 모양
+// 응답 필드는 카카오 coord2address 실제 모양이다. address_name 에는 번지가 붙어 오는데 그걸 안 쓴다.
 globalThis.fetch = 좌표응답({
   road_address: { address_name: "제주특별자치도 제주시 아란4길 89-4" },
-  address: { address_name: "제주특별자치도 제주시 아라일동 1234" },
+  address: {
+    address_name: "제주특별자치도 제주시 아라이동 61-6",
+    region_2depth_name: "제주시",
+    region_3depth_name: "아라이동",
+  },
 });
-assert.equal(await reverseGeocode(33.4665, 126.5601), "제주시 아란4길 89-4");
+assert.equal(await areaAt(33.4665, 126.5601), "제주시 아라이동");
 
-// 도로명이 없는 좌표(밭·오름·바다). 카카오가 road_address 를 null 로 준다 — 지번으로 내려가야 한다.
-globalThis.fetch = 좌표응답({ road_address: null, address: { address_name: "제주특별자치도 제주시 아라일동 1234" } });
-assert.equal(await reverseGeocode(33.4, 126.5), "제주시 아라일동 1234");
+// 건물이 없는 좌표(밭·오름·바다 위, 도로 한복판)는 road_address 가 통째로 null 이다.
+// 지번 블록만 보고 있으므로 여기서 아무 일도 일어나지 않아야 한다 — 도로명을 먼저 봤다면 여기서 깨진다.
+globalThis.fetch = 좌표응답({
+  road_address: null,
+  address: { address_name: "제주특별자치도 제주시 오라이동 산 12-3", region_2depth_name: "제주시", region_3depth_name: "오라이동" },
+});
+assert.equal(await areaAt(33.4, 126.5), "제주시 오라이동");
+
+// 읍면 지역. 카카오가 3depth 에 읍까지 담아 준다 — 그대로 붙여 나가면 된다.
+globalThis.fetch = 좌표응답({
+  address: { region_2depth_name: "제주시", region_3depth_name: "애월읍 하귀일리" },
+});
+assert.equal(await areaAt(33.47, 126.4), "제주시 애월읍 하귀일리");
 
 // 바다 한가운데면 documents 가 비어 온다 — 던지지 말고 줄만 비운다
 globalThis.fetch = 좌표응답(null);
-assert.equal(await reverseGeocode(33.0, 126.0), null);
+assert.equal(await areaAt(33.0, 126.0), null);
 
 // 서버 오류·네트워크 오류도 마찬가지. 장식 줄 하나 때문에 메인화면이 깨지면 안 된다.
 globalThis.fetch = 응답({}, 500);
-assert.equal(await reverseGeocode(33.4, 126.5), null);
+assert.equal(await areaAt(33.4, 126.5), null);
 globalThis.fetch = (() => Promise.reject(new Error("The operation was aborted"))) as unknown as typeof fetch;
-assert.equal(await reverseGeocode(33.4, 126.5), null);
+assert.equal(await areaAt(33.4, 126.5), null);
 
 console.log("geocode.check.ts ok");

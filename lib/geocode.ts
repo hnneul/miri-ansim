@@ -58,14 +58,24 @@ export async function geocodePlace(query: string): Promise<Geocoded> {
 }
 
 /**
- * 좌표 → 짧은 주소 ("제주시 아란4길 89-4"). 메인화면(app/home) 지도 아래 "현위치" 줄에만 쓴다.
+ * 좌표 → 지금 서 있는 동네 ("제주시 아라이동"). 메인화면(app/home) 지도 아래 "현위치" 줄에만 쓴다.
  *
- * 여기만 실패를 사유가 아니라 null 로 돌려준다 — 위 geocodePlace 와 정반대라 이유를 적어둔다.
- * 저기는 사용자가 적은 지명을 찾는 일이라 실패하면 고칠 사람이 사용자고, 그래서 무엇이 틀렸는지
- * 말해줘야 한다. 여기는 위치를 이미 브라우저가 준 뒤 그 옆에 주소를 덧붙이는 장식 줄이다 —
- * 사용자가 할 수 있는 일이 없으니 사유를 띄우면 고칠 수 없는 경고만 하나 남는다. 부르는 쪽은 그 줄만 비운다.
+ * **번지까지 적지 않는 게 이 함수의 요지다.** 와이어프레임에는 "제주시 아란4길 89-4" 라고 전체
+ * 도로명이 적혀 있지만 예시로 채운 값이었고, 실제로 그렇게 쓰면 세 가지가 어긋난다 —
+ *
+ * 하나, 이 줄은 아무 데도 안 쓰인다. 검색이 /destination 으로 넘기는 건 좌표지 이 문자열이 아니라,
+ * 사용자가 하는 일은 "제대로 잡혔네" 하고 넘어가는 것뿐이다. 배달 주소처럼 검수할 값이 아니다.
+ * 둘, 노트북 WiFi 측위는 수백 m 씩 틀어진다. 번지를 박으면 그게 틀렸을 때 바로 티가 나지만
+ * 동 이름은 그 오차를 흡수한다.
+ * 셋, 도로명이 있는 좌표와 없는 좌표가 섞여 있어(아래 참고) 전체 주소로 적으면 같은 동네에서도
+ * 줄 모양이 "아란4길 89-4" 와 "아라이동 61-6" 사이를 오간다. region 필드로 뽑으면 늘 같은 모양이다.
+ *
+ * 실패는 사유가 아니라 null 이다 — 위 geocodePlace 와 정반대라 이유를 적어둔다. 저기는 사용자가
+ * 적은 지명을 찾는 일이라 실패하면 고칠 사람이 사용자고, 그래서 무엇이 틀렸는지 말해줘야 한다.
+ * 여기는 브라우저가 준 위치 옆에 동네 이름을 덧붙이는 게 전부라 사용자가 할 수 있는 일이 없다.
+ * 사유를 띄우면 고칠 수 없는 경고만 하나 남는다. 부르는 쪽은 그 줄만 비운다.
  */
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+export async function areaAt(lat: number, lng: number): Promise<string | null> {
   const key = process.env.KAKAO_REST_API_KEY;
   if (!key) return null;
 
@@ -79,12 +89,17 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
     });
     if (!res.ok) return null;
 
-    const doc = (await res.json()).documents?.[0];
-    // 도로명이 먼저다 — 와이어프레임의 "제주시 아란4길 89-4" 가 도로명이다.
-    // 도로명이 없는 좌표(밭·오름·바다 위)는 카카오가 road_address 를 null 로 주므로 지번으로 내려간다.
-    const address: string | undefined = doc?.road_address?.address_name ?? doc?.address?.address_name;
-    // 도 이름은 늘 같은 값이라 자리만 차지한다 (shortRegion 과 같은 이유)
-    return address ? address.replace(/^제주특별자치도\s*/, "") : null;
+    /*
+     * 지번(address) 쪽을 쓴다. 도로명(road_address)이 아니라 —
+     * 건물이 없는 좌표(밭·오름·바다 위, 도로 한복판)에는 카카오가 road_address 를 통째로 null 로
+     * 주는데, 제주는 그런 좌표가 흔하다. 지번 블록은 늘 온다.
+     *
+     * region_2depth_name = "제주시" · region_3depth_name = "아라이동" 이고,
+     * 읍면 지역이면 3depth 에 "애월읍 하귀일리" 처럼 읍까지 들어온다 — 어느 쪽이든 그대로 붙이면 된다.
+     */
+    const addr = (await res.json()).documents?.[0]?.address;
+    const area = [addr?.region_2depth_name, addr?.region_3depth_name].filter(Boolean).join(" ");
+    return area || null;
   } catch {
     return null;
   }
