@@ -106,6 +106,21 @@ function detailQuery(spot: ParkingSpot, sp: URLSearchParams) {
   return String(q);
 }
 
+/**
+ * 길 비교 화면(/route)으로 넘길 쿼리.
+ *
+ * 길의 **도착지는 주차장**이다 — 쿼리의 dest* 는 관광지라 그대로 두고 to* 를 따로 싣는다.
+ * 차를 대는 자리까지 재야 "몇 분 걸리나"가 실제로 운전하는 시간이 된다.
+ * (상세 화면의 "이 주차장으로 갈게요"도 같은 쿼리를 만든다 — app/parking/detail/GoButton.tsx)
+ */
+function routeQuery(spot: ParkingSpot, sp: URLSearchParams) {
+  const q = new URLSearchParams(sp);
+  q.set("to", spot.name);
+  q.set("toLat", String(spot.at[0]));
+  q.set("toLng", String(spot.at[1]));
+  return String(q);
+}
+
 /** 같은 주차장인가. 이름이 겹치는 곳("금능리 1428" 류)이 있어 좌표까지 본다. */
 const same = (a: ParkingSpot | null, b: ParkingSpot) =>
   !!a && a.name === b.name && a.at[0] === b.at[0] && a.at[1] === b.at[1];
@@ -396,7 +411,11 @@ function Parking() {
             recommended={!selected}
             onList={() => setList(true)}
             onDetail={() => router.push(`/parking/detail?${detailQuery(shown, searchParams)}`)}
-            onGo={() => navigateTo(shown)}
+            /*
+             * 카카오맵을 바로 열지 않는다 — 어느 길로 갈지가 아직 안 정해졌다.
+             * 길 비교(HOME-02) → 근거(HOME-03)를 거쳐 거기서 안내로 나간다.
+             */
+            onGo={() => router.push(`/route?${routeQuery(shown, searchParams)}`)}
             mapButton={mapButton}
           />
         ) : (

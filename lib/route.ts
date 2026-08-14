@@ -12,7 +12,7 @@
 
 import { analyze, buildIndex, type Analysis, type Link, type LinkIndex } from "./analyze.ts";
 import type { LatLng } from "./curvature.ts";
-import type { RiskFactor } from "./score.ts";
+import { burdenOf, type DriverProfile, type RiskFactor } from "./score.ts";
 
 const ENDPOINT = "https://apis-navi.kakaomobility.com/v1/directions";
 
@@ -55,7 +55,7 @@ type KakaoRoute = {
 async function directions(
   origin: LatLng,
   destination: LatLng,
-  priority: "DISTANCE" | "TIME",
+  priority: (typeof PRIORITIES)[number]["priority"],
   key: string,
 ): Promise<KakaoRoute> {
   const q = new URLSearchParams({
@@ -169,6 +169,26 @@ export function risksOf(a: Analysis): RiskFactor[] {
   return out;
 }
 
+/**
+ * 근거 화면(HOME-03)의 비교표에 그대로 들어가는 값들.
+ *
+ * risks 로는 표를 못 만든다 — risksOf 는 값이 0인 요인을 아예 뺀다(부담의 근거니까 맞다).
+ * 표는 반대로 **0을 보여줘야** 비교가 된다: "급커브 12곳 → 없음"에서 오른쪽 칸이 요지다.
+ * 그래서 같은 분석에서 따로 뽑는다.
+ */
+export type RouteStats = {
+  /** 좌회전·유턴 (번). 맞은편 흐름을 끊고 들어가는 판단의 횟수다 */
+  turns: number;
+  /** 회전교차로 (곳) */
+  roundabouts: number;
+  /** 연속 급커브 (곳) */
+  sharpCurves: number;
+  /** 좁은 교행 구간이 경로에서 차지하는 비율 (0~1) */
+  narrow: number;
+  /** 고속주행(제한속도 80↑) 구간 (km) */
+  highSpeedKm: number;
+};
+
 export type LiveRoute = {
   id: "fast" | "safe";
   name: string;
@@ -179,6 +199,7 @@ export type LiveRoute = {
   durationSource: string;
   path: LatLng[];
   risks: RiskFactor[];
+  stats: RouteStats;
 };
 
 export type LiveRoutes =
@@ -212,6 +233,13 @@ function toRoute(id: "fast" | "safe", a: Analysis, name: string, badge: string, 
     durationSource: `카카오모빌리티 길찾기 API 실시간 교통 (${at} 조회)`,
     path: a.path,
     risks: risksOf(a),
+    stats: {
+      turns: a.guides.left + a.guides.uTurn,
+      roundabouts: a.guides.roundabout,
+      sharpCurves: a.sharpCurve.sections,
+      narrow: a.narrow.exposure,
+      highSpeedKm: a.highSpeed.km,
+    },
   };
 }
 
@@ -219,49 +247,89 @@ function toRoute(id: "fast" | "safe", a: Analysis, name: string, badge: string, 
  * 출발지·목적지 → 분석된 경로. 실패하면 사유를 준다 —
  * 굳혀둔 구간과 달리 폴백할 데이터가 없으므로(임의 구간이니 당연하다) 화면이 사유를 말해야 한다.
  */
+/**
+ * 카카오에 물어보는 후보들.
+ *
+ * **셋을 다 물어야 하는 이유가 실측으로 있다.** 예전에는 DISTANCE·TIME 둘만 불렀는데,
+ * 제주시청→매일올레시장에서 그 둘이 **같은 길**(516로, 한라산 넘는 급커브 길)로 나와 카드가
+ * 한 장으로 죽었다. 같은 구간에서 RECOMMEND 는 남조로·번영로로 전혀 다른 길을 준다 —
+ * 초보에게 급커브가 훨씬 적은 쪽이다. 하나를 안 물어서 있는 선택지를 통째로 놓치고 있었다.
+ *
+ * 셋을 병렬로 던지므로 늘어나는 시간은 실측 +22ms 다 (2회 209ms → 3회 231ms, 중앙값).
+ * alternatives=true 와 avoid= 는 이 키에서 응답이 안 바뀌는 걸 확인했다 — 후보를 늘리는
+ * 방법은 priority 를 바꿔 묻는 것뿐이다.
+ */
+const PRIORITIES = [
+  { priority: "DISTANCE", badge: "내비 최단거리" },
+  { priority: "TIME", badge: "내비 최단시간" },
+  { priority: "RECOMMEND", badge: "내비 추천" },
+] as const;
+
 export async function routesFor(
   origin: LatLng,
   destination: LatLng,
   links: Link[],
+  profile: DriverProfile,
 ): Promise<LiveRoutes> {
   const key = process.env.KAKAO_REST_API_KEY;
   if (!key) return { error: "길찾기 키가 설정되지 않았습니다" };
 
-  try {
-    const [fastRaw, safeRaw] = await Promise.all([
-      directions(origin, destination, "DISTANCE", key),
-      directions(origin, destination, "TIME", key),
-    ]);
+  /*
+   * allSettled 다 — 하나가 실패해도 나머지로 화면을 그린다. 도착 지점에 따라 특정 priority 만
+   * 실패하는 경우가 있고("도착 지점 주변의 도로를 탐색할 수 없음"), 그때 셋을 다 버리면
+   * 멀쩡한 후보를 두고 빈 화면을 보여주게 된다. 전부 실패했을 때만 사유를 올린다.
+   */
+  const settled = await Promise.allSettled(
+    PRIORITIES.map((p) => directions(origin, destination, p.priority, key)),
+  );
 
-    const index = linkIndex(links);
-    const fast = analyze(fastRaw, index);
-    const safe = analyze(safeRaw, index);
-    const at = new Date().toLocaleTimeString("ko-KR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Seoul",
-    });
-
-    // 같은 길이면 하나만 준다 — 없는 선택지를 두 장의 카드로 만들지 않는다.
-    // 최단시간 쪽을 남긴다: 같은 길이면 내비가 실제로 안내할 쪽이다.
-    if (sameRoute(fast, safe))
-      return { routes: [toRoute("safe", safe, nameOf(safe), "단일 경로", at)], at };
-
-    return {
-      routes: [
-        toRoute("fast", fast, nameOf(fast, safe), "내비 최단거리", at),
-        // 굳혀둔 구간의 "맞춤 저부담"(평화로)은 손으로 고른 저부담 경로지만, 여기 safe 는
-        // 카카오 priority=TIME 결과일 뿐 부담과 아무 관계가 없다. 있는 그대로 적는다 —
-        // 실측에서 부담 36점짜리가 35.9점짜리 옆에서 "맞춤 저부담" 배지를 달고 있었다.
-        toRoute("safe", safe, nameOf(safe, fast), "내비 최단시간", at),
-      ],
-      at,
-    };
-  } catch (e) {
-    // 두 호출을 Promise.all 로 묶었으니 먼저 실패한 쪽의 사유가 온다.
+  const failed = settled.find((s) => s.status === "rejected");
+  if (settled.every((s) => s.status === "rejected")) {
     // 타임아웃(AbortError)은 사유가 영어라 우리 문구로 갈아준다.
-    const msg = e instanceof Error ? e.message : "";
+    const msg = failed && failed.status === "rejected" && failed.reason instanceof Error ? failed.reason.message : "";
     return { error: /abort|timeout/i.test(msg) || !msg ? "길찾기 응답이 늦어 경로를 만들지 못했습니다" : msg };
   }
+
+  const index = linkIndex(links);
+  const at = new Date().toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Seoul",
+  });
+
+  // 분석하고 같은 길은 접는다 — 없는 선택지를 여러 장의 카드로 만들지 않는다.
+  // 앞엣것이 남으므로 배지는 DISTANCE → TIME → RECOMMEND 순으로 붙는다.
+  const found: { a: Analysis; badge: string }[] = [];
+  settled.forEach((s, i) => {
+    if (s.status !== "fulfilled") return;
+    const a = analyze(s.value, index);
+    if (!found.some((f) => sameRoute(f.a, a))) found.push({ a, badge: PRIORITIES[i].badge });
+  });
+
+  if (found.length === 1)
+    return { routes: [toRoute("safe", found[0].a, nameOf(found[0].a), "단일 경로", at)], at };
+
+  /*
+   * 부담이 가장 낮은 후보가 "안심 길" 자리(safe)에 앉는다.
+   *
+   * 예전에는 이 자리가 그냥 카카오 priority=TIME 결과였다 — 부담과 아무 관계가 없는데
+   * 이름만 저부담이라, 실측에서 36점짜리가 35.9점짜리 옆에서 추천 배지를 달고 있었다.
+   * 이제는 재서 고른다. 순위가 프로필을 타므로(초보는 급커브 가중치가 크다) 여기서 잰다.
+   */
+  const burden = found.map((f) => burdenOf(risksOf(f.a), profile));
+  const safeAt = burden.indexOf(Math.min(...burden));
+  const safe = found[safeAt];
+  // 비교 상대는 나머지 중 가장 빠른 것 — 사용자가 저울질하는 건 결국 부담과 시간이다
+  const fast = found
+    .filter((_, i) => i !== safeAt)
+    .reduce((m, f) => (f.a.durationMin < m.a.durationMin ? f : m));
+
+  return {
+    routes: [
+      toRoute("fast", fast.a, nameOf(fast.a, safe.a), fast.badge, at),
+      toRoute("safe", safe.a, nameOf(safe.a, fast.a), safe.badge, at),
+    ],
+    at,
+  };
 }

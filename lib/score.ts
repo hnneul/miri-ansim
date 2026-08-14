@@ -128,6 +128,15 @@ function scoreRoute(risks: RiskFactor[], p: DriverProfile) {
   return { total: round1(rows.reduce((s, r) => s + r.weighted, 0)), rows };
 }
 
+/**
+ * 경로 하나의 부담점수.
+ *
+ * 후보가 셋일 때 어느 것을 "안심 길" 자리에 앉힐지 고르는 데 쓴다 (lib/route.ts routesFor).
+ * 아래 scoreRoutes 는 **두 개를 받아 비교**하는 함수라, 셋 중 하나를 고르는 일에는 못 쓴다.
+ * 순위는 프로필에 따라 바뀐다 — 초보는 급커브 가중치가 커서 같은 두 길의 순서가 뒤집힌다.
+ */
+export const burdenOf = (risks: RiskFactor[], p: DriverProfile) => scoreRoute(risks, p).total;
+
 type RouteInput = { risks: RiskFactor[]; durationMin: number | null };
 
 export function scoreRoutes(
@@ -153,10 +162,12 @@ export function scoreRoutes(
   // 시간 이득이 없으면 부담이 큰 경로를 추천할 근거 자체가 없다 —
   // 임계값 분기는 "시간을 얻는 대신 부담을 감수한다"는 교환을 전제로 하기 때문이다.
   //
-  // 시간 이득이 없을 때 safe 를 그냥 추천하면 안 된다: 그건 "safe 경로는 언제나 부담이 낮다"를
-  // 전제하는데, 굳혀둔 구간(손으로 고른 평화로)에서만 참이고 런타임 경로의 safe 는
-  // 카카오 priority=TIME 결과일 뿐이다. 실측에서 부담 36점 경로가 35.9점 경로를 제치고
-  // 추천으로 떴다 — 점수를 계산해 놓고 안 보는 분기였다. 부담이 낮은 쪽을 고른다.
+  // 시간 이득이 없을 때 safe 를 그냥 추천하면 안 된다: 그건 "safe 자리에는 언제나 부담이 낮은
+  // 경로가 온다"를 전제한다. 실측에서 부담 36점 경로가 35.9점 경로를 제치고 추천으로 떴다 —
+  // 점수를 계산해 놓고 안 보는 분기였다. 여기서도 부담이 낮은 쪽을 직접 고른다.
+  //
+  // (지금은 lib/route.ts routesFor 가 후보 셋 중 부담 최저를 safe 자리에 앉히므로 대체로 참이지만,
+  //  그건 그쪽의 사정이다. 이 함수는 받은 두 개만 보고 판단한다 — 부르는 쪽을 믿지 않는다.)
   const recommendedRoute = 무의미한차이
     ? "single"
     : !fastIsQuicker

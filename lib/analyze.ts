@@ -144,6 +144,21 @@ export type Analysis = {
   };
   narrow: { km: number; exposure: number; byRoad: Record<string, number>; at: LatLng | null };
   highSpeed: { km: number; exposure: number; byRoad: Record<string, number>; at: LatLng | null };
+  /**
+   * 안내 지점을 종류별로 센 것 (카카오 길찾기 sections[].guides).
+   *
+   * 곡률·차로수는 도로가 어떻게 생겼는지고, 이건 **운전자가 판단해야 하는 지점의 수**다.
+   * 초보에게는 뒤쪽이 더 무섭다 — 맞은편 흐름을 끊고 들어가는 좌회전, 진입 순서를 스스로
+   * 정해야 하는 회전교차로가 그렇다. 길이가 아니라 횟수라 노출 비율로 환산하지 않는다.
+   */
+  guides: {
+    /** 좌회전 (번) */
+    left: number;
+    /** 유턴 (번) */
+    uTurn: number;
+    /** 회전교차로 (곳) */
+    roundabout: number;
+  };
   lanesKm: Record<string, number>;
   speedKm: Record<string, number>;
   /**
@@ -160,8 +175,37 @@ export type Analysis = {
  * 최밀집 지점의 **지명은 여기서 붙이지 않는다**. 좌표→행정구역 변환이 또 하나의 API 호출이라
  * 순수 함수로 남겨두고, 호출하는 쪽이 필요할 때 붙인다 (지명 하드코딩 금지 원칙은 그대로).
  */
+/**
+ * 안내 지점 세기.
+ *
+ * **타입 숫자가 아니라 안내문으로 센다.** 실측(12개 구간)에서 나온 타입은
+ * 1 좌회전 · 2 우회전 · 5·6 왼쪽/오른쪽 방향 · 19·27·29 시계방향 표기 · 70·78·80·81 회전교차로 ·
+ * 100 출발 · 101 목적지였다. 회전교차로가 70~81 로 흩어져 있고 유턴은 12개 구간에 한 번도
+ * 안 나왔다 — 문서 없이 범위를 박으면 못 본 코드에서 조용히 0이 되거나 엉뚱한 걸 센다.
+ * 카카오는 안내문을 한국어로 주고("서귀포 방면으로 좌회전", "회전교차로에서 12시 방향"),
+ * 그 낱말은 종류마다 겹치지 않는다.
+ *
+ * "왼쪽 방향"(분기)은 좌회전으로 안 센다. 맞은편 흐름을 끊고 들어가는 동작이 아니라
+ * 갈림길에서 왼쪽을 고르는 것뿐이고, 초보가 무서워하는 건 앞쪽이다.
+ */
+function countGuides(sections: { guides?: { guidance?: string }[] }[]): Analysis["guides"] {
+  const out = { left: 0, uTurn: 0, roundabout: 0 };
+  for (const s of sections)
+    for (const g of s.guides ?? []) {
+      const t = g.guidance ?? "";
+      // 회전교차로를 먼저 본다 — "회전교차로에서 왼쪽 9시 방향"이 좌회전으로도 세이면 두 번 센다
+      if (t.includes("회전교차로")) out.roundabout++;
+      else if (t.includes("유턴")) out.uTurn++;
+      else if (t.includes("좌회전")) out.left++;
+    }
+  return out;
+}
+
 export function analyze(
-  route: { summary: { distance: number; duration: number }; sections: { roads: { vertexes: number[] }[] }[] },
+  route: {
+    summary: { distance: number; duration: number };
+    sections: { roads: { vertexes: number[] }[]; guides?: { guidance?: string }[] }[];
+  },
   index: LinkIndex,
 ): Analysis {
   const path = pathOf(route);
@@ -247,6 +291,7 @@ export function analyze(
       byRoad: byRoad(fast),
       at: midOf(fast),
     },
+    guides: countGuides(route.sections),
     lanesKm: Object.fromEntries(Object.entries(byLanes).map(([k, v]) => [k, round1(v)])),
     speedKm: Object.fromEntries(Object.entries(bySpd).map(([k, v]) => [k, round1(v)])),
     roadKm: byRoad(all),
