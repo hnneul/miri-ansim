@@ -153,9 +153,15 @@ function Parking() {
   // 붙으므로, 켜면 카카오 쪽을 통째로 빼는 것과 같다 — lib 에 필터를 새로 뚫을 일이 아니다.
   const [publicOnly, setPublicOnly] = useState(false);
   const [selected, setSelected] = useState<ParkingSpot | null>(null);
-  // 목적지를 물고 오면 목록을 펴둔 채로 연다 — 와이어프레임(PARK-01)이 지도 아래에 목록을
-  // 늘 펴두는 화면이고, 목적지 주변을 비교하러 온 사람에게 첫 화면이 빈 지도면 한 번 더 눌러야 한다.
-  const [list, setList] = useState(!!dest);
+  /*
+   * 목적지를 물고 와도 목록은 접힌 채로 연다 (/around 와 같은 규칙이다).
+   *
+   * 예전에는 목적지 흐름에서 펴둔 채로 열었는데 — 와이어프레임 PARK-01 이 그렇게 그려져 있다 —
+   * 첫 화면의 절반 이상을 목록이 덮어서 **목적지 핀과 그 주변 P 핀의 관계**가 안 보인다.
+   * 이 화면이 답하는 질문은 "목적지 옆 어디에 대나"고, 그건 지도라야 한 눈에 보인다.
+   * 목록은 핀이 겹칠 때 필요한 것이라 "목록으로 보기" 한 번 뒤에 있어도 늦지 않다.
+   */
+  const [list, setList] = useState(false);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
