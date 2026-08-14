@@ -157,12 +157,19 @@ function Around() {
     );
   }
 
-  // 열자마자 한 번 물어본다. 이 화면은 "내 주변"이 기본값이라 버튼을 눌러야만 현재 위치가
-  // 되면 첫 화면은 늘 제주시청이다. 지도가 만들어진 뒤여야 move 로 옮길 수 있어 ready 를 기다린다.
-  // 거부당하면 START(제주시청)에 머물고 머리글도 "이 근처에서"로 남는다.
+  // 지도가 만들어지면 두 가지를 한다.
+  //
+  //  1. 지금 보고 있는 곳(START)의 축척을 데이터에 맞춘다. 축척 맞추기는 move 안에 있어서
+  //     현위치·검색으로 **옮길 때만** 걸렸고, 위치 권한을 거부하면 옮기는 일이 없어 첫 화면이
+  //     START_LEVEL 그대로였다 — 핀 40개가 한 덩어리로 뭉친 채로.
+  //  2. 위치를 물어본다. 받으면 그쪽으로 다시 옮기며 축척도 다시 맞춘다.
+  //
+  // 거부당하면 1번만 남아 제주시청에 머물고, 머리글도 "이 근처에서"로 남는다.
   const [ready, setReady] = useState(false);
   useEffect(() => {
-    if (ready) locate(true);
+    if (!ready) return;
+    move.current?.(center, fitRadius(center));
+    locate(true);
     // locate 는 매 렌더 새로 만들어지지만 여기서는 지도가 준비된 그 순간에만 부르면 된다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
