@@ -51,7 +51,16 @@ function fitRadius(at: LatLng): number {
  * 아무리 뭉쳐 있어도 이보다 더 당기지는 않는다.
  * 40곳이 30m 안에 있는 골목이 있는데, 거기 맞춰 당기면 건물 몇 채만 남고 어디인지 알 수 없다.
  */
-const MIN_FIT_M = 250;
+const MIN_FIT_M = 150;
+
+/**
+ * 화면에 담을 폭 = 반경 × 이 값.
+ *
+ * 2.0(=지름)이면 40곳이 전부 화면에 들어오지만 시내에서는 핀이 서로를 덮는다.
+ * 1.4 면 가장자리 몇 곳이 화면 밖으로 나가는 대신 나머지가 읽을 만해진다 —
+ * 정확한 답은 어차피 목록이고(40곳 전부), 지도가 할 일은 "이 동네에 이만큼 깔려 있다"다.
+ */
+const FIT_SPAN = 1.4;
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function AroundPage() {
@@ -200,6 +209,7 @@ function Around() {
         }}
         move={move}
         onReady={() => setReady(true)}
+        onBlank={() => setSelected(null)}
         fy={focusY(open)}
       />
 
@@ -294,7 +304,14 @@ type SheetProps = {
 function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, selected, onPick, onClear }: SheetProps) {
   return (
     <aside
-      className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] transition-[max-height] duration-200 ${
+      /*
+        높이는 애니메이션하지 않는다.
+
+        내용(고른 한 곳 ↔ 목록)은 즉시 바뀌는데 높이만 200ms 동안 줄면, 빈 지도를 눌러 선택을
+        풀 때 목록 40개가 잠깐 떴다가 쓸려 내려간다 — 실제로 그렇게 보였다. 둘을 맞추려면
+        내용 교체도 같이 늦춰야 하는데, 그건 애니메이션 하나 얻자고 상태를 하나 더 드는 일이다.
+      */
+      className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] ${
         selected || open ? "max-h-[62%]" : "max-h-[122px]"
       }`}
     >
@@ -473,17 +490,17 @@ function ShopCard({ shop, onClick }: { shop: TamnaShop; onClick: () => void }) {
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 const PIN = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="34" viewBox="0 0 44 34">
-     <rect x="1.5" y="1.5" width="41" height="31" rx="15.5" fill="#fff" stroke="#1f1f1f" stroke-width="2"/>
-     <text x="22" y="23" font-family="system-ui,sans-serif" font-size="15" font-weight="700"
+  `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 32 24">
+     <rect x="1" y="1" width="30" height="22" rx="11" fill="#fff" stroke="#1f1f1f" stroke-width="1.6"/>
+     <text x="16" y="17" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
            fill="#1f1f1f" text-anchor="middle">₩</text>
    </svg>`,
 );
 
 const PIN_ON = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="54" height="42" viewBox="0 0 54 42">
-     <rect x="2" y="2" width="50" height="38" rx="19" fill="#ff6114" stroke="#1f1f1f" stroke-width="2"/>
-     <text x="27" y="28" font-family="system-ui,sans-serif" font-size="18" font-weight="700"
+  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="34" viewBox="0 0 44 34">
+     <rect x="1.5" y="1.5" width="41" height="31" rx="15.5" fill="#ff6114" stroke="#1f1f1f" stroke-width="2"/>
+     <text x="22" y="23" font-family="system-ui,sans-serif" font-size="15" font-weight="700"
            fill="#fff" text-anchor="middle">₩</text>
    </svg>`,
 );
@@ -543,6 +560,8 @@ type MapProps = {
   move: React.RefObject<((at: LatLng, radiusM: number) => void) | null>;
   /** 지도가 만들어져 move 를 쓸 수 있게 된 순간. 부모가 현위치로 옮기는 시점이다. */
   onReady: () => void;
+  /** 핀이 아닌 빈 지도를 눌렀을 때. 고른 가맹점을 푼다. */
+  onBlank: () => void;
   /** 기준으로 삼을 세로 위치 (focusY). 시트를 접었다 펴면 바뀐다. */
   fy: number;
 };
@@ -552,7 +571,7 @@ type MapProps = {
  * 거기는 경로가 다 담기도록 매번 setBounds 를 다시 걸어서, 지도를 움직이는 족족 되돌아온다.
  * (/parking 의 Map 과 같은 이유·같은 골격이다.)
  */
-function Map({ pins, selected, onPick, onIdle, move, onReady, fy }: MapProps) {
+function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: MapProps) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
@@ -565,6 +584,10 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, fy }: MapProps) {
   idle.current = onIdle;
   const ready = useRef(onReady);
   ready.current = onReady;
+  const blank = useRef(onBlank);
+  blank.current = onBlank;
+  /** 마지막으로 마커를 누른 시각. 지도 click 이 마커 click 뒤에 따라 올라오는지 가리는 데 쓴다. */
+  const pickedAt = useRef(0);
   const focusRef = useRef(fy);
   focusRef.current = fy;
   /** 마지막으로 **우리가** 지도를 옮긴 시각. 이후 SETTLE_MS 안에 온 idle 은 사용자 조작이 아니다. */
@@ -600,6 +623,15 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, fy }: MapProps) {
     };
     kakao.maps.event.addListener(m, "tilesloaded", first);
 
+    // 빈 지도를 누르면 고른 가맹점을 푼다.
+    //
+    // 마커를 눌러도 이 이벤트가 **따라 올라온다** — 그대로 두면 핀을 고르는 즉시 풀려서
+    // 아무것도 선택되지 않는다(실제로 그랬다). 방금 마커를 누른 직후면 무시한다.
+    kakao.maps.event.addListener(m, "click", () => {
+      if (Date.now() - pickedAt.current < 300) return;
+      blank.current();
+    });
+
     move.current = (at, radiusM) => {
       movedAt.current = Date.now();
       const h = box.current?.clientHeight ?? 0;
@@ -614,16 +646,19 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, fy }: MapProps) {
         뒤이어 부른 setCenter·panBy 까지 덮어써서 핀이 시트 뒤 한가운데로 돌아갔다.
         (Projection 의 coordsFromContainerPoint 가 없던 것과 같은 종류의 함정이다.)
 
-        대신 지금 축척에서 **보이는 띠**가 몇 미터인지 직접 재고, 지름(2·radiusM)이 들어갈
-        때까지 한 단계씩 조인다. 레벨 한 단계는 대략 두 배라 몇 번 안에 끝난다.
+        대신 지금 축척에서 **보이는 띠**가 몇 미터인지 한 번 재고, 필요한 레벨을 계산해서
+        한 번에 간다. 재고-바꾸고를 반복하면 안 된다 — getBounds() 가 setLevel 직후에는
+        옛 값을 주기 때문에, 루프가 조건을 못 빠져나와 레벨 1까지 내리꽂았다(빈 지도가 떴다).
+        레벨 한 단계는 축척 두 배라 log2 로 몇 단계인지 바로 나온다.
       */
       const band = 2 * (fy - TOP_CHROME); // 검색바와 시트 사이, 실제로 보이는 세로 비율
-      const visibleM = () => {
-        const b = m.getBounds();
-        return (b.getNorthEast().getLat() - b.getSouthWest().getLat()) * 111_000 * band;
-      };
-      for (let i = 0; i < 8 && visibleM() < radiusM * 2 && m.getLevel() < 12; i++) m.setLevel(m.getLevel() + 1);
-      for (let i = 0; i < 8 && visibleM() / 2 > radiusM * 2 && m.getLevel() > 1; i++) m.setLevel(m.getLevel() - 1);
+      const b = m.getBounds();
+      const nowM = (b.getNorthEast().getLat() - b.getSouthWest().getLat()) * 111_000 * band;
+      const want = radiusM * FIT_SPAN;
+      if (nowM > 0) {
+        const step = Math.round(Math.log2(want / nowM));
+        m.setLevel(Math.min(12, Math.max(1, m.getLevel() + step)));
+      }
 
       // 옮겨간 곳을 지도 한가운데(=시트 뒤)가 아니라 기준점(focusY) 자리로 올린다.
       // 안 하면 "성판악에서 가까운 순"이라 적어놓고 성판악 북쪽 어딘가를 기준으로 재게 된다.
@@ -650,14 +685,17 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, fy }: MapProps) {
     drawn.current.forEach((mk) => mk.setMap(null));
     drawn.current = pins.map((s) => {
       const on = same(selected, s);
-      const [w, h] = on ? [54, 42] : [44, 34];
+      const [w, h] = on ? [44, 34] : [32, 24];
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(s.at[0], s.at[1]),
         title: s.name,
         zIndex: on ? 2 : 1,
         image: new kakao.maps.MarkerImage(on ? PIN_ON : PIN, new kakao.maps.Size(w, h)),
       });
-      kakao.maps.event.addListener(marker, "click", () => pick.current(s));
+      kakao.maps.event.addListener(marker, "click", () => {
+        pickedAt.current = Date.now();
+        pick.current(s);
+      });
       marker.setMap(map.current);
       return marker;
     });
