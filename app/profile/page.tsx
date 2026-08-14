@@ -70,15 +70,19 @@ function Profile() {
 
       {/*
         driver-profile — 온보딩이 받아간 값을 사람 말로 되돌려 준다.
-        아바타는 경력에 따라 자란다 (씨앗 → 새싹 → 감귤). 배경 지운 PNG 라 원 안에 담는다.
-        ponytail: 와이어프레임은 여기에 공원 배경이 깔린 새 일러스트 한 장을 쓰는데, 그러면 세 단계가
-        한 장으로 굳어 경력이 자라는 게 안 보인다. 그 그림을 쓰려면 단계별로 세 장이 있어야 한다.
+
+        프로필 사진은 와이어프레임 그대로 한 장이다(Figma 2371:392, 공원의 풋귤 캐릭터).
+        배경이 그려진 그림이라 원을 꽉 채우게 object-cover 로 담는다 — 다른 화면의 아바타처럼
+        배경을 지운 컷아웃이 아니라서 뒤에 색을 깔 필요가 없다.
+        ponytail: 이 한 장이라 여기서는 경력이 자라는 게 안 보인다 (다른 화면 아바타는 여전히
+        씨앗 → 새싹 → 감귤로 바뀐다, lib/profile.ts CHARACTERS). 여기서도 자라게 하려면
+        같은 화풍으로 단계별 세 장이 있어야 한다.
       */}
       <div className="mt-3 flex shrink-0 items-start gap-6 px-7">
         <img
-          src={me.src}
-          alt={me.alt}
-          className="size-[94px] shrink-0 rounded-full bg-[#e2f1fe] object-contain"
+          src="/character/profile.png"
+          alt="내 프로필 사진"
+          className="size-[94px] shrink-0 rounded-full object-cover"
         />
         <div className="min-w-0 pt-1">
           <p className="text-[12px] leading-normal text-[#616161]">내 운전 설정</p>
