@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
-import { parseProfile, characterOf, toCustomQuery } from "@/lib/profile";
+import { parseProfile, toCustomQuery } from "@/lib/profile";
 import { hereNow } from "./actions";
 
 /** 위치를 못 받았을 때 지도가 보는 곳. 제주시청이다 — 섬 한복판(한라산)보다 사람이 있는 자리다. */
@@ -44,7 +44,6 @@ function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const profile = parseProfile(Object.fromEntries(searchParams));
-  const me = characterOf(profile.experienceYears);
 
   const [destination, setDestination] = useState("");
   const [here, setHere] = useState<LatLng | null>(null);
@@ -98,16 +97,22 @@ function Home() {
     <div className="flex flex-1 flex-col bg-white pb-[18px]">
       <StatusBar tone="text-[#1f1f1f]" />
 
-      {/* brand/my page — 워드마크와 마이 화면 입구. 아바타는 경력에 따라 캐릭터가 갈린다 (lib/profile.ts) */}
+      {/*
+        brand/my page — 워드마크와 마이 화면 입구.
+        아바타는 와이어프레임에 박힌 그림 한 장이다 (avatar-my). 이전 버전은 경력에 따라 캐릭터가
+        갈렸지만(lib/profile.ts characterOf) 여기서는 누구에게나 같은 그림이다 — 프로필을 바꿔도
+        아바타는 안 바뀐다. 되살리려면 src 를 characterOf(profile.experienceYears).src 로 되돌리면 된다.
+      */}
       <div className="flex h-[62px] shrink-0 items-center justify-between pr-5 pl-[29px]">
         <p className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리안심</p>
         {/* 쿼리를 그대로 넘겨야 마이 화면에서 프로필을 되읽는다 (lib/profile.ts) */}
         <button
           onClick={() => router.push(`/profile?${searchParams}`)}
           aria-label="마이 화면"
-          className="size-[44px] shrink-0 overflow-hidden rounded-full bg-[#e2f1fe] transition active:scale-95"
+          className="size-[44px] shrink-0 overflow-hidden rounded-full transition active:scale-95"
         >
-          <img src={me.src} alt={me.alt} className="size-full object-contain" />
+          {/* 원본이 세로로 긴 장면(1086x1448)이라 가운데를 정사각형으로 잘라 넣어뒀다 — 여기서는 그대로 채운다 */}
+          <img src="/character/avatar-my.png" alt="" className="size-full object-cover" />
         </button>
       </div>
 
