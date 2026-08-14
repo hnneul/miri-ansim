@@ -556,7 +556,7 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 
 /**
  * 핀. 탐나는전 정식 앱과 같은 물방울 모양이고, 둘은 **속으로** 갈린다 —
- * 안 고른 것은 24x35 회색(#616161 — 이 화면 보조 글자와 같은 값), 고른 것은 42x62 주황에 로고를 넣는다.
+ * 안 고른 것은 24x35 연한 주황(#ff9a66), 고른 것은 42x62 진한 주황(#ff6114)에 로고를 넣는다.
  *
  * 안 고른 39개까지 로고를 넣지 않는 이유 — 얼굴은 사람 눈이 자동으로 쫓는 형태라 40개가 깔리면
  * 기호보다 훨씬 시끄럽다. 어차피 40개가 다 같은 캐시백 가맹점이라 하나하나가 무엇인지 말할 게 없고,
@@ -579,7 +579,7 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
 
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 68">
-     <path d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z" fill="#616161" stroke-linejoin="round"/>
+     <path d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z" fill="#ff9a66" stroke-linejoin="round"/>
    </svg>`,
 );
 
