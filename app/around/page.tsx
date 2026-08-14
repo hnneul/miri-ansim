@@ -419,6 +419,8 @@ function Picked({ shop, walkM, onClose }: { shop: TamnaShop; walkM: number | nul
       <p className="mt-2 text-[13px] text-[#525252]">
         {walkM == null ? shop.kind : `도보 ${walkMinutes(walkM)}분 · ${shop.kind}`}
       </p>
+      {/* 여기는 배지를 남긴다 — 이 화면은 목록을 통째로 대신해서 머리글이 안 보이고,
+          한 장뿐이라 반복도 아니다. 카드에서 뺀 것과 어긋나 보이지만 이유가 다르다. */}
       <span className="mt-3 inline-block rounded-md bg-[#ffebd6] px-2 py-1 text-[11px] font-bold text-[#ff6114]">
         탐나는전 캐시백
       </span>
@@ -437,7 +439,7 @@ type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops
 
 /** 반경 안 가맹점 목록. 시트가 열려 있을 때만 그려진다. */
 function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListProps) {
-  const head = `${label ? `${label}에서 ` : ""}가까운 ${shops.length}곳`;
+  const head = `탐나는전 캐시백 · ${label ? `${label} ` : ""}주변 ${shops.length}곳`;
   const headClass = "shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]";
   return (
     <>
@@ -455,8 +457,13 @@ function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListPro
       </div>
 
       {/*
-        머리글은 **목록에 실제로 있는 개수**만 말한다. 반경 안 전체(817곳)를 적어봐야
-        관광객이 쓸 숫자가 아니고, "여기 많다"는 지도에 깔린 핀이 이미 말한다.
+        머리글이 "이 목록이 뭔지"를 대신 말한다 — 카드마다 붙어 있던 "탐나는전 캐시백" 배지를
+        여기 한 번으로 옮겼다. 이 화면에 뜨는 건 애초에 캐시백 가맹점뿐이라
+        (scripts/build-tamna-data.mjs 가 그렇게 거른다) 배지가 다른 값을 가질 일이 없고,
+        40장에 전부 같은 배지는 구분하는 정보가 아니라 무늬다. 지우면 가게 이름이 또렷해진다.
+
+        개수는 **목록에 실제로 있는 수**만 적는다. 반경 안 전체(817곳)는 관광객이 쓸 숫자가
+        아니고, "여기 많다"는 지도에 깔린 핀이 이미 말한다.
 
         label 이 없다는 건 위치를 못 받았거나(권한 거부) 사용자가 지도를 직접 움직였다는 뜻이라,
         그때 장소 이름을 적으면 거짓이 된다. 그럴 땐 기준을 말하지 않고 "가까운 N곳"만 남긴다.
@@ -527,57 +534,24 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
           )}
         </span>
 
-        {/*
-          굳혀둔 곳은 전부 캐시백 인센티브 가맹점이다(scripts/build-tamna-data.mjs 가 그렇게 거른다).
-          비율은 적지 않는다 — 10%는 제주도가 정책으로 조정하는 값이라 우리가 화면에 박을 숫자가 아니다.
-        */}
-        <span className="mt-1.5 inline-block rounded-md bg-[#ffebd6] px-2 py-1 text-[11px] font-bold text-[#ff6114]">
-          탐나는전 캐시백
-        </span>
-
+        {/* 캐시백 배지는 목록 머리글로 옮겼다 — 40장이 전부 같은 값이라 카드에서는 무늬였다 */}
         <span className="mt-1.5 block truncate text-[12px] text-[#616161]">{shop.kind}</span>
       </span>
     </button>
   );
 }
 
-/** 핀. 인라인 SVG를 data: URI 로 넣어 파일도 외부 요청도 늘리지 않는다 (/parking 과 같은 방식). */
-const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-
-const PIN = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="24" viewBox="0 0 32 24">
-     <rect x="1" y="1" width="30" height="22" rx="11" fill="#fff" stroke="#1f1f1f" stroke-width="1.6"/>
-     <text x="16" y="17" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
-           fill="#1f1f1f" text-anchor="middle">₩</text>
-   </svg>`,
-);
-
 /**
- * 고른 곳만 탐나는전 캐릭터(모자 쓴 얼굴)로 바꾼다.
+ * 핀. 고른 것도 안 고른 것도 같은 탐나는전 로고고, 색만 다르다 —
+ * 고른 것은 주황으로 채운 46x46, 안 고른 것은 흰 바탕에 어두운 선 32x32.
  *
- * 안 고른 39개까지 얼굴로 두지 않는 이유 — 얼굴은 사람 눈이 자동으로 쫓는 형태라 40개가 깔리면
- * 기호보다 훨씬 시끄럽고, 32x24 에서는 눈이 1px 점이 돼 회색 얼룩으로 뭉갠다.
- * 한 번에 하나만 뜨는 이 핀은 크기를 줘도 시끄럽지 않아서 46x46 으로 키웠다 (원래 44x34).
- *
- * **선이 아니라 면으로 그린다.** 참고 이미지는 얇은 선화인데, 그대로 옮기면 이 크기에서 획끼리
- * 뭉쳐 덩어리로 보인다. 흰 면으로 채우고 눈·입만 주황으로 파내면 같은 인상이 작게도 읽힌다.
- * 코는 뺐다 — 이 크기에서는 형태가 아니라 얼룩이 된다.
- * 담는 판도 알약에서 원으로 바꿨다. 얼굴이 동그란데 가로로 긴 판에 넣으면 좌우가 끼어 답답하다.
- *
- * 공식 로고 파일이 아니라 참고 이미지를 보고 형태만 옮겨 그린 것이다 — 벡터 원본이 생기면
- * 아래 도형들만 갈아끼우면 된다.
+ * 둘 다 data: URI 가 아니라 **파일**인 이유 — 로고가 자동 벡터화로 딴 것이라 좌표가 6KB다.
+ * 그걸 소스에 인라인으로 박으면 이 파일이 읽을 수 없게 된다. 요청 한 번은 그 값을 한다.
+ * (off 는 on 을 그대로 복사해 색과 크기만 바꾼 것이다. 모양이 어긋나지 않도록 viewBox 는 46 그대로 두고
+ *  width/height 만 줄였다.)
  */
-const PIN_ON = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" viewBox="0 0 46 46">
-     <circle cx="23" cy="23" r="21" fill="#ff6114" stroke="#1f1f1f" stroke-width="2"/>
-     <circle cx="23" cy="26" r="9.5" fill="#fff"/>
-     <path d="M14 18 A9 9 0 0 1 32 18 Z" fill="#fff"/>
-     <rect x="8.5" y="15.7" width="29" height="4.5" rx="2.25" fill="#fff" transform="rotate(-4 23 17.95)"/>
-     <circle cx="19.6" cy="25" r="1.5" fill="#ff6114"/>
-     <circle cx="26.4" cy="25" r="1.5" fill="#ff6114"/>
-     <path d="M19.2 28.8 A4.6 4.6 0 0 0 26.8 28.8" fill="none" stroke="#ff6114" stroke-width="1.8" stroke-linecap="round"/>
-   </svg>`,
-);
+const PIN = "/tamna-pin-off.svg";
+const PIN_ON = "/tamna-pin.svg";
 
 /**
  * 우리가 지도를 옮긴 뒤 멎기까지 넉넉히 잡은 시간.
@@ -759,7 +733,7 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
     drawn.current.forEach((mk) => mk.setMap(null));
     drawn.current = pins.map((s) => {
       const on = same(selected, s);
-      const [w, h] = on ? [46, 46] : [32, 24];
+      const [w, h] = on ? [46, 46] : [32, 32];
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(s.at[0], s.at[1]),
         title: s.name,
