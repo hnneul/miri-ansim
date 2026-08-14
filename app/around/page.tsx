@@ -439,7 +439,7 @@ type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops
 
 /** 반경 안 가맹점 목록. 시트가 열려 있을 때만 그려진다. */
 function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListProps) {
-  const head = `탐나는전 캐시백 · ${label ? `${label} ` : ""}주변 ${shops.length}곳`;
+  const scope = `${label ? `${label} ` : ""}주변 ${shops.length}곳`;
   const headClass = "shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]";
   return (
     <>
@@ -468,7 +468,11 @@ function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListPro
         label 이 없다는 건 위치를 못 받았거나(권한 거부) 사용자가 지도를 직접 움직였다는 뜻이라,
         그때 장소 이름을 적으면 거짓이 된다. 그럴 땐 기준을 말하지 않고 "가까운 N곳"만 남긴다.
       */}
-      <p className={headClass}>{head}</p>
+      <p className={headClass}>
+        <span className="text-[#ff6114]">탐나는전 캐시백</span>
+        <span className="text-[#c4c4c4]"> · </span>
+        {scope}
+      </p>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
         {shops.length === 0 && (
