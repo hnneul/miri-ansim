@@ -243,6 +243,26 @@ export function onStreetBlind(spots: { addr: string | null; source?: string }[])
   return 공공.length > 0 && 공공.every((s) => s.addr?.startsWith(NO_ONSTREET));
 }
 
+/**
+ * 카카오맵 길찾기로 넘긴다. 주차장을 정하고 나서 실제로 "가는" 길은 이거 하나다.
+ *
+ * 이 앱에 길 안내를 만들 이유가 없다 — 초보 운전자도 내비는 이미 쓰던 걸 쓴다.
+ * 여기가 답하는 질문은 "어느 주차장이냐"까지고, 거기서 끊는 게 맞다.
+ * 폰에서는 카카오맵 앱이 열리고, 없으면 웹 지도로 뜬다.
+ *
+ * 이름에 쉼표가 든 곳이 있어("함덕리 1002-83, 1004-5, 6") 반드시 인코딩해야 한다 —
+ * 카카오 링크가 쉼표로 이름·위도·경도를 가르기 때문에 안 하면 좌표가 밀린다.
+ *
+ * 화면 두 곳(/parking 시트, /parking/detail 확인 모달)이 부른다. 저 인코딩 한 줄 때문에
+ * 각자 두면 한쪽만 고쳐질 자리라 여기 둔다.
+ */
+export const navigateTo = (spot: { name: string; at: [number, number] }) =>
+  window.open(
+    `https://map.kakao.com/link/to/${encodeURIComponent(spot.name)},${spot.at[0]},${spot.at[1]}`,
+    "_blank",
+    "noopener",
+  );
+
 /** 초보가 편한 쪽(직각)인가. 배지 하나를 붙일지 말지에만 쓴다. */
 export const isEasyParking = (s: { type: string; parallel?: boolean }): boolean =>
   parkingKind(s)?.parallel === false;

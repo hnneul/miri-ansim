@@ -30,6 +30,7 @@ import {
   feeText,
   feeDetail,
   meters,
+  navigateTo,
   REACH_M,
   type Lot,
   type ParkingSpot,
@@ -104,23 +105,6 @@ function detailQuery(spot: ParkingSpot, sp: URLSearchParams) {
   if (spot.addr) q.set("addr", spot.addr);
   return String(q);
 }
-
-/**
- * 카카오맵 길찾기로 넘긴다.
- *
- * 이 앱에 길 안내를 만들 이유가 없다 — 초보 운전자도 내비는 이미 쓰던 걸 쓴다.
- * 여기가 답하는 질문은 "어느 주차장이냐"까지고, 거기서 끊는 게 맞다.
- * 폰에서는 카카오맵 앱이 열리고, 없으면 웹 지도로 뜬다.
- *
- * 이름에 쉼표가 든 곳이 있어("함덕리 1002-83, 1004-5, 6") 반드시 인코딩해야 한다 —
- * 카카오 링크가 쉼표로 이름·위도·경도를 가르기 때문에 안 하면 좌표가 밀린다.
- */
-const navigateTo = (spot: ParkingSpot) =>
-  window.open(
-    `https://map.kakao.com/link/to/${encodeURIComponent(spot.name)},${spot.at[0]},${spot.at[1]}`,
-    "_blank",
-    "noopener",
-  );
 
 /** 같은 주차장인가. 이름이 겹치는 곳("금능리 1428" 류)이 있어 좌표까지 본다. */
 const same = (a: ParkingSpot | null, b: ParkingSpot) =>
@@ -244,18 +228,34 @@ function Parking() {
     );
   }
 
-  // 목록에서 골라도 지도를 그 핀으로 옮기지 않는다 — 옮기면 지도 가운데가 곧 그 주차장이 돼서
-  // 시트의 "도보 N분"이 고르는 순간 0분이 된다. 고른 곳을 보여주려다 숫자를 거짓말로 만드는 셈이다.
+  /*
+   * 주차장을 골랐다. 지도 핀이든 목록이든 여기로 모인다.
+   *
+   * 고른 즉시 화면을 넘기지 않는다 — 핀 하나 눌렀을 뿐인데 다른 화면으로 튀면 지도로 돌아오는
+   * 데 뒤로가기를 써야 하고, 옆 핀과 비교하려던 사람은 그 비교를 못 한다.
+   * /around 가 하는 것과 같은 규칙이다: 고른 한 곳을 시트에 띄우고, 넘어갈지는 거기서 정한다.
+   *
+   * 지도를 그 핀으로 옮기지는 않는다 — 옮기면 지도 가운데가 곧 그 주차장이 돼서
+   * 시트의 "도보 N분"이 고르는 순간 0분이 된다.
+   */
   function pick(spot: ParkingSpot) {
     setSelected(spot);
-    // 목적지 모드에서는 확인 모달이 목록을 덮으므로 목록을 닫지 않는다 —
-    // 그래야 "다시 고르기"가 곧장 원래 목록으로 돌아온다.
-    if (!dest) setList(false);
+    setList(false);
   }
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f2f5f0]">
-      <Map pins={pins} selected={selected} onPick={setSelected} onIdle={setCenter} move={move} start={dest ?? START} dest={dest} />
+      {/* 핀도 목록과 같은 문으로 보낸다 — setSelected 를 직접 주면 목적지 흐름에서 핀만 상세로 안 간다 */}
+      <Map
+        pins={pins}
+        selected={selected}
+        onPick={pick}
+        onIdle={setCenter}
+        onBlank={() => setSelected(null)}
+        move={move}
+        start={dest ?? START}
+        dest={dest}
+      />
 
       {/* 지도가 화면을 꽉 채우고 나머지는 그 위에 뜬다 (와이어프레임의 full-map) */}
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
@@ -372,20 +372,21 @@ function Parking() {
       </div>
 
       {/*
-        거리는 고를 때 재둔 값이 아니라 기준점에서 다시 잰다 (목적지가 있으면 고정, 없으면 지도 중심).
+        고른 주차장. 거리는 고를 때 재둔 값이 아니라 기준점에서 다시 잰다
+        (목적지가 있으면 목적지에서, 없으면 지도 중심에서).
 
-        고른 뒤 무엇을 띄우는지가 두 흐름에서 다르다 — 와이어프레임이 그렇게 그려져 있다.
-        · 목적지가 있으면 PARK-01-a 확인 모달("이 주차장까지 안내해 드릴까요?")
-        · 없으면 PARK-HOME-02B 정보 시트 (요금·면수·주차형태)
-        목적지 흐름에서 정보는 다음 화면(PARK-02 상세)이 맡는다.
+        두 흐름에서 시트가 다르다.
+        · 목적지가 있으면 짧은 시트 하나 — 다음 화면(PARK-02 상세)이 요금·규모·주차형태를 다 펴므로
+          여기서 같은 걸 또 늘어놓으면 같은 정보에 버튼만 두 벌이 된다.
+        · 없으면 PARK-HOME-02B 정보 시트. 이 흐름에는 상세로 꼭 가야 할 이유가 없어 여기가 끝이다.
       */}
       {selected &&
         (dest ? (
-          <ConfirmModal
+          <PickedSpot
             spot={selected}
             walkM={Math.round(meters(anchor, selected.at))}
             onClose={() => setSelected(null)}
-            onGo={() => router.push(`/parking/detail?${detailQuery(selected, searchParams)}`)}
+            onDetail={() => router.push(`/parking/detail?${detailQuery(selected, searchParams)}`)}
           />
         ) : (
           <SpotSheet
@@ -426,54 +427,55 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 /**
- * PARK-01-a — 목적지 흐름에서 주차장을 고르면 뜨는 확인 모달 (Figma 2153:1793).
+ * 목적지 흐름에서 고른 주차장 한 곳 (/around 의 "선택한 가맹점" 시트와 같은 모양).
  *
- * 목록을 닫지 않고 그 위를 덮는다 — "다시 고르기"가 곧장 원래 목록으로 돌아와야 한다.
- * 캐릭터는 카드 뒤에서 고개만 내민다. 스플래시와 같은 이미지라(파일이 바이트까지 같다) 에셋을 새로 안 넣었다.
+ * 짧게 두는 게 요지다. 여기서 답할 건 "이거 맞아?" 하나뿐이고, 요금·규모·주차 방법은
+ * 바로 다음 화면(PARK-02)이 전부 편다 — 여기에 같이 적으면 같은 정보를 두 번 읽히고
+ * 버튼도 두 벌이 된다. 손잡이를 누르면 선택이 풀려 지도로 돌아간다.
  */
-function ConfirmModal({
+function PickedSpot({
   spot,
   walkM,
   onClose,
-  onGo,
+  onDetail,
 }: {
   spot: ParkingSpot;
   walkM: number;
   onClose: () => void;
-  onGo: () => void;
+  onDetail: () => void;
 }) {
+  const kind = parkingKind(spot);
+  // 추정 평행은 배지를 안 낸다 — 간접 추론으로 겁을 주면 절반은 헛경고다 (SpotSheet 와 같은 규칙)
+  const badge = kind && (kind.parallel ? kind.confirmed : true) ? (kind.parallel ? "평행주차" : "주차 쉬움") : null;
+
   return (
-    // 바깥을 누르면 닫힌다 — 모달 안 클릭이 새어 나가지 않게 카드에서 전파를 끊는다
-    <div className="absolute inset-0 z-30 flex flex-col justify-end bg-[#1f1f1f]/[0.38]" onClick={onClose}>
-      <div className="relative mx-5 mb-8" onClick={(e) => e.stopPropagation()}>
-        <img
-          src="/character/splash.png"
-          alt=""
-          className="pointer-events-none absolute -top-[84px] -right-[15px] h-[132px] w-[154px] rotate-[2.09deg] object-contain"
-        />
-        <div className="relative rounded-[18px] border border-[#c7c7c7] bg-white px-[19px] pt-[25px] pb-[38px]">
-          <h2 className="text-[18px] leading-normal font-bold text-[#1f1f1f]">이 주차장까지 안내해 드릴까요?</h2>
-          <p className="mt-[10px] truncate text-[13px] leading-normal text-[#8f8f8f]">{spot.name}</p>
-          <p className="mt-[15px] text-[14px] leading-normal font-medium text-[#1f1f1f]">
-            목적지에서 걸어서 <span className="text-[#fc7f35]">{walkMinutes(walkM)}분</span>
-          </p>
-          <div className="mt-[21px] flex gap-2.5">
-            <button
-              onClick={onClose}
-              className="h-[52px] w-[145px] shrink-0 rounded-lg border border-[#9e9e9e] bg-white text-[14px] leading-[22px] font-medium text-[#1f1f1f] active:bg-black/5"
-            >
-              다시 고르기
-            </button>
-            <button
-              onClick={onGo}
-              className="h-[52px] flex-1 rounded-lg bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.98]"
-            >
-              네, 여기로 갈게요
-            </button>
-          </div>
-        </div>
+    <aside className="absolute inset-x-0 bottom-0 z-20 rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]">
+      <button onClick={onClose} aria-label="선택 해제" className="mx-auto block h-1 w-[38px] rounded-full bg-[#bfbfbf]" />
+
+      <div className="px-5 pt-4 pb-6">
+        <p className="text-[12px] font-bold text-[#ff6114]">선택한 주차장</p>
+        <h2 className="mt-1.5 text-[19px] leading-tight font-bold text-[#1f1f1f]">{spot.name}</h2>
+        <p className="mt-2 text-[13px] text-[#525252]">
+          목적지에서 도보 {walkMinutes(walkM)}분 · {feeText(spot)}
+        </p>
+        {badge && (
+          <span
+            className={`mt-3 inline-block rounded-md px-2 py-1 text-[11px] font-bold ${
+              kind!.parallel ? "bg-[#eeeeee] text-[#525252]" : "bg-[#ffebd6] text-[#ff6114]"
+            }`}
+          >
+            {badge}
+          </span>
+        )}
+
+        <button
+          onClick={onDetail}
+          className="mt-5 h-[52px] w-full rounded-xl bg-[#ff6114] text-[14px] font-bold text-white transition active:scale-[0.98]"
+        >
+          이 주차장 보기
+        </button>
       </div>
-    </div>
+    </aside>
   );
 }
 
@@ -669,6 +671,8 @@ type MapProps = {
   selected: ParkingSpot | null;
   onPick: (s: ParkingSpot) => void;
   onIdle: (at: LatLng) => void;
+  /** 핀이 아닌 빈 지도를 눌렀을 때. 골라둔 주차장을 푼다. */
+  onBlank: () => void;
   /** 지도를 밖에서 움직이는 손잡이. level 이 ±1 이면 그만큼 축척을 바꾼다(줌 버튼). */
   move: React.RefObject<((at: LatLng, level?: number) => void) | null>;
   /** 처음 보고 있을 곳. 목적지를 물고 오면 거기서 연다. */
@@ -682,7 +686,7 @@ type MapProps = {
  * 다시 건다. 여기서는 핀이 지도를 움직일 때마다 바뀌므로, 그 규칙이면 사용자가 지도를
  * 움직이는 족족 화면이 되돌아온다. 공통인 건 SDK 로더뿐이라 그것만 가져다 쓴다.
  */
-function Map({ pins, selected, onPick, onIdle, move, start, dest }: MapProps) {
+function Map({ pins, selected, onPick, onIdle, onBlank, move, start, dest }: MapProps) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
@@ -693,6 +697,10 @@ function Map({ pins, selected, onPick, onIdle, move, start, dest }: MapProps) {
   pick.current = onPick;
   const idle = useRef(onIdle);
   idle.current = onIdle;
+  const blank = useRef(onBlank);
+  blank.current = onBlank;
+  /** 마지막으로 마커를 누른 시각. 지도 click 이 마커 click 뒤에 따라 올라오는지 가리는 데 쓴다. */
+  const pickedAt = useRef(0);
 
   useEffect(() => {
     loadSdk().then(
@@ -714,6 +722,15 @@ function Map({ pins, selected, onPick, onIdle, move, start, dest }: MapProps) {
     kakao.maps.event.addListener(m, "idle", () => {
       const c = m.getCenter();
       idle.current([c.getLat(), c.getLng()]);
+    });
+
+    // 빈 지도를 누르면 골라둔 주차장을 푼다 (/around 와 같은 규칙).
+    //
+    // 마커를 눌러도 이 이벤트가 **따라 올라온다** — 그대로 두면 핀을 고르는 즉시 풀려서
+    // 아무것도 선택되지 않는다. 방금 마커를 누른 직후면 무시한다.
+    kakao.maps.event.addListener(m, "click", () => {
+      if (Date.now() - pickedAt.current < 300) return;
+      blank.current();
     });
 
     move.current = (at, level) => {
@@ -743,7 +760,10 @@ function Map({ pins, selected, onPick, onIdle, move, start, dest }: MapProps) {
         zIndex: on ? 2 : 1,
         image: new kakao.maps.MarkerImage(on ? PIN_ON : PIN, new kakao.maps.Size(w, h)),
       });
-      kakao.maps.event.addListener(marker, "click", () => pick.current(s));
+      kakao.maps.event.addListener(marker, "click", () => {
+        pickedAt.current = Date.now();
+        pick.current(s);
+      });
       marker.setMap(map.current);
       return marker;
     });
