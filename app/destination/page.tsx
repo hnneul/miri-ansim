@@ -143,6 +143,27 @@ function Destination() {
     };
   }, [text, searching]);
 
+  /*
+    검색 패널은 화면이 아니라 상태라 그냥 두면 히스토리에 안 남는다 — 검색 화면에서 폰(브라우저)
+    뒤로가기를 누르면 목적지 화면을 건너뛰고 /home 으로 나가버린다. 패널을 열 때 항목을 하나
+    밀어 넣어 그 뒤로가기가 패널만 닫게 한다.
+
+    닫는 길은 하나로 모은다 — 바 안의 ← 도 history.back() 을 부르고, 실제로 닫는 건 popstate 다.
+    버튼이 따로 setSearching(false) 를 하면 밀어 넣은 항목이 남아, 목적지 화면에서 아무 일도
+    일어나지 않는 뒤로가기가 한 번 생긴다.
+
+    이미 우리 항목이면 다시 안 민다 — 개발 모드(StrictMode)에서 이 효과가 두 번 도는데,
+    그때 항목이 두 개 쌓이면 뒤로가기를 두 번 눌러야 나간다.
+  */
+  useEffect(() => {
+    if (!searching) return;
+
+    if (history.state?.search !== true) history.pushState({ search: true }, "");
+    const close = () => setSearching(false);
+    addEventListener("popstate", close);
+    return () => removeEventListener("popstate", close);
+  }, [searching]);
+
   // ?dest= 를 물고 들어온 경우 한 번만 자동으로 찾는다. 이후 검색은 사용자가 시킨다.
   const auto = useRef(false);
   useEffect(() => {
@@ -221,7 +242,7 @@ function Destination() {
             */}
             <button
               type="button"
-              onClick={() => (searching ? setSearching(false) : router.push(`/home?${searchParams}`))}
+              onClick={() => (searching ? history.back() : router.push(`/home?${searchParams}`))}
               aria-label={searching ? "검색 닫기" : "뒤로"}
               className="shrink-0 transition active:scale-90"
             >
