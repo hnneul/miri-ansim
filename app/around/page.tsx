@@ -556,7 +556,13 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 
 /**
  * 핀. 탐나는전 정식 앱과 같은 물방울 모양이고, 둘은 **속으로** 갈린다 —
- * 안 고른 것은 24x35 연한 주황(#ff9a66), 고른 것은 42x62 진한 주황(#ff6114)에 로고를 넣는다.
+ * 안 고른 것은 **빈** 핀(흰 바탕 + 주황 테두리), 고른 것은 **찬** 핀(주황 + 흰 테두리 + 로고)이다.
+ *
+ * 둘 다 주황으로 채워봤더니 지도가 주황 수프가 됐다 — 카카오 지도는 가게 이름을 주황 글씨로
+ * 쓰기 때문에 우리 핀 40개가 지도 원래 글자와 안 갈리고, 고른 하나도 나머지 39개에 묻혔다.
+ * 몸통을 희게 비우면 지도에서 떨어져 나오고, 선택은 "채워졌다"로 읽힌다.
+ *
+ * 둘 다 그림자를 깐다 (feDropShadow). 종이처럼 들려 보여야 지도 위에 얹힌 것으로 읽힌다.
  *
  * 안 고른 39개까지 로고를 넣지 않는 이유 — 얼굴은 사람 눈이 자동으로 쫓는 형태라 40개가 깔리면
  * 기호보다 훨씬 시끄럽다. 어차피 40개가 다 같은 캐시백 가맹점이라 하나하나가 무엇인지 말할 게 없고,
@@ -578,13 +584,26 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 const PIN = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 68">
-     <path d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z" fill="#ff9a66"
-           stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 78">
+     <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
+       <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
+     </filter>
+     <path transform="translate(5,3)" d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z"
+           fill="#fff" stroke="#ff6114" stroke-width="3" stroke-linejoin="round" filter="url(#s)"/>
    </svg>`,
 );
 
-const PIN_ON = "/tamna-pin.svg";
+const PIN_ON = "/tamna-pin-on.svg";
+
+/**
+ * 핀 크기와 **기준점** — [폭, 높이, 기준 x, 기준 y].
+ *
+ * 그림자가 번질 자리를 만드느라 캔버스(56x78)가 핀보다 커서, 뾰족한 끝이 더 이상 이미지 맨
+ * 아래가 아니다. 카카오는 기본값이 "이미지 아래 가운데"라 그대로 두면 핀이 전부 몇 px 떠서
+ * 엉뚱한 건물을 가리킨다. 그래서 끝점 (28,69)을 그린 크기로 환산해 직접 넘긴다.
+ */
+const PIN_SIZE = [32, 45, 16, 40] as const;
+const PIN_ON_SIZE = [50, 70, 25, 62] as const;
 
 /**
  * 우리가 지도를 옮긴 뒤 멎기까지 넉넉히 잡은 시간.
@@ -766,14 +785,14 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
     drawn.current.forEach((mk) => mk.setMap(null));
     drawn.current = pins.map((s) => {
       const on = same(selected, s);
-      // 물방울 모양이라 세로가 길다 (46:68). 카카오는 이미지 아래 가운데를 좌표에 맞추므로
-      // 뾰족한 끝이 그대로 그 가게 자리가 된다 — 원일 때는 원 밑동이 자리였다.
-      const [w, h] = on ? [42, 62] : [24, 35];
+      const [w, h, ax, ay] = on ? PIN_ON_SIZE : PIN_SIZE;
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(s.at[0], s.at[1]),
         title: s.name,
         zIndex: on ? 2 : 1,
-        image: new kakao.maps.MarkerImage(on ? PIN_ON : PIN, new kakao.maps.Size(w, h)),
+        image: new kakao.maps.MarkerImage(on ? PIN_ON : PIN, new kakao.maps.Size(w, h), {
+          offset: new kakao.maps.Point(ax, ay),
+        }),
       });
       kakao.maps.event.addListener(marker, "click", () => {
         pickedAt.current = Date.now();
