@@ -17,22 +17,83 @@ const JEJU_RECT = "126.05,33.05,126.99,33.62";
 /** 길찾기(lib/route.ts)와 같은 한계. 여기서 매달리면 결과 페이지가 끝없이 기다린다. */
 const TIMEOUT_MS = 6000;
 
-/** region 은 화면에 붙이는 짧은 행정구역이다 ("제주 서귀포시") — 전체 주소는 길어서 한 줄에 안 들어간다. */
-export type Geocoded = { coord: LatLng; label: string; region: string } | { error: string };
+/**
+ * region 은 접힌 상태로 보이는 짧은 행정구역이고("제주 서귀포시"), address 는 펼쳤을 때 나오는
+ * 전체 주소다("제주 서귀포시 칠십리로 242"). region 이 address 의 앞부분과 같은 글자라서
+ * 시트에서 한 줄이 그대로 늘어나는 것처럼 보인다 (app/destination/page.tsx PlaceSheet).
+ * type 은 이름 옆 유형 뱃지다 ("호텔" · "카페" · "해수욕장").
+ */
+export type Place = { coord: LatLng; label: string; region: string; address: string; type: string };
+export type Geocoded = Place | { error: string };
+
+/** 도 이름은 늘 같은 값이라 자리만 차지한다 — 제주 안만 검색하므로(JEJU_RECT) 줄여 쓴다. */
+const shortJeju = (address: string) => address.replace(/^제주특별자치도/, "제주");
 
 /**
  * "제주특별자치도 서귀포시 색달동 3039-1" → "제주 서귀포시".
- * 앞 두 마디만 쓰고 도 이름은 줄인다 — 제주 안만 검색하므로(JEJU_RECT) 도 이름은 늘 같은 값이라
- * 자리만 차지한다. 마디가 하나뿐이면 그것만 돌려준다.
+ * 앞 두 마디만 쓴다. 마디가 하나뿐이면 그것만 돌려준다.
  */
-const shortRegion = (address: string) =>
-  address.replace(/^제주특별자치도/, "제주").split(" ").slice(0, 2).join(" ");
+const shortRegion = (address: string) => shortJeju(address).split(" ").slice(0, 2).join(" ");
 
-export async function geocodePlace(query: string): Promise<Geocoded> {
+/**
+ * 카테고리 경로 → 유형 한 낱말. "여행 > 숙박 > 호텔 > 칼호텔" → "호텔".
+ *
+ * **세 번째 칸을 집는 게 요지다.** 카카오 경로는 깊이가 제각각인데, 4단짜리는 마지막이 유형이 아니라
+ * 브랜드다 — "… > 호텔 > 칼호텔", "… > 커피전문점 > 스타벅스", "… > 렌터카 > 롯데렌터카 G car".
+ * 마지막 칸을 쓰면 뱃지에 상호가 두 번 적힌다. 3단 이하는 마지막이 유형이라 그대로 쓴다
+ * ("가정,생활 > 시장" → 시장, "교통,수송 > 교통시설 > 공항" → 공항).
+ *
+ * category_group_name 이라는 더 굵은 분류도 같이 오지만 안 쓴다. 빈 값으로 오는 곳이 많고
+ * (시장·공항·성산일출봉이 전부 빈 값이었다), 값이 있어도 해수욕장·국립공원·미술관을 죄다
+ * "관광명소" 하나로 뭉갠다 — 어디로 운전해 갈지 고르는 사람에게 알맹이가 빠지는 쪽이다.
+ *
+ * 쉼표는 카카오가 같은 뜻 둘을 붙여 적은 것이라("해수욕장,해변") 앞엣것만 쓴다.
+ *
+ * **음식 가지만 예외다.** 거기서는 세 번째 칸이 "육류"·"해물"처럼 식재료로 내려가는데
+ * ("음식점 > 한식 > 육류,고기 > 삼겹살"), 목적지 뱃지에 재료를 적을 이유가 없다. 뿌리인 "음식점"에서 끊는다.
+ * 카페만 남기는 건 관광객에게 밥집과 카페가 서로 다른 목적지라서다 — 커피 마시러 가는 길과
+ * 밥 먹으러 가는 길은 다른 결정이다. 반면 "초밥"이냐 "국수"냐는 여기까지 와서 가릴 일이 아니다.
+ * 뿌리로 안 끊고 parts[0] 을 그냥 쓰면 다른 가지가 "여행"·"교통,수송"으로 망가진다.
+ */
+const typeOf = (categoryName: string) => {
+  const parts = categoryName
+    .split(">")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!parts.length) return "";
+  if (parts[0] === "음식점") return parts[1] === "카페" ? "카페" : "음식점";
+  return parts[Math.min(2, parts.length - 1)].split(",")[0];
+};
+
+/* 카카오 문서 한 건 → 우리 Place. 목록이든 한 건이든 같은 규칙으로 옮긴다. */
+const toPlace = (place: {
+  place_name: string;
+  address_name?: string;
+  road_address_name?: string;
+  category_name?: string;
+  x: string;
+  y: string;
+}): Place => ({
+  coord: [Number(place.y), Number(place.x)],
+  label: place.place_name,
+  // region 은 지번 쪽을 기준으로 잡는다 — 도로명이 없는 곳에서도 행정구역은 나와야 한다
+  region: shortRegion(place.address_name ?? place.road_address_name ?? ""),
+  // 도로명이 있으면 펼친 주소는 도로명으로 — 길 이름이 들어가야 어디쯤인지 감이 온다.
+  // 다만 카카오는 road_address_name 을 **빈 문자열**로 주는 곳이 많다(흑돼지거리·성산일출봉이 그랬다).
+  // null 이 아니라 "" 라 ?? 로는 안 걸러지므로 || 로 받는다.
+  address: shortJeju(place.road_address_name || place.address_name || ""),
+  type: typeOf(place.category_name ?? ""),
+});
+
+/**
+ * 검색어로 후보를 여러 개 받아온다. 목적지 검색 화면(HOME-01 a)이 고르라고 늘어놓는 목록이다.
+ * 실패 사유는 아래 geocodePlace 와 같은 모양이라 부르는 쪽이 그대로 보여주면 된다.
+ */
+export async function searchPlaces(query: string, size = 10): Promise<{ places: Place[] } | { error: string }> {
   const key = process.env.KAKAO_REST_API_KEY;
   if (!key) return { error: "장소 검색 키(KAKAO_REST_API_KEY)가 설정되지 않았습니다" };
 
-  const q = new URLSearchParams({ query, rect: JEJU_RECT, size: "1" });
+  const q = new URLSearchParams({ query, rect: JEJU_RECT, size: String(size) });
   try {
     const res = await fetch(`${ENDPOINT}?${q}`, {
       headers: { Authorization: `KakaoAK ${key}` },
@@ -41,20 +102,22 @@ export async function geocodePlace(query: string): Promise<Geocoded> {
     });
     if (!res.ok) return { error: `장소 검색 서버가 응답하지 않았습니다 (HTTP ${res.status})` };
 
-    const place = (await res.json()).documents?.[0];
+    const docs = (await res.json()).documents ?? [];
     // 입력을 의심하는 건 여기 하나뿐이다 — 검색은 됐는데 제주 안에 그 이름이 없는 경우다
-    if (!place)
+    if (!docs.length)
       return { error: `"${query}"의 위치를 제주에서 찾지 못했습니다. 정확한 장소명이나 주소로 다시 입력해주세요.` };
 
-    return {
-      coord: [Number(place.y), Number(place.x)],
-      label: place.place_name,
-      region: shortRegion(place.address_name ?? place.road_address_name ?? ""),
-    };
+    return { places: docs.map(toPlace) };
   } catch {
     // 타임아웃(AbortError)·네트워크 오류·깨진 JSON. 사유는 영어라 우리 문구로 갈아준다.
     return { error: "장소 검색 응답을 받지 못했습니다 (응답 지연 또는 네트워크 오류)" };
   }
+}
+
+/** 후보 중 첫 번째. 엔터로 바로 찾을 때(그리고 /parking·/around 의 기준 장소)가 이 길이다. */
+export async function geocodePlace(query: string): Promise<Geocoded> {
+  const found = await searchPlaces(query, 1);
+  return "error" in found ? found : found.places[0];
 }
 
 /**

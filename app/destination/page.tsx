@@ -14,7 +14,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
 import { meters } from "@/lib/parking";
-import { findPlace } from "./actions";
+import type { Place } from "@/lib/geocode";
+import { findPlace, suggestPlaces } from "./actions";
 
 /** 목적지를 못 골랐을 때 지도가 보고 있을 곳 — 제주 한가운데(한라산)라 섬이 통째로 담긴다. */
 const JEJU_CENTER: LatLng = [33.38, 126.55];
@@ -37,7 +38,8 @@ void PIN; // 지금은 안 쓴다 — 위 주석의 되돌리기용이다
 const RECENT_KEY = "gilansim:recent";
 const RECENT_MAX = 5;
 
-type Place = { coord: LatLng; label: string; region: string };
+/** 타이핑이 멎고 나서 후보를 부르기까지. 글자마다 부르면 카카오 호출이 입력 길이만큼 늘어난다. */
+const TYPING_MS = 250;
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function DestinationPage() {
@@ -63,6 +65,8 @@ function Destination() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  /** 타이핑 중에 뜨는 후보 목록 (HOME-01 a). 비어 있으면 최근 검색어 자리가 그대로 남는다. */
+  const [suggest, setSuggest] = useState<Place[]>([]);
   const input = useRef<HTMLInputElement>(null);
 
   // 시트가 지도 아래쪽을 얼마나 덮는지. 지도가 그만큼 위로 잡아야 마커가 시트에 안 걸린다.
@@ -86,17 +90,13 @@ function Destination() {
     }
   }, []);
 
-  const search = useCallback(
-    async (q: string) => {
-      setPending(true);
-      setError(null);
-      const found = await findPlace(q);
-      setPending(false);
-      if ("error" in found) return setError(found.error);
-
+  /** 목적지를 확정한다. 목록에서 고르든 엔터로 찾든 여기로 모인다. */
+  const choose = useCallback(
+    (found: Place) => {
       setPlace(found);
       setText(found.label);
       setSearching(false);
+      setSuggest([]);
       // 찾은 이름으로 저장한다 — 다시 눌렀을 때 같은 곳이 나오는 게 오타 그대로 남기는 것보다 낫다
       setRecent((prev) => {
         const next = [found.label, ...prev.filter((r) => r !== found.label)].slice(0, RECENT_MAX);
@@ -110,6 +110,38 @@ function Destination() {
     },
     [router, searchParams],
   );
+
+  const search = useCallback(
+    async (q: string) => {
+      setPending(true);
+      setError(null);
+      const found = await findPlace(q);
+      setPending(false);
+      if ("error" in found) return setError(found.error);
+      choose(found);
+    },
+    [choose],
+  );
+
+  /*
+    HOME-01 a — 적는 동안 후보를 불러온다. 예전에는 엔터를 눌러야 첫 번째 결과로 곧장 넘어갔는데,
+    "제주 카페"처럼 같은 이름이 여럿인 검색어에서는 어디로 갈지 사용자가 고를 방법이 없었다.
+
+    타이핑이 멎고 나서(TYPING_MS) 부르고, 늦게 온 앞선 응답은 버린다 — 안 버리면 글자를 지웠을 때
+    먼저 보낸 긴 검색어의 결과가 나중에 도착해 목록을 덮는다.
+  */
+  useEffect(() => {
+    if (!searching || !text.trim()) return setSuggest([]);
+
+    let alive = true;
+    const timer = setTimeout(() => {
+      suggestPlaces(text).then((found) => alive && setSuggest(found));
+    }, TYPING_MS);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [text, searching]);
 
   // ?dest= 를 물고 들어온 경우 한 번만 자동으로 찾는다. 이후 검색은 사용자가 시킨다.
   const auto = useRef(false);
@@ -244,28 +276,62 @@ function Destination() {
             </p>
           )}
 
-          {/* HOME-01 a — 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */}
-          {searching && recent.length > 0 && (
-            <div className="pointer-events-auto mt-5 shrink-0 px-6">
-              <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
-              <ul className="mt-2">
-                {recent.map((r) => (
-                  <li key={r}>
-                    <button
-                      onClick={() => {
-                        setText(r);
-                        search(r);
-                      }}
-                      className="flex w-full items-center gap-3 py-2 text-left"
-                    >
-                      <span aria-hidden className="w-6 shrink-0 text-center text-[18px] leading-none text-[#525252]">
-                        ⌕
-                      </span>
-                      <span className="text-[14px] leading-[22px] text-[#1f1f1f]">{r}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+          {/*
+            HOME-01 a — 검색 패널. 적기 시작하면 후보 목록으로, 비어 있으면 최근 검색어로 바뀐다.
+            둘을 같이 띄우지 않는 이유는 자리가 아니라 뜻이다 — 후보가 떠 있는 동안 최근 검색어는
+            지금 적고 있는 것과 상관없는 목록이라 손이 잘못 간다.
+            목록이 길면 화면 밖으로 나가므로 여기만 따로 스크롤한다 (지도 위 오버레이라 바깥이 안 스크롤된다).
+          */}
+          {searching && (
+            <div className="pointer-events-auto mt-5 min-h-0 flex-1 overflow-y-auto px-6 pb-4">
+              {text.trim() ? (
+                suggest.length > 0 ? (
+                  <ul>
+                    {suggest.map((p) => (
+                      /* 같은 이름이 여럿이라 key 는 좌표까지 붙인다 ("스타벅스"가 제주에만 수십 곳이다) */
+                      <li key={`${p.label}${p.coord}`}>
+                        <button onClick={() => choose(p)} className="flex w-full items-start gap-3 py-[10px] text-left">
+                          <img src="/home/icon-search.svg" alt="" aria-hidden className="mt-[5px] size-[15px] shrink-0 opacity-60" />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex min-w-0 items-baseline gap-[7px]">
+                              <span className="truncate text-[14px] leading-[22px] text-[#1f1f1f]">{p.label}</span>
+                              {p.type && <span className="shrink-0 text-[11px] text-[#9e9e9e]">{p.type}</span>}
+                            </span>
+                            {/* 주소가 있어야 같은 이름 중에 어느 지점인지 갈린다 — 없는 곳은 그 줄만 빠진다 */}
+                            {p.address && <span className="mt-[2px] block truncate text-[12px] text-[#9e9e9e]">{p.address}</span>}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  /* 아직 안 왔거나(디바운스 중) 제주에 없는 이름이다. 둘을 가려 말할 방법이 없어 한 줄로 둔다 */
+                  <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
+                )
+              ) : (
+                /* 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */
+                recent.length > 0 && (
+                  <>
+                    <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
+                    <ul className="mt-2">
+                      {recent.map((r) => (
+                        <li key={r}>
+                          <button
+                            onClick={() => {
+                              setText(r);
+                              search(r);
+                            }}
+                            className="flex w-full items-center gap-3 py-2 text-left"
+                          >
+                            <img src="/home/icon-search.svg" alt="" aria-hidden className="size-[15px] shrink-0 opacity-60" />
+                            <span className="text-[14px] leading-[22px] text-[#1f1f1f]">{r}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )
+              )}
             </div>
           )}
 
@@ -312,6 +378,12 @@ function PlaceSheet({
   onParking: () => void;
 }) {
   const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * 주소 줄을 펼쳤나. 접히면 행정구역까지만("제주 서귀포시"), 펼치면 전체 주소다
+   * ("제주 서귀포시 칠십리로 242"). 두 값이 같은 글자로 시작하도록 lib/geocode.ts 가 맞춰 주므로,
+   * 줄을 하나 더 붙이는 게 아니라 있던 줄이 늘어나는 것처럼 보인다 — 와이어프레임의 ⌄ 가 그 뜻이다.
+   */
+  const [openAddress, setOpenAddress] = useState(false);
   const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
 
   return (
@@ -321,12 +393,43 @@ function PlaceSheet({
 
       <div className="mt-6 flex items-start justify-between gap-3 pr-[15px] pl-[30px]">
         <div className="min-w-0">
-          <h2 className="truncate text-[18px] leading-[26px] font-bold text-[#1f1f1f]">{place.label}</h2>
-          <p className="mt-[6px] text-[14px] leading-[22px] font-medium text-[#9e9e9e]">
-            {/* 출발지를 모르면 거리 없이 지역만 — 모르는 값을 0km 로 적으면 거짓말이 된다 */}
-            {km !== null && <span className="mr-[11px]">{km}km</span>}
-            {place.region}
-          </p>
+          {/*
+            유형 뱃지는 이름 뒤에 붙는다. 카테고리가 없는 곳이 있어 그때는 통째로 빠지고,
+            **이름에 이미 그 말이 들어 있을 때도 뺀다** — "서귀포KAL호텔 호텔", "협재해수욕장 해수욕장",
+            "제주국제공항 공항"처럼 같은 말이 두 번 적히기 때문이다. 실제 검색 결과 14곳 중 9곳이 그랬다.
+            뱃지가 값을 하는 건 이름만 봐서는 뭔지 모르는 곳들이다 —
+            "늘봄흑돼지 음식점", "스타벅스 제주용담DT점 카페", "우도 섬".
+
+            와이어프레임은 서귀포칼호텔 옆에 "호텔"을 붙여 그렸지만 그건 예시 한 장이고, 실제 데이터에서는
+            반복이 규칙이었다. 와이어프레임대로 늘 붙이려면 아래 !place.label.includes(...) 만 지우면 된다.
+          */}
+          <div className="flex min-w-0 items-baseline gap-[7px]">
+            <h2 className="truncate text-[18px] leading-[26px] font-bold text-[#1f1f1f]">{place.label}</h2>
+            {place.type && !place.label.includes(place.type) && (
+              <span className="shrink-0 text-[13px] leading-[26px] font-medium text-[#9e9e9e]">{place.type}</span>
+            )}
+          </div>
+
+          {/*
+            거리 + 주소. 주소가 있을 때만 누를 수 있는 버튼이 된다 — 펼쳐도 같은 글자면 누른 보람이 없다.
+            접힌 동안은 truncate 로 한 줄에 가두고, 펼치면 그 제한을 풀어 두 줄이든 세 줄이든 다 보인다.
+          */}
+          <button
+            type="button"
+            onClick={() => setOpenAddress((v) => !v)}
+            disabled={!place.address || place.address === place.region}
+            aria-expanded={openAddress}
+            className="mt-[6px] flex w-full min-w-0 items-start gap-[6px] text-left text-[14px] leading-[22px] font-medium text-[#9e9e9e] disabled:cursor-default"
+          >
+            <span className={openAddress ? "min-w-0" : "min-w-0 truncate"}>
+              {/* 출발지를 모르면 거리 없이 지역만 — 모르는 값을 0km 로 적으면 거짓말이 된다 */}
+              {km !== null && <span className="mr-[11px]">{km}km</span>}
+              {openAddress ? place.address : place.region}
+            </span>
+            {place.address && place.address !== place.region && (
+              <Chevron className={`mt-[8px] shrink-0 transition-transform ${openAddress ? "rotate-180" : ""}`} />
+            )}
+          </button>
         </div>
         <button
           onClick={onClose}
@@ -368,5 +471,14 @@ function PlaceSheet({
         ponytail: 문구가 정해지면 여기에 되살린다 (lib/briefing.ts 에 규칙 기반 문장이 이미 있다).
       */}
     </div>
+  );
+}
+
+/** 주소 줄을 펼치는 ⌄. 와이어프레임의 Vector 15 자리인데 따로 뽑아둔 에셋이 없어 그려 넣는다. */
+function Chevron({ className }: { className: string }) {
+  return (
+    <svg width="12" height="7" viewBox="0 0 12 7" fill="none" className={className} aria-hidden>
+      <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

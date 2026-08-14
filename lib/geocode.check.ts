@@ -13,12 +13,15 @@ import { geocodePlace, areaAt } from "./geocode.ts";
 const 응답 = (body: unknown, status = 200) =>
   (() => Promise.resolve(new Response(JSON.stringify(body), { status }))) as unknown as typeof fetch;
 
-// address_name 은 실제 응답 그대로다 — 화면에 붙는 짧은 행정구역이 여기서 잘려 나온다
+// 실제 카카오 응답 그대로다 — 공항은 road_address_name 은 있고 category_group_name 은 빈 값으로 온다
 const 공항 = {
   documents: [
     {
       place_name: "제주국제공항",
       address_name: "제주특별자치도 제주시 용담이동 2002",
+      road_address_name: "제주특별자치도 제주시 공항로 2",
+      category_name: "교통,수송 > 교통시설 > 공항",
+      category_group_name: "",
       x: "126.49272304493574",
       y: "33.50683984835887",
     },
@@ -43,15 +46,63 @@ process.env.KAKAO_REST_API_KEY = "test-key";
 assert.deepEqual(await geocodePlace("제주국제공항"), {
   coord: [33.50683984835887, 126.49272304493574],
   label: "제주국제공항",
-  // 도 이름을 줄이고 앞 두 마디만 — 전체 주소는 시트 한 줄에 안 들어간다
+  // 접힌 줄에 붙는 짧은 행정구역. 도 이름을 줄이고 앞 두 마디만.
   region: "제주 제주시",
+  // 펼치면 나오는 전체 주소. 도로명이 있으면 그쪽이다 — region 으로 시작해야 한 줄이 늘어난 것처럼 보인다.
+  address: "제주 제주시 공항로 2",
+  type: "공항",
 });
 
 // 주소가 통째로 빠진 응답도 있다(카카오가 늘 채워 주지는 않는다). 빈 문자열로 두고 화면이 그 줄만 비운다 —
 // 여기서 던지면 좌표는 멀쩡한데 목적지를 못 고른다.
 globalThis.fetch = 응답({ documents: [{ place_name: "어딘가", x: "126.5", y: "33.4" }] });
 const 주소없음 = await geocodePlace("어딘가");
-assert.deepEqual("error" in 주소없음 ? 주소없음 : 주소없음.region, "");
+assert.deepEqual("error" in 주소없음 ? 주소없음 : [주소없음.region, 주소없음.address, 주소없음.type], ["", "", ""]);
+
+// --- ②-b 유형 뱃지 (typeOf) ---
+// 실제 카카오 응답에서 그대로 가져온 경로들이다. 깊이가 제각각인 게 이 규칙의 전부라, 표본을 줄이면
+// 규칙이 왜 "세 번째 칸"인지가 안 남는다.
+const 유형 = async (category: string, road = "제주특별자치도 제주시 어딘가로 1") => {
+  globalThis.fetch = 응답({
+    documents: [{ place_name: "x", address_name: "제주특별자치도 제주시 어딘가", road_address_name: road, category_name: category, x: "126.5", y: "33.4" }],
+  });
+  const g = await geocodePlace("x");
+  return "error" in g ? g.error : g.type;
+};
+
+// 4단 — 마지막은 브랜드다. 여기서 마지막 칸을 쓰면 뱃지에 "칼호텔" · "롯데렌터카 G car"가 박힌다.
+assert.equal(await 유형("여행 > 숙박 > 호텔 > 칼호텔"), "호텔");
+assert.equal(await 유형("서비스,산업 > 전문대행 > 렌터카 > 롯데렌터카 G car"), "렌터카");
+// 3단 이하 — 마지막 칸이 곧 유형이다
+assert.equal(await 유형("교통,수송 > 교통시설 > 공항"), "공항");
+assert.equal(await 유형("여행 > 관광,명소 > 국립공원"), "국립공원");
+assert.equal(await 유형("문화,예술 > 문화시설 > 미술관"), "미술관");
+assert.equal(await 유형("가정,생활 > 시장"), "시장");
+// 쉼표는 같은 뜻 둘을 붙여 적은 것 — 앞엣것만
+assert.equal(await 유형("여행 > 관광,명소 > 해수욕장,해변"), "해수욕장");
+
+// 음식 가지는 뿌리에서 끊는다. 세 번째 칸을 그대로 쓰면 "육류"·"해물" 같은 식재료가 뱃지에 붙는다.
+assert.equal(await 유형("음식점 > 한식 > 육류,고기 > 삼겹살"), "음식점");
+assert.equal(await 유형("음식점 > 한식 > 해물,생선 > 회"), "음식점");
+assert.equal(await 유형("음식점 > 일식 > 초밥,롤"), "음식점");
+assert.equal(await 유형("음식점 > 치킨"), "음식점");
+// 카페만 예외 — 밥집과 카페는 관광객에게 서로 다른 목적지다
+assert.equal(await 유형("음식점 > 카페 > 커피전문점 > 스타벅스"), "카페");
+assert.equal(await 유형("음식점 > 카페"), "카페");
+
+// 뿌리(parts[0])를 그냥 쓰면 안 된다는 것 — 음식 아닌 가지는 뿌리가 뱃지로 못 쓸 말이다.
+// 위 "여행 > 숙박 > 호텔" 이 "여행"으로, "교통,수송 > 교통시설 > 공항" 이 "교통,수송"으로 나오면 이 규칙이 샌 것이다.
+
+// 카테고리가 없는 곳도 있다 — 뱃지만 비고 나머지는 멀쩡해야 한다
+assert.equal(await 유형(""), "");
+
+// 도로명이 **빈 문자열**로 오는 곳이 많다 (흑돼지거리·성산일출봉). null 이 아니라 "" 라 ?? 로는 안 걸러진다 —
+// 여기가 새면 펼친 주소가 통째로 빈칸이 된다.
+globalThis.fetch = 응답({
+  documents: [{ place_name: "성산일출봉", address_name: "제주특별자치도 서귀포시 성산읍 성산리 78", road_address_name: "", category_name: "여행 > 관광,명소 > 산봉우리", x: "126.9", y: "33.45" }],
+});
+const 도로명없음 = await geocodePlace("성산일출봉");
+assert.deepEqual("error" in 도로명없음 ? 도로명없음 : 도로명없음.address, "제주 서귀포시 성산읍 성산리 78");
 
 globalThis.fetch = 응답(공항);
 
