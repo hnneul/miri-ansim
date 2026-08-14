@@ -13,7 +13,6 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
-import { characterOf, parseProfile } from "@/lib/profile";
 import { meters } from "@/lib/parking";
 import { findPlace } from "./actions";
 
@@ -53,7 +52,6 @@ function Destination() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const query = Object.fromEntries(searchParams);
-  const me = characterOf(parseProfile(query).experienceYears);
 
   // 출발지는 메인화면이 현재 위치를 잡아 넘겨준다. 직접 들어오면 없고, 그때는 거리 줄을 안 그린다.
   const origin: LatLng | null =
@@ -223,12 +221,18 @@ function Destination() {
             </button>
           </form>
 
+          {/*
+            아바타는 와이어프레임에 박힌 그림 한 장이다 (profile 2153:1643, 메인화면과 같은 avatar-my).
+            경력에 따라 캐릭터가 갈리던 걸(lib/profile.ts characterOf) 여기서도 뗐다 — 메인화면과 이 화면이
+            서로 다른 얼굴을 달고 있으면 같은 사람의 프로필로 안 읽힌다.
+            되살리려면 src 를 characterOf(parseProfile(query).experienceYears).src 로 되돌리면 된다.
+          */}
           <button
             onClick={() => router.push(`/profile?${searchParams}`)}
             aria-label="마이"
-            className="size-[54px] shrink-0 overflow-hidden rounded-full border border-[#f8f8f8] bg-[#e2f1fe] transition active:scale-95"
+            className="size-[54px] shrink-0 overflow-hidden rounded-full border border-[#f8f8f8] transition active:scale-95"
           >
-            <img src={me.src} alt="" className="size-full rounded-full object-contain" />
+            <img src="/character/avatar-my.png" alt="" className="size-full rounded-full object-cover" />
           </button>
         </div>
 
