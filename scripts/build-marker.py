@@ -72,10 +72,15 @@ d.ellipse(                                        # 속을 흰색으로 파낸�
 )
 
 # 마스코트를 원 안에 담는다.
-# **투명 여백을 먼저 잘라낸다.** splash.png 는 675x900 중 캐릭터가 (131,232)~(548,697) 뿐이라
-# 넓이의 68% 가 빈 공간이다. 그대로 넣으면 원에 맞춘 건 그림이고 캐릭터는 그 절반만 한 크기로 앉는다 —
-# 마커를 56px 로 키우고도 캐릭터가 작아 보였던 이유가 이것이다.
-mascot = Image.open("public/character/splash.png").convert("RGBA")
+#
+# 그림은 와이어프레임이 "지도 마커 캐릭터" 라고 이름 붙여 따로 올려둔 브이 포즈다 (Figma image 40).
+# 주황 배경 위에 올라와 있던 걸 scripts/cutout.swift 로 누끼 따서 public/character/marker.png 에 뒀다.
+#
+# **투명 여백을 먼저 잘라낸다.** 이 그림처럼 캐릭터가 꽉 차 있으면 잘라낼 게 거의 없지만,
+# 예전에 쓰던 splash.png 는 675x900 중 캐릭터가 (131,232)~(548,697) 뿐이라 넓이의 68% 가 빈 공간이었다.
+# 그대로 넣으면 원에 맞춘 건 그림이고 캐릭터는 그 절반만 한 크기로 앉는다 —
+# 마커를 56px 로 키우고도 캐릭터가 작아 보였던 이유가 이것이다. 소스를 갈아끼워도 안전하도록 남겨둔다.
+mascot = Image.open("public/character/marker.png").convert("RGBA")
 mascot = mascot.crop(mascot.getbbox())
 
 inner = (R - WHITE_RING - ORANGE_RING) * 2 - 2 * S
