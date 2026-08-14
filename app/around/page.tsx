@@ -16,7 +16,7 @@ import StatusBar from "../StatusBar";
 import { loadSdk, type LatLng } from "../RouteMap";
 import { findPlace } from "../destination/actions";
 import { nearbyTamna, type Shop, type TamnaShop } from "@/lib/tamna";
-import { walkMinutes } from "@/lib/parking";
+import { walkMinutes, meters } from "@/lib/parking";
 import TAMNA from "@/data/tamna-data.json";
 
 const SHOPS = TAMNA.shops as Shop[];
@@ -61,6 +61,15 @@ const MIN_FIT_M = 150;
  * 정확한 답은 어차피 목록이고(40곳 전부), 지도가 할 일은 "이 동네에 이만큼 깔려 있다"다.
  */
 const FIT_SPAN = 1.4;
+
+/**
+ * 이 거리 밖이면 "도보 N분"을 쓰지 않는다.
+ *
+ * 거리는 **내 위치에서** 재는데, 이 화면은 지도를 옮겨 다니며 보는 화면이다. 제주시에 서서
+ * 성산으로 지도를 옮기면 40km 밖 가게가 목록에 뜨는데, 거기에 도보 시간을 적으면 숫자는
+ * 맞아도 아무 의미가 없다. 걸어갈 수 있는 거리일 때만 말한다.
+ */
+const WALK_LIMIT_M = 2000;
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function AroundPage() {
@@ -108,6 +117,16 @@ function Around() {
    */
   const [label, setLabel] = useState<string | null>(null);
 
+  /** 내 위치 좌표. 카드의 "도보 N분"은 지도 한가운데가 아니라 **여기서** 잰다. */
+  const [me, setMe] = useState<LatLng | null>(null);
+
+  /** 내 발로 갈 만한 거리일 때만 미터를 준다. 아니면 null — 카드가 아예 안 적는다. */
+  const walkFromMe = (s: TamnaShop) => {
+    if (!me) return null;
+    const d = meters(me, s.at);
+    return d <= WALK_LIMIT_M ? d : null;
+  };
+
   const move = useRef<((at: LatLng, radiusM: number) => void) | null>(null);
 
   const near = useMemo(
@@ -149,6 +168,7 @@ function Around() {
         setBusy(false);
         setSelected(null);
         setLabel("현재 위치");
+        setMe([coords.latitude, coords.longitude]);
         move.current?.([coords.latitude, coords.longitude], fitRadius([coords.latitude, coords.longitude]));
       },
       (err) => {
@@ -303,6 +323,7 @@ function Around() {
         selected={selected}
         onPick={setSelected}
         onClear={() => setSelected(null)}
+        walkFromMe={walkFromMe}
       />
       )}
     </div>
@@ -320,6 +341,8 @@ type SheetProps = {
   selected: TamnaShop | null;
   onPick: (s: TamnaShop) => void;
   onClear: () => void;
+  /** 내 위치에서 걸어갈 만한 거리면 미터, 아니면 null (WALK_LIMIT_M) */
+  walkFromMe: (s: TamnaShop) => number | null;
 };
 
 /**
@@ -329,7 +352,7 @@ type SheetProps = {
  * 핀을 고르면 목록 대신 **그 한 곳만** 보여준다 (/parking 의 SpotSheet 와 같다).
  * 목록을 그대로 두고 강조만 하면, 핀을 눌러도 화면이 그대로라 무엇을 골랐는지 알 수 없다.
  */
-function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, onPick, onClear }: SheetProps) {
+function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, onPick, onClear, walkFromMe }: SheetProps) {
   return (
     <aside
       /*
@@ -361,9 +384,10 @@ function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, on
       </button>
 
       {selected ? (
-        <Picked shop={selected} onClose={onClear} />
+        <Picked shop={selected} walkM={walkFromMe(selected)} onClose={onClear} />
       ) : (
         <List
+          walkFromMe={walkFromMe}
           label={label}
           kinds={kinds}
           kind={kind}
@@ -377,13 +401,13 @@ function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, on
 }
 
 /** 고른 한 곳. 지도에서 핀을 눌렀을 때 목록 대신 여기가 뜬다. */
-function Picked({ shop, onClose }: { shop: TamnaShop; onClose: () => void }) {
+function Picked({ shop, walkM, onClose }: { shop: TamnaShop; walkM: number | null; onClose: () => void }) {
   return (
     <div className="px-5 pt-4 pb-6">
       <p className="text-[12px] font-bold text-[#ff6114]">선택한 가맹점</p>
       <h2 className="mt-1.5 text-[19px] leading-tight font-bold text-[#1f1f1f]">{shop.name}</h2>
       <p className="mt-2 text-[13px] text-[#525252]">
-        도보 {walkMinutes(shop.distM)}분 · {shop.kind}
+        {walkM == null ? shop.kind : `도보 ${walkMinutes(walkM)}분 · ${shop.kind}`}
       </p>
       <span className="mt-3 inline-block rounded-md bg-[#ffebd6] px-2 py-1 text-[11px] font-bold text-[#ff6114]">
         탐나는전 캐시백
@@ -399,11 +423,11 @@ function Picked({ shop, onClose }: { shop: TamnaShop; onClose: () => void }) {
   );
 }
 
-type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops" | "onPick">;
+type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops" | "onPick" | "walkFromMe">;
 
 /** 반경 안 가맹점 목록. 시트가 열려 있을 때만 그려진다. */
-function List({ label, kinds, kind, onKind, shops, onPick }: ListProps) {
-  const head = `${label ? `${label}에서` : "이 근처에서"} 가까운 순 · ${shops.length}곳`;
+function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListProps) {
+  const head = `${label ? `${label} 주변` : "이 지역"} ${shops.length}곳`;
   const headClass = "shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]";
   return (
     <>
@@ -437,7 +461,7 @@ function List({ label, kinds, kind, onKind, shops, onPick }: ListProps) {
           </p>
         )}
         {shops.map((s) => (
-          <ShopCard key={idOf(s)} shop={s} onClick={() => onPick(s)} />
+          <ShopCard key={idOf(s)} shop={s} walkM={walkFromMe(s)} onClick={() => onPick(s)} />
         ))}
       </div>
     </>
@@ -465,7 +489,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
  * 와이어프레임에는 왼쪽에 음식 사진이, 아래에 "한식 · 8,000원~" 같은 대표 품목이 있다.
  * 원본 데이터에는 둘 다 없다 — 가맹점명·주소·업종뿐이다. 없는 걸 지어내느니 업종만 둔다.
  */
-function ShopCard({ shop, onClick }: { shop: TamnaShop; onClick: () => void }) {
+function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | null; onClick: () => void }) {
   return (
     <button
       id={idOf(shop)}
@@ -482,9 +506,12 @@ function ShopCard({ shop, onClick }: { shop: TamnaShop; onClick: () => void }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-start justify-between gap-2">
           <span className="truncate text-[15px] font-bold text-[#1f1f1f]">{shop.name}</span>
-          <span className="shrink-0 text-[13px] tabular-nums text-[#525252]">
-            도보 {walkMinutes(shop.distM)}분
-          </span>
+          {/* 걸어갈 만한 거리가 아니면 줄 자체를 안 그린다 — 빈 자리를 남기면 무언가 빠진 것처럼 보인다 */}
+          {walkM != null && (
+            <span className="shrink-0 text-[13px] tabular-nums text-[#525252]">
+              도보 {walkMinutes(walkM)}분
+            </span>
+          )}
         </span>
 
         {/*
