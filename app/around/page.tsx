@@ -474,6 +474,15 @@ function List({ label, kinds, kind, onKind, shops, onPick, walkFromMe }: ListPro
         {scope}
       </p>
 
+      {/*
+        "도보 3분"만 있으면 뭘 기준으로 3분인지 알 수 없다. 카드마다 "내 위치에서"를 붙이면
+        오른쪽 자리가 좁아 가게 이름이 잘리므로, 배지를 머리글로 올렸을 때처럼 한 번만 말한다.
+        도보 시간이 한 곳도 안 붙는 상태(위치 모름·전부 2km 밖)에서는 설명할 것이 없으니 안 그린다.
+      */}
+      {shops.some((s) => walkFromMe(s) != null) && (
+        <p className="shrink-0 px-5 pb-0.5 text-[11px] text-[#8a8a8a]">도보 시간은 현재 위치 기준이에요</p>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
         {shops.length === 0 && (
           <p className="py-6 text-center text-[13px] leading-relaxed text-[#616161]">
