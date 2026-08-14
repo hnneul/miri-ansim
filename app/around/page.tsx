@@ -556,7 +556,10 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 
 /**
  * 핀. 고른 것도 안 고른 것도 같은 탐나는전 로고고, 색만 다르다 —
- * 고른 것은 주황으로 채운 46x46, 안 고른 것은 흰 바탕에 어두운 선 32x32.
+ * 고른 것은 주황으로 채운 44x55, 안 고른 것은 흰 바탕에 어두운 선 32x40.
+ *
+ * 모양은 탐나는전 정식 앱과 같은 물방울 핀이다 — 머리는 지금까지 쓰던 원(중심 23,23 / r 21)
+ * 그대로라 로고 좌표를 손대지 않았고, 그 원에 (23,56)에서 그은 접선 둘을 붙여 꼬리를 냈다.
  *
  * 둘 다 data: URI 가 아니라 **파일**인 이유 — 로고가 자동 벡터화로 딴 것이라 좌표가 6KB다.
  * 그걸 소스에 인라인으로 박으면 이 파일이 읽을 수 없게 된다. 요청 한 번은 그 값을 한다.
@@ -746,7 +749,9 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
     drawn.current.forEach((mk) => mk.setMap(null));
     drawn.current = pins.map((s) => {
       const on = same(selected, s);
-      const [w, h] = on ? [46, 46] : [32, 32];
+      // 물방울 모양이라 세로가 길다 (46:58). 카카오는 이미지 아래 가운데를 좌표에 맞추므로
+      // 뾰족한 끝이 그대로 그 가게 자리가 된다 — 원일 때는 원 밑동이 자리였다.
+      const [w, h] = on ? [44, 55] : [32, 40];
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(s.at[0], s.at[1]),
         title: s.name,
