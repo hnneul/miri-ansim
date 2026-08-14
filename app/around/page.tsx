@@ -589,7 +589,7 @@ const PIN = pin(
        <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
      </filter>
      <path transform="translate(5,3)" d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z"
-           fill="#fff" stroke="#ff6114" stroke-width="3" stroke-linejoin="round" filter="url(#s)"/>
+           fill="#fff3ec" stroke="#ff6114" stroke-width="3" stroke-linejoin="round" filter="url(#s)"/>
    </svg>`,
 );
 
