@@ -261,12 +261,40 @@ function Around() {
         )}
 
         <div className="flex-1" />
+
+        {/* 현위치 — 시트가 떠 있으면 그 위로 비켜선다. 시트가 없을 때는 목록 버튼 위에 선다. */}
+        <button
+          // locate 를 그대로 넘기면 MouseEvent 가 silent 인자로 들어가 늘 조용해진다 —
+          // 눌러서 실패했는데 아무 말도 안 하는 버튼이 된다. 인자 없이 부른다.
+          onClick={() => locate()}
+          aria-label="현재 위치"
+          className={`pointer-events-auto mr-5 grid size-[46px] shrink-0 place-items-center self-end rounded-full bg-white text-[20px] text-[#2e9c85] shadow-[0_2px_8px_rgba(0,0,0,0.15)] active:bg-black/5 ${
+            open || selected ? "mb-[calc(62%+12px)]" : "mb-3"
+          }`}
+        >
+          ◎
+        </button>
+
+        {/* 목록 보기 — 시트를 여는 유일한 문이다 (/parking 의 "목록으로 보기"와 같다) */}
+        {!open && !selected && (
+          <button
+            onClick={() => setOpen(true)}
+            className="pointer-events-auto mx-auto mt-3 mb-7 h-11 shrink-0 rounded-[22px] bg-[#1f1f1f] px-8 text-[14px] font-bold text-white shadow-lg active:scale-[0.98]"
+          >
+            목록 보기
+          </button>
+        )}
       </div>
 
+      {/*
+        시트는 **필요할 때만 존재한다** — 목록을 열었거나(open) 핀을 골랐을 때(selected).
+        접힌 시트를 항상 깔아두면 칩 줄과 머리글이 지도를 계속 덮는데, 첫 화면에서 답해야 할
+        질문은 "내 주변에 어디 있나"라서 그 자리는 지도가 쓰는 게 맞다 (/parking 과 같은 규칙).
+      */}
+      {(open || selected) && (
       <Sheet
         open={open}
         onToggle={() => setOpen((v) => !v)}
-        onLocate={locate}
         label={label}
         kinds={kinds}
         kind={kind}
@@ -276,6 +304,7 @@ function Around() {
         onPick={setSelected}
         onClear={() => setSelected(null)}
       />
+      )}
     </div>
   );
 }
@@ -283,7 +312,6 @@ function Around() {
 type SheetProps = {
   open: boolean;
   onToggle: () => void;
-  onLocate: () => void;
   label: string | null;
   kinds: string[];
   kind: string | null;
@@ -301,7 +329,7 @@ type SheetProps = {
  * 핀을 고르면 목록 대신 **그 한 곳만** 보여준다 (/parking 의 SpotSheet 와 같다).
  * 목록을 그대로 두고 강조만 하면, 핀을 눌러도 화면이 그대로라 무엇을 골랐는지 알 수 없다.
  */
-function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, selected, onPick, onClear }: SheetProps) {
+function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, onPick, onClear }: SheetProps) {
   return (
     <aside
       /*
@@ -315,30 +343,27 @@ function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, se
         selected || open ? "max-h-[62%]" : "max-h-[122px]"
       }`}
     >
-      {/* 현위치 버튼은 시트에 붙여 둔다 — 화면 아래에 두면 시트(62%)가 덮고, 시트를 접었다
-          폈다 할 때마다 자리를 다시 계산해야 한다. 시트에 붙이면 시트를 따라 같이 움직인다. */}
-      <button
-        onClick={onLocate}
-        aria-label="현재 위치"
-        className="absolute -top-[58px] right-5 grid size-[46px] place-items-center rounded-full bg-white text-[20px] text-[#2e9c85] shadow-[0_2px_8px_rgba(0,0,0,0.15)] active:bg-black/5"
-      >
-        ◎
-      </button>
+      {/*
+        손잡이 — 목록을 닫는 **유일한 문**이다. 빈 지도를 눌러도 고른 가맹점만 풀리고 목록은
+        남아서, 이게 없으면 한 번 연 목록을 못 닫는다. 한 곳을 고른 상태에서는 목록으로
+        되돌아가는 문이 된다 (/parking 과 같은 규칙).
 
-      {/* 한 곳을 고른 상태에서는 손잡이가 목록으로 되돌아가는 문이다 (/parking 과 같은 규칙) */}
+        보이는 건 4px 막대지만 그대로 두면 누르기 어렵다 — 막대는 그대로 두고 그 둘레를
+        버튼으로 넓힌다(위아래 여백 포함 28px). 시트 맨 위 여백(pt-2.5)을 버튼이 대신 먹는다.
+      */}
       <button
         onClick={selected ? onClear : onToggle}
-        aria-label={selected ? "목록으로 돌아가기" : open ? "목록 접기" : "목록 펼치기"}
+        aria-label={selected ? "목록으로 돌아가기" : "목록 닫기"}
         aria-expanded={selected ? undefined : open}
-        className="mx-auto block h-1 w-[38px] shrink-0 rounded-full bg-[#bfbfbf]"
-      />
+        className="-mt-2.5 flex h-7 w-full shrink-0 items-center justify-center"
+      >
+        <span aria-hidden className="block h-1 w-[38px] rounded-full bg-[#bfbfbf]" />
+      </button>
 
       {selected ? (
         <Picked shop={selected} onClose={onClear} />
       ) : (
         <List
-          open={open}
-          onExpand={onToggle}
           label={label}
           kinds={kinds}
           kind={kind}
@@ -374,12 +399,10 @@ function Picked({ shop, onClose }: { shop: TamnaShop; onClose: () => void }) {
   );
 }
 
-type ListProps = Pick<SheetProps, "open" | "label" | "kinds" | "kind" | "onKind" | "shops" | "onPick"> & {
-  onExpand: () => void;
-};
+type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops" | "onPick">;
 
-/** 반경 안 가맹점 목록. 접혀 있으면 칩과 머리글 한 줄만 보인다. */
-function List({ open, onExpand, label, kinds, kind, onKind, shops, onPick }: ListProps) {
+/** 반경 안 가맹점 목록. 시트가 열려 있을 때만 그려진다. */
+function List({ label, kinds, kind, onKind, shops, onPick }: ListProps) {
   const head = `${label ? `${label}에서` : "이 근처에서"} 가까운 순 · ${shops.length}곳`;
   const headClass = "shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]";
   return (
@@ -402,16 +425,8 @@ function List({ open, onExpand, label, kinds, kind, onKind, shops, onPick }: Lis
         (권한 거부) 사용자가 지도를 직접 움직였다는 뜻이라, 그때 "현재 위치에서"라고 적으면
         제주시청에서 잰 숫자를 내 옆이라고 말하게 된다. "이 근처"는 기준을 지도에 맡기는 말이다.
 
-        접혀 있을 때는 이 줄이 목록을 여는 문이기도 하다 — 손잡이(높이 4px)만으로는 눌러야 하는
-        줄 모른다. 펴져 있으면 그냥 글로 둔다. 눌러도 아무 일 없는 버튼을 놓지 않는다.
       */}
-      {open ? (
-        <p className={headClass}>{head}</p>
-      ) : (
-        <button onClick={onExpand} className={`${headClass} w-full text-left active:bg-black/[0.03]`}>
-          {head}
-        </button>
-      )}
+      <p className={headClass}>{head}</p>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
         {shops.length === 0 && (
@@ -516,7 +531,7 @@ const SETTLE_MS = 1200;
  * 한쪽만 바뀌면 기준점이 시트 뒤로 숨거나 화면 꼭대기로 올라붙는다.
  */
 const SHEET_OPEN = 0.62;
-const SHEET_SHUT = 0.15; // max-h-[122px] ÷ 폰 높이(812)
+const SHEET_SHUT = 0.1; // 시트가 없을 때 아래를 차지하는 "목록 보기" 버튼 자리 (약 80px)
 
 /** 위에서 지도를 덮는 것 — 상태바 + 검색바 (약 120px ÷ 812). 여기도 핀을 두면 안 보인다. */
 const TOP_CHROME = 0.15;
