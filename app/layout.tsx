@@ -28,8 +28,9 @@ const notoSansKr = Noto_Sans_KR({
   display: "swap",
 });
 
+// 표기는 스플래시 로고(app/page.tsx "미리 안심")와 같아야 한다 — 탭 제목만 옛 이름이면 갈린다
 export const metadata: Metadata = {
-  title: "길 안심 제주",
+  title: "미리 안심",
   description: "초보 운전자를 위한 제주 안전경로 추천",
 };
 

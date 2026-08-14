@@ -137,7 +137,7 @@ function Profile() {
       </p>
 
       <p className="mt-[23px] shrink-0 pb-6 text-center text-[11px] leading-none font-medium text-[#616161]">
-        길 안심 제주 · 앱 버전 1.0.0
+        미리 안심 · 앱 버전 1.0.0
       </p>
     </div>
   );
