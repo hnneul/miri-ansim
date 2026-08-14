@@ -11,6 +11,7 @@
 import type { LatLng } from "@/app/RouteMap";
 
 const ENDPOINT = "https://dapi.kakao.com/v2/local/search/keyword.json";
+const COORD2ADDRESS = "https://dapi.kakao.com/v2/local/geo/coord2address.json";
 const JEJU_RECT = "126.05,33.05,126.99,33.62";
 
 /** 길찾기(lib/route.ts)와 같은 한계. 여기서 매달리면 결과 페이지가 끝없이 기다린다. */
@@ -53,5 +54,38 @@ export async function geocodePlace(query: string): Promise<Geocoded> {
   } catch {
     // 타임아웃(AbortError)·네트워크 오류·깨진 JSON. 사유는 영어라 우리 문구로 갈아준다.
     return { error: "장소 검색 응답을 받지 못했습니다 (응답 지연 또는 네트워크 오류)" };
+  }
+}
+
+/**
+ * 좌표 → 짧은 주소 ("제주시 아란4길 89-4"). 메인화면(app/home) 지도 아래 "현위치" 줄에만 쓴다.
+ *
+ * 여기만 실패를 사유가 아니라 null 로 돌려준다 — 위 geocodePlace 와 정반대라 이유를 적어둔다.
+ * 저기는 사용자가 적은 지명을 찾는 일이라 실패하면 고칠 사람이 사용자고, 그래서 무엇이 틀렸는지
+ * 말해줘야 한다. 여기는 위치를 이미 브라우저가 준 뒤 그 옆에 주소를 덧붙이는 장식 줄이다 —
+ * 사용자가 할 수 있는 일이 없으니 사유를 띄우면 고칠 수 없는 경고만 하나 남는다. 부르는 쪽은 그 줄만 비운다.
+ */
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  const key = process.env.KAKAO_REST_API_KEY;
+  if (!key) return null;
+
+  // 카카오는 x=경도, y=위도다 (geocodePlace 가 받을 때 뒤집는 것과 같은 규칙, 방향만 반대)
+  const q = new URLSearchParams({ x: String(lng), y: String(lat) });
+  try {
+    const res = await fetch(`${COORD2ADDRESS}?${q}`, {
+      headers: { Authorization: `KakaoAK ${key}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+
+    const doc = (await res.json()).documents?.[0];
+    // 도로명이 먼저다 — 와이어프레임의 "제주시 아란4길 89-4" 가 도로명이다.
+    // 도로명이 없는 좌표(밭·오름·바다 위)는 카카오가 road_address 를 null 로 주므로 지번으로 내려간다.
+    const address: string | undefined = doc?.road_address?.address_name ?? doc?.address?.address_name;
+    // 도 이름은 늘 같은 값이라 자리만 차지한다 (shortRegion 과 같은 이유)
+    return address ? address.replace(/^제주특별자치도\s*/, "") : null;
+  } catch {
+    return null;
   }
 }
