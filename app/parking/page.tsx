@@ -133,17 +133,13 @@ function Parking() {
   const [center, setCenter] = useState<LatLng>(dest ?? START);
   const [walk10, setWalk10] = useState(false);
   const [free, setFree] = useState(false);
-  // 와이어프레임 ChipRow 의 "공영". 굳혀둔 공공데이터 1,572곳이 전부 공영이고 카카오만 source 가
-  // 붙으므로, 켜면 카카오 쪽을 통째로 빼는 것과 같다 — lib 에 필터를 새로 뚫을 일이 아니다.
-  const [publicOnly, setPublicOnly] = useState(false);
   const [selected, setSelected] = useState<ParkingSpot | null>(null);
   /*
-   * 목적지를 물고 와도 목록은 접힌 채로 연다 (/around 와 같은 규칙이다).
+   * 목록이 펴져 있는가. 어느 흐름이든 접힌 채로 연다.
    *
-   * 예전에는 목적지 흐름에서 펴둔 채로 열었는데 — 와이어프레임 PARK-01 이 그렇게 그려져 있다 —
-   * 첫 화면의 절반 이상을 목록이 덮어서 **목적지 핀과 그 주변 P 핀의 관계**가 안 보인다.
-   * 이 화면이 답하는 질문은 "목적지 옆 어디에 대나"고, 그건 지도라야 한 눈에 보인다.
-   * 목록은 핀이 겹칠 때 필요한 것이라 "목록으로 보기" 한 번 뒤에 있어도 늦지 않다.
+   * 와이어프레임 PARK-01 은 목록을 펴둔 채로 그렸는데, 그러면 첫 화면의 절반 이상을 목록이 덮어서
+   * **목적지 핀과 그 주변 P 핀의 관계**가 안 보인다. 이 화면이 답하는 질문은 "목적지 옆 어디에 대나"고,
+   * 그건 지도라야 한 눈에 보인다. 목록은 핀이 겹칠 때 필요한 것이라 손잡이 하나 뒤에 있어도 늦지 않다.
    */
   const [list, setList] = useState(false);
   const [query, setQuery] = useState("");
@@ -181,16 +177,34 @@ function Parking() {
     () =>
       mergeSpots(
         spotsAround(anchor, LOTS, { walk10, free }),
-        publicOnly ? [] : spotsAround(anchor, pois, { walk10, free }, POI_CAP),
+        spotsAround(anchor, pois, { walk10, free }, POI_CAP),
       ),
-    [anchor, walk10, free, publicOnly, pois],
+    [anchor, walk10, free, pois],
   );
 
+  /**
+   * 초보에게 권할 한 곳 — 평행주차가 아닌 곳 중 목적지에서 가장 가깝다.
+   * spots 가 이미 가까운 순이라 find 하나면 끝이다. 직각인 곳이 하나도 없으면 그냥 가장 가까운 곳.
+   *
+   * 이걸 두는 이유는 버튼을 줄이려는 게 아니라 **기본 답을 주려는 것**이다. 목록 15~40곳을
+   * 늘어놓고 고르라는 건 정보는 맞지만 결정은 통째로 초보에게 떠넘긴다. 여기가 답하려는 질문은
+   * "어디 대면 돼?"고, 대부분의 사람에게 그 답은 "칸에 맞춰 대는 곳 중 제일 가까운 데"다.
+   * 다른 데를 보고 싶으면 손잡이를 올리면 된다 — 답을 주되 막지는 않는다.
+   */
+  const recommended = useMemo(() => spots.find(isEasyParking) ?? spots[0] ?? null, [spots]);
+
+  /**
+   * 시트에 띄울 한 곳. 사용자가 고른 게 있으면 그것, 없으면 추천이다.
+   * 목적지 흐름에서만 추천이 붙는다 — 목적지가 없으면 "무엇에서 가까운지"가 지도를 미는 대로
+   * 바뀌어서, 추천이 화면을 밀 때마다 갈아치워지는 값이 된다.
+   */
+  const shown = dest ? (selected ?? recommended) : selected;
+
   // 고른 주차장이 화면을 옮기다 40곳 밖으로 밀려도 핀은 남긴다 —
-  // 시트에는 "선택한 주차장"이 떠 있는데 지도에 그 핀만 없으면 어디를 고른 건지 알 수 없다.
+  // 시트에는 그 주차장이 떠 있는데 지도에 핀만 없으면 어디를 가리키는 건지 알 수 없다.
   const pins = useMemo(
-    () => (selected && !spots.some((s) => same(selected, s)) ? [...spots, selected] : spots),
-    [spots, selected],
+    () => (shown && !spots.some((s) => same(shown, s)) ? [...spots, shown] : spots),
+    [spots, shown],
   );
 
   async function search(e: React.FormEvent) {
@@ -206,6 +220,18 @@ function Parking() {
     setList(false);
     move.current?.(found.coord, FOCUS_LEVEL);
   }
+
+  /*
+   * 지도 위 동그란 버튼 하나. 시트마다 자리가 같아서(시트 오른쪽 위 바깥) 한 번 만들어 내려보낸다.
+   *
+   * 뜻이 흐름마다 다르다. 목적지 흐름에서 "현위치"는 쓸 데가 없다 — 목록도 거리도 목적지에
+   * 못 박혀 있어서 내 위치로 옮겨봐야 지도만 딴 데를 본다. 거기서 필요한 건 **목적지로 돌아가는**
+   * 길이다. 목적지가 없는 흐름에서는 원래대로 현위치다 (메인의 "주차장 찾기"로 들어온 사람은
+   * 내 주변을 보러 온 거다).
+   */
+  const mapButton = dest
+    ? { label: "목적지로", onClick: () => move.current?.(dest, FOCUS_LEVEL) }
+    : { label: "현재 위치", onClick: locate };
 
   function locate() {
     if (!("geolocation" in navigator)) return setError("이 브라우저는 위치 확인을 지원하지 않습니다");
@@ -248,7 +274,7 @@ function Parking() {
       {/* 핀도 목록과 같은 문으로 보낸다 — setSelected 를 직접 주면 목적지 흐름에서 핀만 상세로 안 간다 */}
       <Map
         pins={pins}
-        selected={selected}
+        selected={shown}
         onPick={pick}
         onIdle={setCenter}
         onBlank={() => setSelected(null)}
@@ -314,17 +340,20 @@ function Parking() {
           </form>
         )}
 
-        {/* 필터 칩. 켠 값은 spotsAround 가 그대로 받는다 — 칩 이름과 기준이 어긋나지 않게
-            도보 10분의 반경(WALK10_M)은 lib/parking.check.ts 가 분수 표시와 묶어 검증한다. */}
+        {/*
+          필터 칩. 켠 값은 spotsAround 가 그대로 받는다 — 칩 이름과 기준이 어긋나지 않게
+          도보 10분의 반경(WALK10_M)은 lib/parking.check.ts 가 분수 표시와 묶어 검증한다.
+
+          와이어프레임 ChipRow 에 있던 "공영"은 뺐다. 공영이냐 민영이냐는 초보가 어디에 댈지를
+          안 바꾼다 — 요금과 주차 형태가 바꾸고, 그건 "무료" 칩과 카드 배지가 이미 말한다.
+          (기능상으로는 카카오에서 온 곳을 통째로 빼는 스위치였는데, 그건 칩 이름이 뜻하는 일도 아니었다.)
+        */}
         <div className="pointer-events-auto mt-3.5 flex shrink-0 gap-2 px-[18px]">
           <Chip on={walk10} onClick={() => setWalk10((v) => !v)}>
             도보 10분
           </Chip>
           <Chip on={free} onClick={() => setFree((v) => !v)}>
             무료
-          </Chip>
-          <Chip on={publicOnly} onClick={() => setPublicOnly((v) => !v)}>
-            공영
           </Chip>
         </div>
 
@@ -333,42 +362,19 @@ function Parking() {
         {(error || busy || !spots.length) && (
           <p className="pointer-events-auto mx-[18px] mt-2 shrink-0 rounded-lg bg-white/95 px-3 py-2 text-[12px] leading-relaxed shadow">
             <span className={error ? "text-rose-600" : "text-[#616161]"}>
-              {error ?? (busy ? "찾는 중…" : emptyText(walk10 || free || publicOnly, !!dest))}
+              {error ?? (busy ? "찾는 중…" : emptyText(walk10 || free, !!dest))}
             </span>
           </p>
         )}
 
-        <div className="flex-1" />
+        {/*
+          줌 +/− 는 뺐다. 핀치와 더블탭으로 이미 되는 일을 버튼으로 한 벌 더 준 것이라,
+          지도 오른쪽을 두 칸 차지하면서 새로 할 수 있게 해주는 건 없었다.
+          현위치(또는 목적지로) 버튼은 시트 위에 붙어 있다 — 시트가 화면 아래를 덮어서
+          여기 두면 가려진다 (/around 가 같은 이유로 시트에 붙여뒀다).
 
-        {/* 줌·현위치 — 지도 오른쪽에 세로로 (와이어프레임 x:326/324) */}
-        <div className="pointer-events-auto mr-5 flex shrink-0 flex-col items-end gap-3 self-end">
-          <div className="flex w-11 flex-col overflow-hidden rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]">
-            <button onClick={() => move.current?.(center, -1)} aria-label="확대" className="h-[45px] text-[20px] text-[#1f1f1f] active:bg-black/5">
-              +
-            </button>
-            <span className="mx-2 border-t border-[#ececec]" />
-            <button onClick={() => move.current?.(center, +1)} aria-label="축소" className="h-[45px] text-[20px] text-[#1f1f1f] active:bg-black/5">
-              −
-            </button>
-          </div>
-          <button
-            onClick={locate}
-            aria-label="현재 위치"
-            className="grid size-[46px] place-items-center rounded-full bg-white text-[20px] text-[#2e9c85] shadow-[0_2px_8px_rgba(0,0,0,0.15)] active:bg-black/5"
-          >
-            ◎
-          </button>
-        </div>
-
-        {/* 하단 시트가 떠 있으면 목록 버튼을 감춘다 — 둘이 같은 자리를 쓴다 */}
-        {!selected && !list && (
-          <button
-            onClick={() => setList(true)}
-            className="pointer-events-auto mx-auto mt-7 mb-7 h-11 shrink-0 rounded-[22px] bg-[#1f1f1f] px-8 text-[14px] font-bold text-white shadow-lg active:scale-[0.98]"
-          >
-            목록으로 보기
-          </button>
-        )}
+          "목록으로 보기" 버튼도 없앴다. 시트가 늘 떠 있고, 목록으로 가는 문은 그 손잡이다.
+        */}
       </div>
 
       {/*
@@ -380,34 +386,68 @@ function Parking() {
           여기서 같은 걸 또 늘어놓으면 같은 정보에 버튼만 두 벌이 된다.
         · 없으면 PARK-HOME-02B 정보 시트. 이 흐름에는 상세로 꼭 가야 할 이유가 없어 여기가 끝이다.
       */}
-      {selected &&
+      {shown &&
+        !list &&
         (dest ? (
           <PickedSpot
-            spot={selected}
-            walkM={Math.round(meters(anchor, selected.at))}
-            onClose={() => setSelected(null)}
-            onDetail={() => router.push(`/parking/detail?${detailQuery(selected, searchParams)}`)}
+            spot={shown}
+            walkM={Math.round(meters(anchor, shown.at))}
+            /* 아직 아무것도 안 고른 상태면 이건 우리가 고른 곳이다 — 라벨과 이유 줄이 그때만 붙는다 */
+            recommended={!selected}
+            onList={() => setList(true)}
+            onDetail={() => router.push(`/parking/detail?${detailQuery(shown, searchParams)}`)}
+            onGo={() => navigateTo(shown)}
+            mapButton={mapButton}
           />
         ) : (
           <SpotSheet
-            spot={selected}
-            walkM={Math.round(meters(anchor, selected.at))}
+            spot={shown}
+            walkM={Math.round(meters(anchor, shown.at))}
             anchored={false}
             onClose={() => setSelected(null)}
-            onDetail={() => router.push(`/parking/detail?${detailQuery(selected, searchParams)}`)}
+            onDetail={() => router.push(`/parking/detail?${detailQuery(shown, searchParams)}`)}
+            mapButton={mapButton}
           />
         ))}
 
-      {list && (
+      {/*
+        목록. 목적지 흐름에서는 손잡이로 열고 닫는 한 장이고, 목적지가 없으면 **늘 떠 있다** —
+        접혀 있을 때는 "이 근처 주차장 N곳" 한 줄만 보이고 손잡이를 올리면 편다 (/around 와 같다).
+        떠 있는 버튼 하나가 사라지는 것 말고도, 목록이 있다는 걸 버튼 이름이 아니라 화면이 말한다.
+      */}
+      {(list || (!dest && !shown)) && (
         <SpotList
           spots={spots}
           anchored={!!dest}
-          empty={emptyText(walk10 || free || publicOnly, !!dest)}
+          empty={emptyText(walk10 || free, !!dest)}
+          open={list}
           onPick={pick}
-          onClose={() => setList(false)}
+          onToggle={() => setList((v) => !v)}
+          mapButton={mapButton}
         />
       )}
     </div>
+  );
+}
+
+/** 시트마다 붙는 지도 버튼(현위치 / 목적지로). 뜻은 부르는 쪽이 정한다 (Parking 의 mapButton). */
+type MapButton = { label: string; onClick: () => void };
+
+/**
+ * 시트 오른쪽 위 바깥에 뜨는 동그란 버튼.
+ *
+ * 지도 위 흐름에 두면 시트가 덮는다 — 시트 높이가 내용마다 달라(추천 한 곳 ↔ 목록 ↔ 정보 시트)
+ * 밖에서 그 높이를 피하려면 매번 재야 한다. 시트에 붙이면 시트를 따라 저절로 움직인다.
+ */
+function SheetButton({ button }: { button: MapButton }) {
+  return (
+    <button
+      onClick={button.onClick}
+      aria-label={button.label}
+      className="absolute -top-[58px] right-5 grid size-[46px] place-items-center rounded-full bg-white text-[20px] text-[#2e9c85] shadow-[0_2px_8px_rgba(0,0,0,0.15)] active:bg-black/5"
+    >
+      ◎
+    </button>
   );
 }
 
@@ -427,37 +467,49 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 /**
- * 목적지 흐름에서 고른 주차장 한 곳 (/around 의 "선택한 가맹점" 시트와 같은 모양).
+ * 목적지 흐름의 하단 시트 (/around 의 "선택한 가맹점" 시트와 같은 골격).
  *
- * 짧게 두는 게 요지다. 여기서 답할 건 "이거 맞아?" 하나뿐이고, 요금·규모·주차 방법은
- * 바로 다음 화면(PARK-02)이 전부 편다 — 여기에 같이 적으면 같은 정보를 두 번 읽히고
- * 버튼도 두 벌이 된다. 손잡이를 누르면 선택이 풀려 지도로 돌아간다.
+ * 화면에 들어오자마자 **추천 한 곳을 물고** 떠 있는다. 그래서 아무것도 안 누른 사람도
+ * "여기로 갈게요" 한 번이면 끝난다 — 예전에는 목록으로 보기 → 카드 → 상세 → 갈게요 →
+ * 확인까지 다섯 번이었다. 다른 데를 보려면 손잡이를 올려 목록을 편다.
+ *
+ * 짧게 둔다. 여기서 답할 건 "이거 맞아?" 하나고, 요금 상세·주차 4단계는 "자세히"가 맡는다.
  */
 function PickedSpot({
   spot,
   walkM,
-  onClose,
+  recommended,
+  onList,
   onDetail,
+  onGo,
+  mapButton,
 }: {
   spot: ParkingSpot;
   walkM: number;
-  onClose: () => void;
+  /** 사용자가 고른 게 아니라 우리가 고른 곳인가. 라벨과 이유 줄이 갈린다. */
+  recommended: boolean;
+  onList: () => void;
   onDetail: () => void;
+  onGo: () => void;
+  mapButton: MapButton;
 }) {
   const kind = parkingKind(spot);
   // 추정 평행은 배지를 안 낸다 — 간접 추론으로 겁을 주면 절반은 헛경고다 (SpotSheet 와 같은 규칙)
   const badge = kind && (kind.parallel ? kind.confirmed : true) ? (kind.parallel ? "평행주차" : "주차 쉬움") : null;
+  const info = [`목적지에서 도보 ${walkMinutes(walkM)}분`, feeText(spot), spot.spaces != null ? `${spot.spaces}면` : null]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <aside className="absolute inset-x-0 bottom-0 z-20 rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]">
-      <button onClick={onClose} aria-label="선택 해제" className="mx-auto block h-1 w-[38px] rounded-full bg-[#bfbfbf]" />
+      <SheetButton button={mapButton} />
+      {/* 손잡이가 목록으로 가는 문이다 — 지도 위에 뜬 "목록으로 보기" 버튼을 이게 대신한다 */}
+      <button onClick={onList} aria-label="다른 주차장 보기" className="mx-auto block h-1 w-[38px] rounded-full bg-[#bfbfbf]" />
 
       <div className="px-5 pt-4 pb-6">
-        <p className="text-[12px] font-bold text-[#ff6114]">선택한 주차장</p>
+        <p className="text-[12px] font-bold text-[#ff6114]">{recommended ? "추천 주차장" : "선택한 주차장"}</p>
         <h2 className="mt-1.5 text-[19px] leading-tight font-bold text-[#1f1f1f]">{spot.name}</h2>
-        <p className="mt-2 text-[13px] text-[#525252]">
-          목적지에서 도보 {walkMinutes(walkM)}분 · {feeText(spot)}
-        </p>
+        <p className="mt-2 text-[13px] text-[#525252]">{info}</p>
         {badge && (
           <span
             className={`mt-3 inline-block rounded-md px-2 py-1 text-[11px] font-bold ${
@@ -468,12 +520,32 @@ function PickedSpot({
           </span>
         )}
 
-        <button
-          onClick={onDetail}
-          className="mt-5 h-[52px] w-full rounded-xl bg-[#ff6114] text-[14px] font-bold text-white transition active:scale-[0.98]"
-        >
-          이 주차장 보기
-        </button>
+        {/*
+          왜 이게 떴는지 밝힌다. 안 밝히면 추천이 근거 없는 지목으로 보이고, 초보는 그걸 못 따진다.
+          직각인 곳이 하나도 없어 그냥 가까운 곳을 집었을 때는 그렇다고 말한다 — 없는 근거를 지어내지 않는다.
+        */}
+        {recommended && (
+          <p className="mt-2 text-[12px] leading-relaxed text-[#9e9e9e]">
+            {isEasyParking(spot)
+              ? "칸에 맞춰 대는 곳 중 목적지에서 가장 가까워요."
+              : "목적지에서 가장 가까워요."}
+          </p>
+        )}
+
+        <div className="mt-5 flex gap-2.5">
+          <button
+            onClick={onDetail}
+            className="h-[52px] shrink-0 rounded-xl bg-[#f2f2f2] px-6 text-[14px] font-bold text-[#1f1f1f] transition active:scale-[0.98]"
+          >
+            자세히
+          </button>
+          <button
+            onClick={onGo}
+            className="h-[52px] flex-1 rounded-xl bg-[#ff6114] text-[14px] font-bold text-white transition active:scale-[0.98]"
+          >
+            여기로 갈게요
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -491,12 +563,14 @@ function SpotSheet({
   anchored,
   onClose,
   onDetail,
+  mapButton,
 }: {
   spot: ParkingSpot;
   walkM: number;
   anchored: boolean;
   onClose: () => void;
   onDetail: () => void;
+  mapButton: MapButton;
 }) {
   // 와이어프레임의 "무료 · 24시간 · 120면"에서 24시간을 뺐다 — 예시로 적힌 값이고, 데이터로
   // 뒷받침되지 않는다. 원본 CSV 는 1,657곳이 전부 00:00~23:59 인데 유료 117곳도 그렇다.
@@ -505,6 +579,7 @@ function SpotSheet({
   const kind = parkingKind(spot);
   return (
     <aside className="absolute inset-x-0 bottom-0 z-20 rounded-t-[20px] bg-white px-5 pt-2.5 pb-6 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]">
+      <SheetButton button={mapButton} />
       <button onClick={onClose} aria-label="닫기" className="mx-auto block h-1 w-[38px] rounded-full bg-[#bfbfbf]" />
 
       <div className="mt-4 flex items-start justify-between gap-3">
@@ -586,22 +661,38 @@ function SpotList({
   spots,
   anchored,
   empty,
+  open,
   onPick,
-  onClose,
+  onToggle,
+  mapButton,
 }: {
   spots: ParkingSpot[];
   anchored: boolean;
   /** 0곳일 때 할 말. 부르는 쪽이 만든다 — 지도 위 알림줄과 문구가 갈리면 안 된다 (emptyText) */
   empty: string;
+  /** 펴져 있는가. 접히면 머리글 한 줄과 첫 칸 귀퉁이만 보인다 — 그 귀퉁이가 "더 있다"는 표시다. */
+  open: boolean;
   onPick: (s: ParkingSpot) => void;
-  onClose: () => void;
+  onToggle: () => void;
+  mapButton: MapButton;
 }) {
   return (
-    <aside className="absolute inset-x-0 bottom-0 z-20 flex max-h-[62%] flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]">
-      <button onClick={onClose} aria-label="닫기" className="mx-auto block h-1 w-[38px] shrink-0 rounded-full bg-[#bfbfbf]" />
-      <p className="shrink-0 px-5 pt-4 pb-3 text-[15px] font-bold text-[#1f1f1f]">
+    <aside
+      className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] ${
+        open ? "max-h-[62%]" : "max-h-[122px]"
+      }`}
+    >
+      <SheetButton button={mapButton} />
+      <button
+        onClick={onToggle}
+        aria-label={open ? "목록 접기" : "목록 펼치기"}
+        aria-expanded={open}
+        className="mx-auto block h-1 w-[38px] shrink-0 rounded-full bg-[#bfbfbf]"
+      />
+      {/* 머리글도 같은 문이다 — 접힌 시트에서 4px 짜리 손잡이만 노리게 하면 열 방법을 못 찾는다 */}
+      <button onClick={onToggle} className="shrink-0 px-5 pt-4 pb-3 text-left text-[15px] font-bold text-[#1f1f1f]">
         {anchored ? "목적지 주변" : "이 근처"} 주차장 {spots.length}곳
-      </p>
+      </button>
       {/*
         지역 한계. 판정을 지우는 대신 못 보는 게 뭔지 말한다 (lib/parking.ts onStreetBlind).
         여기가 목록 맨 위인 이유 — 카드마다 붙이면 같은 말을 40번 하게 되고, 시트에만 두면

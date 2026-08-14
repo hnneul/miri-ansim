@@ -12,7 +12,7 @@
 
 import StatusBar from "../../StatusBar";
 import BackButton from "./BackButton";
-import GoConfirm from "./GoConfirm";
+import GoButton from "./GoButton";
 import { meters, walkMinutes, parkingKind, feeText, feeDetail, type Lot } from "@/lib/parking";
 import PARKING from "@/data/parking-data.json";
 
@@ -84,11 +84,10 @@ export default async function ParkingDetailPage({ searchParams }: PageProps<"/pa
       <Steps kind={kind} />
 
       {/*
-        목적지를 물고 왔을 때만 확인 단계가 붙는다 (와이어프레임 PARK-02 하단 노트 →
-        PARK-01-a). 목적지가 없으면 무엇에서 걸어서 몇 분인지 말할 수 없어 모달이 반쯤 빈다 —
-        그쪽 흐름은 /parking 시트의 "이 주차장으로 바로 안내"가 이미 같은 일을 한다.
+        목적지를 물고 왔을 때만 붙인다. 목적지가 없는 흐름은 /parking 시트의
+        "이 주차장으로 바로 안내"가 이미 같은 일을 해서 여기 또 두면 버튼만 두 벌이 된다.
       */}
-      {at && walkM !== null && <GoConfirm name={name} at={at} walkM={walkM} />}
+      {at && walkM !== null && <GoButton name={name} at={at} />}
 
       <div className="h-8 shrink-0" />
     </div>
