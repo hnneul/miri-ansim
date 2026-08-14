@@ -75,7 +75,17 @@ function Around() {
   const [center, setCenter] = useState<LatLng>(START);
   const [kind, setKind] = useState<string | null>(null); // null = 전체
   const [selected, setSelected] = useState<TamnaShop | null>(null);
-  const [open, setOpen] = useState(true); // 시트 두 상태 — 와이어프레임의 올린/내린 버전
+  /**
+   * 시트 두 상태 — 와이어프레임의 올린 / 내린 버전. **내린 채로 시작한다.**
+   *
+   * 목록부터 펴면 지도가 화면의 38%로 눌린다. 그러면 축척을 "보이는 띠"에 맞추는 규칙 때문에
+   * 세로 187px 안에 반경이 들어가도록만 당겨져서, 가로로는 1km가 펼쳐지고 핀 40개가 화면
+   * 한구석에 뭉친다. 접고 시작하면 띠가 3배로 넓어져 그만큼 더 당겨지고 핀이 퍼진다.
+   *
+   * 카드에 이름·업종·도보 시간뿐이라(원본에 사진도 메뉴도 없다) 목록을 앞세울 이유도 약하다.
+   * "내 주변에 캐시백 되는 데가 있나"에 답하는 건 이름 40개가 아니라 핀이 깔린 지도다.
+   */
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -302,7 +312,16 @@ function Sheet({ open, onToggle, onLocate, label, kinds, kind, onKind, shops, se
       {selected ? (
         <Picked shop={selected} onClose={onClear} />
       ) : (
-        <List label={label} kinds={kinds} kind={kind} onKind={onKind} shops={shops} onPick={onPick} />
+        <List
+          open={open}
+          onExpand={onToggle}
+          label={label}
+          kinds={kinds}
+          kind={kind}
+          onKind={onKind}
+          shops={shops}
+          onPick={onPick}
+        />
       )}
     </aside>
   );
@@ -331,10 +350,14 @@ function Picked({ shop, onClose }: { shop: TamnaShop; onClose: () => void }) {
   );
 }
 
-type ListProps = Pick<SheetProps, "label" | "kinds" | "kind" | "onKind" | "shops" | "onPick">;
+type ListProps = Pick<SheetProps, "open" | "label" | "kinds" | "kind" | "onKind" | "shops" | "onPick"> & {
+  onExpand: () => void;
+};
 
-/** 반경 안 가맹점 목록 — 시트의 기본 상태다. */
-function List({ label, kinds, kind, onKind, shops, onPick }: ListProps) {
+/** 반경 안 가맹점 목록. 접혀 있으면 칩과 머리글 한 줄만 보인다. */
+function List({ open, onExpand, label, kinds, kind, onKind, shops, onPick }: ListProps) {
+  const head = `${label ? `${label}에서` : "이 근처에서"} 가까운 순 · ${shops.length}곳`;
+  const headClass = "shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]";
   return (
     <>
       {/* 업종 칩. "전체"만 우리가 넣고 나머지(음식점·숙박·주유)는 데이터에서 나온다 (byKind).
@@ -350,12 +373,21 @@ function List({ label, kinds, kind, onKind, shops, onPick }: ListProps) {
         ))}
       </div>
 
-      <p className="shrink-0 px-5 pt-4 pb-1 text-[13px] font-bold text-[#1f1f1f]">
-        {/* label 이 없다는 건 위치를 못 받았거나(권한 거부) 사용자가 지도를 직접 움직였다는 뜻이다.
-            그때 "현재 위치에서"라고 적으면 제주시청에서 잰 숫자를 내 옆이라고 말하게 된다.
-            "이 근처"는 기준을 지도에 맡기는 말이다 — 지도가 눈앞에 있으니 어디인지는 이미 보인다. */}
-        {label ? `${label}에서` : "이 근처에서"} 가까운 순 · {shops.length}곳
-      </p>
+      {/*
+        머리글은 거리를 **어디서 잰 값**인지 밝히는 자리다. label 이 없다는 건 위치를 못 받았거나
+        (권한 거부) 사용자가 지도를 직접 움직였다는 뜻이라, 그때 "현재 위치에서"라고 적으면
+        제주시청에서 잰 숫자를 내 옆이라고 말하게 된다. "이 근처"는 기준을 지도에 맡기는 말이다.
+
+        접혀 있을 때는 이 줄이 목록을 여는 문이기도 하다 — 손잡이(높이 4px)만으로는 눌러야 하는
+        줄 모른다. 펴져 있으면 그냥 글로 둔다. 눌러도 아무 일 없는 버튼을 놓지 않는다.
+      */}
+      {open ? (
+        <p className={headClass}>{head}</p>
+      ) : (
+        <button onClick={onExpand} className={`${headClass} w-full text-left active:bg-black/[0.03]`}>
+          {head}
+        </button>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6">
         {shops.length === 0 && (
