@@ -166,22 +166,21 @@ function Destination() {
           실제로 눌러야 하는 것들만 pointer-events-auto 로 되살린다.
         */}
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-          {/* 검색바 + 프로필. 와이어프레임 기준 입력 284px, 아바타 63px, 사이 16px */}
-          <div className="pointer-events-auto flex shrink-0 items-center gap-4 px-4 pt-3">
+          {/* 검색바 + 프로필. 와이어프레임(2443:2433) 기준 바 289x54, 아바타 54, 사이 11 */}
+          <div className="pointer-events-auto flex shrink-0 items-center gap-[11px] pt-[19px] pr-4 pl-5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               search(text);
             }}
             /*
-              배경은 와이어프레임의 주황 15% 반투명을 흰 바탕에 미리 섞어 불투명하게 굳힌 값이다.
-              반투명 그대로 두면 회색 목업 위에서나 읽히고, 진짜 지도 위에서는 상호명이 비쳐 글자가 묻힌다.
-              보이는 색은 같고 뒤만 안 비친다.
+              흰 바탕 + 주황 테두리로 바뀌었다 (메인화면 검색바와 같은 모양이다).
+              전에 쓰던 주황 15% 배경은 지도 위에서 상호명이 비쳐 글자가 묻혔는데, 흰 바탕이라 그 문제도 같이 없어진다.
 
               min-w-0 이 없으면 안쪽 내용 폭이 최소 폭이 돼서 폼이 안 줄고, 오른쪽 아바타가
-              패딩 밖으로 15px 밀려났다 (input 의 min-w-0 만으로는 폼 자신이 안 줄어든다).
+              패딩 밖으로 밀려난다 (input 의 min-w-0 만으로는 폼 자신이 안 줄어든다).
             */
-            className="flex h-16 min-w-0 flex-1 items-center gap-2 rounded-[12px] border border-[#fc7f35] bg-[#ffece1] pr-4 pl-3"
+            className="flex h-[54px] min-w-0 flex-1 items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]"
           >
             {/*
               뒤로가기. 와이어프레임은 나가는 길을 하단 탭바로 두는데 아직 탭바가 없다.
@@ -194,9 +193,9 @@ function Destination() {
               type="button"
               onClick={() => (searching ? setSearching(false) : router.push(`/home?${searchParams}`))}
               aria-label={searching ? "검색 닫기" : "뒤로"}
-              className="grid size-9 shrink-0 place-items-center rounded-full text-[18px] text-[#1f1f1f] active:bg-black/5"
+              className="shrink-0 transition active:scale-90"
             >
-              ←
+              <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
             <span aria-hidden className="size-3 shrink-0 rounded-full bg-[#fc7f35]" />
             <input
@@ -206,12 +205,12 @@ function Destination() {
               onFocus={() => setSearching(true)}
               placeholder="장소를 검색해 주세요"
               aria-label="목적지"
-              className="min-w-0 flex-1 bg-transparent text-[14px] leading-[22px] font-medium text-[#1f1f1f] outline-none placeholder:text-[#1f1f1f]"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-[#1f1f1f] outline-none placeholder:text-[#7d7d7d]"
             />
             {/* 값이 있을 때만 지우기. 와이어프레임 HOME-01 b 의 X 자리다 */}
             {text && (
-              <button type="button" onClick={openSearch} aria-label="지우기" className="shrink-0 text-[18px] leading-none text-[#525252]">
-                ✕
+              <button type="button" onClick={openSearch} aria-label="지우기" className="shrink-0 transition active:scale-90">
+                <img src="/home/icon-close.svg" alt="" className="size-6" />
               </button>
             )}
             {/*
@@ -227,7 +226,7 @@ function Destination() {
           <button
             onClick={() => router.push(`/profile?${searchParams}`)}
             aria-label="마이"
-            className="size-[63px] shrink-0 rounded-full border border-[#fc7f35] bg-[#e2f1fe] transition active:scale-95"
+            className="size-[54px] shrink-0 overflow-hidden rounded-full border border-[#f8f8f8] bg-[#e2f1fe] transition active:scale-95"
           >
             <img src={me.src} alt="" className="size-full rounded-full object-contain" />
           </button>
