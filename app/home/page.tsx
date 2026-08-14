@@ -49,7 +49,8 @@ function Home() {
   const [here, setHere] = useState<LatLng | null>(null);
   /** 위치를 못 받은 사유. 검색을 눌렀을 때 이걸 그대로 보여준다 — 고칠 방법이 여기 적혀 있다. */
   const [geoError, setGeoError] = useState<string | null>(null);
-  const [address, setAddress] = useState<string | null>(null);
+  /** 지금 선 동네 ("제주시 아라이동"). 번지는 일부러 안 받는다 — 이유는 lib/geocode.ts areaAt 주석에. */
+  const [area, setArea] = useState<string | null>(null);
   const [sky, setSky] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,9 +63,9 @@ function Home() {
       ({ coords }) => {
         const at: LatLng = [coords.latitude, coords.longitude];
         setHere(at);
-        // 주소·날씨는 서버를 거친다 (./actions.ts). 실패하면 각자 null 이라 그 조각만 안 그려진다.
+        // 동네 이름·날씨는 서버를 거친다 (./actions.ts). 실패하면 각자 null 이라 그 조각만 안 그려진다.
         hereNow(...at).then((now) => {
-          setAddress(now.address);
+          setArea(now.area);
           setSky(now.sky);
         });
       },
@@ -104,7 +105,7 @@ function Home() {
         아바타는 안 바뀐다. 되살리려면 src 를 characterOf(profile.experienceYears).src 로 되돌리면 된다.
       */}
       <div className="flex h-[62px] shrink-0 items-center justify-between pr-5 pl-[29px]">
-        <p className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리안심</p>
+        <p className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리 안심</p>
         {/* 쿼리를 그대로 넘겨야 마이 화면에서 프로필을 되읽는다 (lib/profile.ts) */}
         <button
           onClick={() => router.push(`/profile?${searchParams}`)}
@@ -197,11 +198,11 @@ function Home() {
           </button>
         </div>
 
-        {/* 현위치 줄. 주소를 못 받으면 오른쪽만 비운다 — "현위치" 라벨까지 사라지면 지도 밑이 잘린 것처럼 보인다 */}
+        {/* 현위치 줄. 동네를 못 받으면 오른쪽만 비운다 — "현위치" 라벨까지 사라지면 지도 밑이 잘린 것처럼 보인다 */}
         <div className="flex h-[52px] items-center justify-between border-t border-[#ededed] bg-white pr-6 pl-10">
           <span className="text-[13px] text-[#090808]">현위치</span>
           <span className="truncate pl-4 text-[13px] font-medium text-[#9e9e9e]">
-            {address ?? (geoError ? "위치를 확인할 수 없어요" : "위치 확인 중…")}
+            {area ?? (geoError ? "위치를 확인할 수 없어요" : "위치 확인 중…")}
           </span>
         </div>
       </div>
