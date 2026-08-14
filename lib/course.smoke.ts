@@ -42,7 +42,7 @@ for (const c of courses) {
     console.log(`  ${d.date}  운전 ${d.driveMin}분`);
     for (const s of d.stops) console.log(`    ${s.must ? "★" : "·"} ${s.name} (${s.kind}) — ${s.legMin}분 / ${Math.round(s.legM)}m`);
   }
-  if (c.dropped.length) console.log(`  못 간 곳: ${c.dropped.join(", ")}`);
+
 }
 
 // 실제 응답으로도 지켜져야 하는 것 — 여기서 깨지면 화면에 그대로 나간다

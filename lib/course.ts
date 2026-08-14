@@ -33,10 +33,11 @@ const COURSE_COUNT = 2;
 
 /**
  * 이만큼 안에 붙어 있으면 사실상 같은 자리로 본다.
- * 카카오는 "삼양해수욕장"과 "삼양해수욕장종합상황실"을 따로 주고 둘 다 해수욕장으로 분류한다 —
- * 그대로 넣으면 "이동 0분"짜리 정거장이 하루 정원을 먹는다. 걸어서 갈 거리면 한 곳이다.
+ * 카카오는 한 자리를 여러 이름으로 준다 — 그대로 넣으면 "이동 0분"짜리 정거장이 하루 정원을 먹는다.
+ * 300m 는 이동시간이 1분으로 찍히기 시작하는 지점(256m)에 맞춘 값이다. 그보다 멀면 서로 다른
+ * 가게로 보고 남긴다 — 한 동네의 카페 두 곳을 묶어 도는 건 코스로서 말이 된다.
  */
-const MIN_GAP_M = 500;
+const MIN_GAP_M = 300;
 
 export const driveMinutes = (m: number) => Math.round(((m * DETOUR) / 1000 / SPEED_KMH) * 60);
 
@@ -70,8 +71,6 @@ export type Course = {
   days: Day[];
   totalM: number;
   totalMin: number;
-  /** 하루 운전 시간 안에 못 넣어 뺀 장소들. 화면이 "N곳은 다음에" 로 알린다 */
-  dropped: string[];
 };
 
 /* ─────────────────────────── 후보 수집 (네트워크) ─────────────────────────── */
@@ -174,12 +173,27 @@ function themesOf(candidates: Candidate[]): number[] {
  * (정확도순 응답은 같은 검색어면 대체로 같지만, 그걸 코스의 재현성이 기대고 있으면 안 된다).
  */
 function pick(pool: Candidate[], theme: number | null, days: number, origin: LatLng): Candidate[] {
-  const room = days * STOPS_PER_DAY;
+  const room = Math.max(days * STOPS_PER_DAY, pool.filter((c) => c.must).length);
   const near = (a: Candidate, b: Candidate) => meters(origin, a.at) - meters(origin, b.at) || (a.name < b.name ? -1 : 1);
   const musts = pool.filter((c) => c.must); // 사용자가 적은 순서를 그대로 둔다
   const themed = pool.filter((c) => !c.must && c.interest === theme).sort(near);
   const rest = pool.filter((c) => !c.must && c.interest !== theme).sort(near);
-  return [...musts, ...themed, ...rest].slice(0, Math.max(room, musts.length));
+
+  /*
+    겹치는 후보는 여기서 걸러낸다 — 자리를 다 채운 뒤가 아니라, 채우는 동안에.
+
+    처음엔 schedule 이 담을 때 걸렀는데, 그러면 이미 뽑아둔 아홉 곳 중 여럿이 한 동네에 몰려
+    있을 때 그 자리가 통째로 날아가 하루가 한 곳으로 줄었다. 자리를 더 넉넉히 뽑아 해결하려
+    했더니 이번엔 후보를 다 담게 되어 두 코스가 똑같아졌다 (관심사가 힘을 쓰는 곳이 이 자르기다).
+    고를 때 거르면 둘 다 풀린다: 뽑힌 아홉 곳이 이미 서로 떨어져 있고, 자르는 개수는 그대로다.
+  */
+  const out = [...musts];
+  for (const c of [...themed, ...rest]) {
+    if (out.length >= room) break;
+    if (out.some((p) => meters(p.at, c.at) <= MIN_GAP_M)) continue;
+    out.push(c);
+  }
+  return out;
 }
 
 /**
@@ -201,9 +215,6 @@ function schedule(
 ): Course {
   const left = [...picked];
   const out: Day[] = [];
-  const dropped: string[] = [];
-  /** 이미 코스에 넣은 자리들. 다음 날이 같은 자리를 또 돌지 않게 한다 */
-  const seen: LatLng[] = [];
 
   for (let d = 0; d < days; d++) {
     const stops: Stop[] = [];
@@ -219,7 +230,7 @@ function schedule(
         그래서 정원이 찬 뒤에는 must 만 더 들어간다.
       */
       const filled = stops.filter((s) => !s.must).length;
-      let eligible = filled >= STOPS_PER_DAY ? left.filter((c) => c.must) : left;
+      const eligible0 = filled >= STOPS_PER_DAY ? left.filter((c) => c.must) : left;
 
       /*
         하루의 첫 자리는 남은 must 중 가장 가까운 곳으로 연다.
@@ -230,13 +241,8 @@ function schedule(
         남은 예산만큼만 근처를 채운다.
       */
       const mustsLeft = left.filter((c) => c.must);
-      if (!stops.length && mustsLeft.length) eligible = mustsLeft;
+      const eligible = !stops.length && mustsLeft.length ? mustsLeft : eligible0;
 
-      // 이미 들른 곳 바로 옆은 같은 자리로 친다 — "이동 0분"짜리 정거장이 하루를 채우면 안 된다
-      if (eligible.length > 1) {
-        const spread = eligible.filter((c) => c.must || seen.every((p) => meters(p, c.at) > MIN_GAP_M));
-        if (spread.length) eligible = spread;
-      }
       if (!eligible.length) break;
 
       const next = nearest(at, eligible);
@@ -251,7 +257,6 @@ function schedule(
         if (!lastDay) break;
         // 마지막 날이면 더 미룰 곳이 없다. must 는 넘겨서라도 넣고, 나머지는 못 간 곳으로 남긴다
         if (!next.must) {
-          dropped.push(next.name);
           left.splice(left.indexOf(next), 1);
           continue;
         }
@@ -259,7 +264,6 @@ function schedule(
 
       left.splice(left.indexOf(next), 1);
       stops.push({ ...next, legM, legMin });
-      seen.push(next.at);
       driveM += legM;
       driveMin += legMin;
       at = next.at;
@@ -273,16 +277,12 @@ function schedule(
     out.push({ date: dayAfter(start, d), stops, driveM: Math.round(driveM), driveMin });
   }
 
-  // 날짜를 다 쓰고도 남은 자리는 못 간 곳이다
-  dropped.push(...left.map((c) => c.name));
-
   return {
     theme,
     title: titleOf(theme),
     days: out,
     totalM: out.reduce((s, d) => s + d.driveM, 0),
     totalMin: out.reduce((s, d) => s + d.driveMin, 0),
-    dropped,
   };
 }
 
