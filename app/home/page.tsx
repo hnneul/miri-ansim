@@ -212,7 +212,7 @@ function Home() {
       </h2>
 
       {/*
-        빠르게 둘러보기 4칸. 갈 화면이 있는 건 탐나는전뿐이라 나머지 셋은 흐리게 두고 못 누르게 막는다 —
+        빠르게 둘러보기 4칸. 갈 화면이 없는 칸은 흐리게 두고 못 누르게 막는다 —
         눌리는데 아무 일도 없으면 시연에서 더 나쁘다.
       */}
       <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
@@ -224,7 +224,13 @@ function Home() {
           sub="캐시백 매장"
           href={`/around?${searchParams}`}
         />
-        <Quick icon="/home/quick-course.png" iconClass="size-[34px]" label="여행 코스" sub="AI 맞춤 추천" />
+        <Quick
+          icon="/home/quick-course.png"
+          iconClass="size-[34px]"
+          label="여행 코스"
+          sub="AI 맞춤 추천"
+          href={`/trip?${searchParams}`}
+        />
         <Quick icon="/home/quick-record.png" iconClass="size-[32px]" label="여행 기록" sub="글쓰러 가기" />
       </div>
 
