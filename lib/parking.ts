@@ -89,7 +89,8 @@ const rad = (d: number) => (d * Math.PI) / 180;
 export const meters = (
   [la1, lo1]: [number, number],
   [la2, lo2]: [number, number],
-): number => Math.hypot(la2 - la1, (lo2 - lo1) * Math.cos(rad(la1))) * rad(1) * 6371000;
+): number =>
+  Math.hypot(la2 - la1, (lo2 - lo1) * Math.cos(rad(la1))) * rad(1) * 6371000;
 
 /**
  * 목적지 주변 주차장. 임의 목적지를 받으므로 목적지별로 미리 잘라둘 수가 없다 —
@@ -121,7 +122,10 @@ export function nearbyParking(
     at,
     walkM,
     total: near.length,
-    byType: near.reduce<Record<string, number>>((o, s) => ({ ...o, [s.type]: (o[s.type] ?? 0) + 1 }), {}),
+    byType: near.reduce<Record<string, number>>(
+      (o, s) => ({ ...o, [s.type]: (o[s.type] ?? 0) + 1 }),
+      {},
+    ),
     spots: near.slice(0, SPOT_CAP),
   };
 }
@@ -167,7 +171,9 @@ export function parallelOdds(p: Parking): ParallelOdds {
       headline: "평행주차를 만날 확률이 높습니다",
       detail:
         `${규모} 중 ${onStreet}곳(${pct}%)이 도로변에 칸을 그린 주차장입니다. 연석 옆 평행주차일 확률이 높습니다.` +
-        (offStreet ? ` 평행주차가 부담되면 도로 밖 주차장 ${offStreet}곳을 먼저 보세요.` : ""),
+        (offStreet
+          ? ` 평행주차가 부담되면 도로 밖 주차장 ${offStreet}곳을 먼저 보세요.`
+          : ""),
     };
 
   return {
@@ -199,7 +205,8 @@ export function nearestSpots(p: Parking, n = 5): ParkingSpot[] {
 // "반경 안 전부"가 아니라 "지금 보는 곳에서 가까운 몇 곳"을 준다.
 
 /** 도보 4km/h = 67m/분. 100m 를 1.5분으로 읽는 흔한 기준이다. 0분은 안 쓴다. */
-export const walkMinutes = (m: number): number => Math.max(1, Math.round(m / 67));
+export const walkMinutes = (m: number): number =>
+  Math.max(1, Math.round(m / 67));
 
 /**
  * 하단 시트 배지("주차 쉬움"). parallelOdds 와 같은 프록시를 한 곳에만 쓴 것이다 —
@@ -217,8 +224,12 @@ export type ParkingKind = { parallel: boolean; confirmed: boolean };
  * 유형도 태그도 없으면 null 이다. 카카오에서 온 주차장이 그렇다 — 모르면 아무 말도 안 한다.
  * "노상이 아니면 직각"으로 쓰면 모르는 곳까지 전부 직각이라고 단언하게 된다.
  */
-export function parkingKind(s: { type: string; parallel?: boolean }): ParkingKind | null {
-  if (typeof s.parallel === "boolean") return { parallel: s.parallel, confirmed: true };
+export function parkingKind(s: {
+  type: string;
+  parallel?: boolean;
+}): ParkingKind | null {
+  if (typeof s.parallel === "boolean")
+    return { parallel: s.parallel, confirmed: true };
   if (s.type === "노외") return { parallel: false, confirmed: false };
   if (s.type === "노상") return { parallel: true, confirmed: false };
   return null;
@@ -238,34 +249,66 @@ const NO_ONSTREET = "서귀포시";
  * 그래서 판정을 지우지 않고 한계를 말한다. 맞는 정보까지 지우면 초보가 쓸 수 있는 게 없어진다.
  * 카카오에서 온 곳(source)은 애초에 유형을 모르니 이 판단에서 뺀다.
  */
-export function onStreetBlind(spots: { addr: string | null; source?: string }[]): boolean {
+export function onStreetBlind(
+  spots: { addr: string | null; source?: string }[],
+): boolean {
   const 공공 = spots.filter((s) => !s.source);
   return 공공.length > 0 && 공공.every((s) => s.addr?.startsWith(NO_ONSTREET));
 }
 
+/** 카카오 링크에 실을 한 점. 이름은 화면에 뜨는 라벨일 뿐이고 길을 정하는 건 좌표다. */
+export type NaviPoint = { name: string; at: [number, number] };
+
 /**
- * 카카오맵 길찾기로 넘긴다. 주차장을 정하고 나서 실제로 "가는" 길은 이거 하나다.
+ * 카카오맵 길찾기로 넘긴다. 길을 정하고 나서 실제로 "가는" 길은 이거 하나다.
  *
- * 이 앱에 길 안내를 만들 이유가 없다 — 초보 운전자도 내비는 이미 쓰던 걸 쓴다.
- * 여기가 답하는 질문은 "어느 주차장이냐"까지고, 거기서 끊는 게 맞다.
- * 폰에서는 카카오맵 앱이 열리고, 없으면 웹 지도로 뜬다.
+ * 이 앱에 턴바이턴 안내를 만들 이유가 없다 — 초보 운전자도 내비는 이미 쓰던 걸 쓴다.
+ * 여기가 답하는 질문은 "어느 주차장이냐 · 어느 길이냐"까지고, 거기서 끊는 게 맞다.
+ *
+ * **형식이 셋이고 실을 수 있는 게 다르다.** 예전에는 `/link/to/` 만 써서 도착지만 넘겼는데,
+ * 그러면 카카오가 출발지도 경로도 자기 기준으로 다시 잡는다 — 부담 36점 길을 골라 놓고
+ * 68점 길로 안내되는 것이다. 그러면 앞의 두 화면이 한 탭에 무의미해진다.
+ *
+ *   /link/to/{도착}                     도착지만
+ *   /link/from/{출발}/to/{도착}          출발지까지
+ *   /link/by/car/{출발}/{경유}/{도착}     경유지까지 (최대 5개)
+ *
+ * 실측으로 확인했다 (제주공항→서귀포시청): 경유지 없이 52.5km 평화로, 516로 위에 경유지를
+ * 하나 찍으면 43.5km 516로로 바뀐다. 라벨은 지어낸 문자열이어도 되고 좌표가 경로를 정한다.
+ *
+ * **앱 스킴(kakaomap://)은 안 쓴다.** 경유지가 웹 링크로 되므로 앱 설치 여부·데스크톱 여부를
+ * 가릴 필요가 없다 — 노트북 브라우저에서도 그대로 먹는다.
  *
  * 이름에 쉼표가 든 곳이 있어("함덕리 1002-83, 1004-5, 6") 반드시 인코딩해야 한다 —
  * 카카오 링크가 쉼표로 이름·위도·경도를 가르기 때문에 안 하면 좌표가 밀린다.
- *
- * 화면 두 곳(/parking 시트, /parking/detail 확인 모달)이 부른다. 저 인코딩 한 줄 때문에
- * 각자 두면 한쪽만 고쳐질 자리라 여기 둔다.
  */
-export const navigateTo = (spot: { name: string; at: [number, number] }) =>
-  window.open(
-    `https://map.kakao.com/link/to/${encodeURIComponent(spot.name)},${spot.at[0]},${spot.at[1]}`,
+export function navigateTo(
+  dest: NaviPoint,
+  opts: { from?: NaviPoint; via?: NaviPoint } = {},
+) {
+  const p = ({ name, at }: NaviPoint) =>
+    `${encodeURIComponent(name)},${at[0]},${at[1]}`;
+  const { from, via } = opts;
+
+  const path =
+    from && via
+      ? `by/car/${p(from)}/${p(via)}/${p(dest)}`
+      : from
+        ? `from/${p(from)}/to/${p(dest)}`
+        : `to/${p(dest)}`;
+
+  return window.open(
+    `https://map.kakao.com/link/${path}`,
     "_blank",
     "noopener",
   );
+}
 
 /** 초보가 편한 쪽(직각)인가. 배지 하나를 붙일지 말지에만 쓴다. */
-export const isEasyParking = (s: { type: string; parallel?: boolean }): boolean =>
-  parkingKind(s)?.parallel === false;
+export const isEasyParking = (s: {
+  type: string;
+  parallel?: boolean;
+}): boolean => parkingKind(s)?.parallel === false;
 
 /** 1000 → "1,000". toLocaleString 은 실행 환경 로케일을 타서 검증과 화면이 갈릴 수 있다. */
 const won = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -277,7 +320,10 @@ const won = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
  */
 export function feeText(s: { fee: string | null; rate?: Rate }): string {
   if (s.fee === "무료") return "무료";
-  const base = s.rate?.baseMin && s.rate?.baseWon ? `${s.rate.baseMin}분 ${won(s.rate.baseWon)}원` : null;
+  const base =
+    s.rate?.baseMin && s.rate?.baseWon
+      ? `${s.rate.baseMin}분 ${won(s.rate.baseWon)}원`
+      : null;
   if (!base) return s.fee ?? "요금 정보 없음";
   return s.fee === "혼합" ? `일부 유료 · ${base}` : base;
 }
@@ -287,7 +333,8 @@ export function feeDetail(s: { rate?: Rate }): string | null {
   const r = s.rate;
   if (!r) return null;
   const bits = [];
-  if (r.addMin && r.addWon) bits.push(`이후 ${r.addMin}분마다 ${won(r.addWon)}원`);
+  if (r.addMin && r.addWon)
+    bits.push(`이후 ${r.addMin}분마다 ${won(r.addWon)}원`);
   if (r.dayWon) bits.push(`1일권 ${won(r.dayWon)}원`);
   return bits.join(" · ") || null;
 }
@@ -320,7 +367,11 @@ const NAME_GAP_M = 300;
  */
 const looksLikeAddress = (name: string) => /\d/.test(name);
 
-export function mergeSpots(base: ParkingSpot[], extra: ParkingSpot[], gapM = 30): ParkingSpot[] {
+export function mergeSpots(
+  base: ParkingSpot[],
+  extra: ParkingSpot[],
+  gapM = 30,
+): ParkingSpot[] {
   const same = (b: ParkingSpot, e: ParkingSpot) => {
     const d = meters(b.at, e.at);
     return d <= gapM || (b.name === e.name && d <= NAME_GAP_M);

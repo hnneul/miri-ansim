@@ -16,6 +16,9 @@ import type { Lot } from "./parking";
 
 const ENDPOINT = "https://dapi.kakao.com/v2/local/search/category.json";
 
+/** 키워드 검색. 카테고리 코드만으로는 못 가르는 관광지를 찾을 때 쓴다 (searchSpotsNear 주석) */
+const KEYWORD_ENDPOINT = "https://dapi.kakao.com/v2/local/search/keyword.json";
+
 /** 카카오 카테고리 코드 — PK6 = 주차장 */
 const PARKING = "PK6";
 
@@ -83,6 +86,79 @@ export async function searchParkingNear([lat, lng]: [number, number], radiusM = 
     return { error: "주차장 검색 응답을 받지 못했습니다 (응답 지연 또는 네트워크 오류)" };
   }
 }
+
+/** 여행 코스 후보 한 곳 (lib/course.ts 가 순서를 짠다) */
+export type Spot = { name: string; at: [number, number]; addr: string | null; kind: string };
+
+/**
+ * 관심 장소 하나의 검색 조건. lib/trip.ts INTERESTS 의 뒤 세 칸이 그대로 들어온다 —
+ * 왜 셋 다 필요한지는 거기 주석에 있다.
+ */
+export type Recipe = { query: string; code: string; kinds: readonly string[] };
+
+/**
+ * 좌표 주변에서 관심 장소에 맞는 곳들. 코스 후보를 모을 때 쓴다.
+ *
+ * sort 가 distance 가 아니라 accuracy 인 이유 — 거리순으로 받으면 출발지(대개 공항) 반경
+ * 몇백 미터가 목록을 다 먹는다. 코스는 섬을 도는 것이라 "가까운 순"이 아니라 "그 관심사에
+ * 맞는 순"으로 받아서, 순서는 lib/course.ts 가 이동거리를 보고 다시 짠다.
+ */
+export async function searchSpotsNear(
+  [lat, lng]: [number, number],
+  recipe: Recipe,
+  radiusM = 20000,
+): Promise<{ spots: Spot[] } | { error: string }> {
+  const key = process.env.KAKAO_REST_API_KEY;
+  if (!key) return { error: "장소 검색 키(KAKAO_REST_API_KEY)가 설정되지 않았습니다" };
+
+  const q = new URLSearchParams({
+    query: recipe.query,
+    x: String(lng),
+    y: String(lat),
+    radius: String(Math.min(radiusM, 20000)),
+    size: String(SIZE),
+    sort: "accuracy",
+  });
+  if (recipe.code) q.set("category_group_code", recipe.code);
+
+  try {
+    const res = await fetch(`${KEYWORD_ENDPOINT}?${q}`, {
+      headers: { Authorization: `KakaoAK ${key}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return { error: `장소 검색 서버가 응답하지 않았습니다 (HTTP ${res.status})` };
+
+    const docs: any[] = (await res.json()).documents ?? [];
+    return { spots: docs.map(toSpot).filter((s) => keep(s, recipe)) };
+  } catch {
+    return { error: "장소 검색 응답을 받지 못했습니다 (응답 지연 또는 네트워크 오류)" };
+  }
+}
+
+const toSpot = (d: any): Spot => ({
+  name: d.place_name,
+  at: [Number(d.y), Number(d.x)],
+  addr: shortAddr(d.road_address_name || d.address_name || ""),
+  // 카카오 분류는 "여행 > 관광,명소 > 해수욕장,해변" 처럼 계층이다. 끝 마디가 실제 유형이고,
+  // 프랜차이즈는 여기에 브랜드명이 들어온다 ("엔제리너스") — kinds 로 거르는 지점이 이 값이다.
+  kind: String(d.category_name ?? "").split(">").pop()?.trim() ?? "",
+});
+
+/**
+ * 관광지의 부대시설. 분류가 본체와 같아서(“삼양해수욕장종합상황실”도 해수욕장,해변이다)
+ * kinds 로는 못 거른다 — 코스에 넣으면 상황실 앞에 차를 대라는 안내가 된다.
+ */
+const FACILITY = /상황실|관리사무소|매표소|화장실|주차장|안내소|탈의장|샤워장|입구|정류장/;
+
+/** 좌표가 성하고, 관심사에 맞는 유형이고, 갈 수 있는 곳이어야 후보로 쓴다 */
+const keep = (s: Spot, recipe: Recipe) =>
+  Number.isFinite(s.at[0]) &&
+  Number.isFinite(s.at[1]) &&
+  recipe.kinds.some((k) => s.kind.includes(k)) &&
+  // 카카오가 폐업·폐쇄를 이름 뒤에 달아 둔다 ("남짓은오름 (폐쇄)") — 코스에 넣으면 헛걸음이다
+  !/폐쇄|폐업/.test(s.name) &&
+  !FACILITY.test(s.name);
 
 /**
  * "제주특별자치도 제주시 동광로 30" → "제주시 동광로".

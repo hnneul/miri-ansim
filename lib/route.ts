@@ -10,8 +10,14 @@
 // 임의 구간은 그 대조를 할 수 없다. 그래서 이 모듈이 만든 경로는 verified: false 다 —
 // 부담구간은 계산해 보여주되 "추천"이라고 말하지 않는다. 화면이 그 차이를 표시한다.
 
-import { analyze, buildIndex, type Analysis, type Link, type LinkIndex } from "./analyze.ts";
-import type { LatLng } from "./curvature.ts";
+import {
+  analyze,
+  buildIndex,
+  type Analysis,
+  type Link,
+  type LinkIndex,
+} from "./analyze.ts";
+import { distance, type LatLng } from "./curvature.ts";
 import { burdenOf, type DriverProfile, type RiskFactor } from "./score.ts";
 
 const ENDPOINT = "https://apis-navi.kakaomobility.com/v1/directions";
@@ -49,7 +55,14 @@ type KakaoRoute = {
   result_code: number;
   result_msg?: string;
   summary: { distance: number; duration: number };
-  sections: { roads: { name?: string; distance: number; traffic_state?: number; vertexes: number[] }[] }[];
+  sections: {
+    roads: {
+      name?: string;
+      distance: number;
+      traffic_state?: number;
+      vertexes: number[];
+    }[];
+  }[];
 };
 
 async function directions(
@@ -75,7 +88,8 @@ async function directions(
   const route: KakaoRoute | undefined = (await res.json()).routes?.[0];
   if (!route) throw new Error("길찾기 결과가 비어 있습니다");
   // result_msg 는 카카오가 준 한국어 문구다 ("도착 지점 주변의 도로를 탐색할 수 없음")
-  if (route.result_code !== 0) throw new Error(route.result_msg || `길찾기 실패 (${route.result_code})`);
+  if (route.result_code !== 0)
+    throw new Error(route.result_msg || `길찾기 실패 (${route.result_code})`);
   return route;
 }
 
@@ -89,7 +103,10 @@ export function nameOf(mine: Analysis, other?: Analysis): string {
   const mineRoads = Object.entries(mine.roadKm).filter(([r]) => r !== "(무명)");
   if (!mineRoads.length) return "경로";
   const 가른도로 = other
-    ? mineRoads.find(([road, km]) => km >= 갈림_최소도로km && (other.roadKm[road] ?? 0) < km * 0.3)
+    ? mineRoads.find(
+        ([road, km]) =>
+          km >= 갈림_최소도로km && (other.roadKm[road] ?? 0) < km * 0.3,
+      )
     : undefined;
   return `${(가른도로 ?? mineRoads[0])[0]} 경유`;
 }
@@ -97,7 +114,10 @@ export function nameOf(mine: Analysis, other?: Analysis): string {
 /** 한쪽에만 길게 있는 도로가 있나 — 두 경로를 가르는 도로다 (경로 이름도 여기서 나온다) */
 const 가르는도로있나 = (x: Analysis, y: Analysis) =>
   Object.entries(x.roadKm).some(
-    ([road, km]) => road !== "(무명)" && km >= 갈림_최소도로km && (y.roadKm[road] ?? 0) < km * 0.3,
+    ([road, km]) =>
+      road !== "(무명)" &&
+      km >= 갈림_최소도로km &&
+      (y.roadKm[road] ?? 0) < km * 0.3,
   );
 
 /**
@@ -115,9 +135,40 @@ export function sameRoute(a: Analysis, b: Analysis): boolean {
   return !(가르는도로있나(a, b) && 가르는도로있나(b, a));
 }
 
+/**
+ * 고른 경로를 카카오맵에 강제할 **경유지 한 점** (lib/parking.ts navigateTo).
+ *
+ * 상대 경로에서 가장 멀리 떨어진 점을 고른다. 중간 지점을 그냥 쓰면 안 된다 — 두 경로가
+ * 앞쪽을 공유하고 뒤에서 갈리면 중간이 공유 구간에 앉아, 경유지를 찍어도 경로가 안 바뀐다.
+ * "가장 먼 점"은 정의상 갈라진 구간 한복판이라 그 길로 확실히 돌아온다.
+ *
+ * 양 끝은 뺀다 — 출발·도착 근처는 두 경로가 어차피 같아서 경유지 노릇을 못 한다.
+ * 상대가 없으면(단일 경로) 중간 지점이면 된다. 강제할 다른 길이 애초에 없다.
+ *
+ * path 는 이미 축약된 좌표열이라(analyze 의 simplify) 이중 루프여도 클릭 한 번에 끝난다.
+ */
+export function viaPoint(mine: LatLng[], other?: LatLng[]): LatLng {
+  const middle = mine[Math.floor(mine.length / 2)];
+  if (!other?.length || mine.length < 3) return middle;
+
+  let best = middle;
+  let far = -1;
+  for (let i = 1; i < mine.length - 1; i++) {
+    let near = Infinity;
+    for (const p of other) near = Math.min(near, distance(mine[i], p));
+    if (near > far) {
+      far = near;
+      best = mine[i];
+    }
+  }
+  return best;
+}
+
 /** 도로별 거리 집계 → 근거 카드의 "위치" 문구. 상위 두 개까지만 쓴다 (길어지면 안 읽힌다). */
 function 위치(byRoad: Record<string, number>): string {
-  const top = Object.entries(byRoad).filter(([, km]) => km > 0).slice(0, 2);
+  const top = Object.entries(byRoad)
+    .filter(([, km]) => km > 0)
+    .slice(0, 2);
   if (!top.length) return "-";
   return top.map(([road, km]) => `${road} ${km}km`).join(" · ");
 }
@@ -130,7 +181,9 @@ export function risksOf(a: Analysis): RiskFactor[] {
   const out: RiskFactor[] = [];
 
   if (a.sharpCurve.sections > 0 && a.sharpCurve.densest) {
-    const 커브도로 = Object.keys(a.sharpCurve.byRoad).find((r) => r !== "(무명)");
+    const 커브도로 = Object.keys(a.sharpCurve.byRoad).find(
+      (r) => r !== "(무명)",
+    );
     out.push({
       type: "sharpCurve",
       label: "연속 급커브",
@@ -222,7 +275,13 @@ export type LiveRoutes =
 
 const 색 = { fast: "#fb923c", safe: "#38bdf8" };
 
-function toRoute(id: "fast" | "safe", a: Analysis, name: string, badge: string, at: string): LiveRoute {
+function toRoute(
+  id: "fast" | "safe",
+  a: Analysis,
+  name: string,
+  badge: string,
+  at: string,
+): LiveRoute {
   return {
     id,
     name,
@@ -286,8 +345,16 @@ export async function routesFor(
   const failed = settled.find((s) => s.status === "rejected");
   if (settled.every((s) => s.status === "rejected")) {
     // 타임아웃(AbortError)은 사유가 영어라 우리 문구로 갈아준다.
-    const msg = failed && failed.status === "rejected" && failed.reason instanceof Error ? failed.reason.message : "";
-    return { error: /abort|timeout/i.test(msg) || !msg ? "길찾기 응답이 늦어 경로를 만들지 못했습니다" : msg };
+    const msg =
+      failed && failed.status === "rejected" && failed.reason instanceof Error
+        ? failed.reason.message
+        : "";
+    return {
+      error:
+        /abort|timeout/i.test(msg) || !msg
+          ? "길찾기 응답이 늦어 경로를 만들지 못했습니다"
+          : msg,
+    };
   }
 
   const index = linkIndex(links);
@@ -304,11 +371,17 @@ export async function routesFor(
   settled.forEach((s, i) => {
     if (s.status !== "fulfilled") return;
     const a = analyze(s.value, index);
-    if (!found.some((f) => sameRoute(f.a, a))) found.push({ a, badge: PRIORITIES[i].badge });
+    if (!found.some((f) => sameRoute(f.a, a)))
+      found.push({ a, badge: PRIORITIES[i].badge });
   });
 
   if (found.length === 1)
-    return { routes: [toRoute("safe", found[0].a, nameOf(found[0].a), "단일 경로", at)], at };
+    return {
+      routes: [
+        toRoute("safe", found[0].a, nameOf(found[0].a), "단일 경로", at),
+      ],
+      at,
+    };
 
   /*
    * 부담이 가장 낮은 후보가 "안심 길" 자리(safe)에 앉는다.

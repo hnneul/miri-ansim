@@ -9,9 +9,8 @@
 // 근거 화면(HOME-03 | 안심 길 근거, Figma 2153:1986)도 여기 있다 — 라우트가 아니라 상태다.
 // 고른 카드의 › 로 들어간다 (아래 view 주석에 왜 한 파일인지 적어뒀다).
 //
-// 마지막 "이 길로 갈게요"는 카카오맵을 연다. 턴바이턴 안내를 우리가 만들 이유가 없어서다
-// (lib/parking.ts navigateTo 주석). 다만 카카오 링크는 목적지만 받으므로 **여기서 고른 경로가
-// 그대로 넘어가지는 않는다** — 그래서 화면에도 그렇게 적는다.
+// 마지막 "이 길로 갈게요"는 카카오맵을 연다. 턴바이턴 안내를 우리가 만들 이유가 없어서다.
+// 출발지·경유지·도착지를 함께 넘기므로 **여기서 고른 길로 안내된다** (lib/parking.ts navigateTo).
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -20,7 +19,7 @@ import RouteMap, { type LatLng } from "../RouteMap";
 import { parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
 import { COMFORT_THRESHOLD } from "@/lib/score";
-import type { LiveRoute } from "@/lib/route";
+import { viaPoint, type LiveRoute } from "@/lib/route";
 import { compareRoutes, type Compared } from "./actions";
 
 /**
@@ -99,6 +98,29 @@ function Route() {
   const routes = result && !("error" in result) ? result.routes : [];
   const chosen = routes.find((r) => r.id === picked) ?? routes[0] ?? null;
   const sheetH = SHEET_H[view];
+
+  /*
+   * 카카오맵으로 넘어간다. 도착지만 넘기면 카카오가 출발지도 경로도 자기 기준으로 다시 잡아서,
+   * 여기까지 두 화면을 들여 고른 길이 한 탭에 무의미해진다. 그래서 셋을 다 싣는다:
+   * 출발지 · **고른 경로 위의 경유지** · 도착지 (lib/parking.ts navigateTo).
+   *
+   * 경유지는 상대 경로에서 가장 먼 점이다 — 두 길이 갈라진 한복판이라 그 길로 확실히 돌아온다
+   * (lib/route.ts viaPoint). 출발지를 모르면(위치 거부) 경유지도 못 쓴다 — by/car 형식이
+   * 출발·경유·도착을 다 요구해서다. 그때는 예전처럼 도착지만 넘기고 화면이 그렇다고 밝힌다.
+   */
+  function go() {
+    if (!chosen || !dest) return;
+    const other = routes.find((r) => r.id !== chosen.id);
+    navigateTo(
+      { name: to, at: dest },
+      origin
+        ? {
+            from: { name: "출발지", at: origin },
+            via: { name: chosen.name, at: viaPoint(chosen.path, other?.path) },
+          }
+        : {},
+    );
+  }
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-white">
@@ -240,9 +262,7 @@ function Route() {
 
             <div className="shrink-0 px-4 pt-[15px] pb-2">
               <button
-                onClick={() =>
-                  chosen && dest && navigateTo({ name: to, at: dest })
-                }
+                onClick={go}
                 className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-[#1f1f1f] text-[16px] font-bold text-white transition active:scale-[0.99]"
               >
                 <span aria-hidden className="text-[15px]">
@@ -250,13 +270,10 @@ function Route() {
                 </span>
                 이 길로 갈게요
               </button>
-              {/*
-                카카오 길찾기 링크는 **목적지만** 받는다. 여기서 고른 경로를 넘길 방법이 없어서,
-                안내가 다른 길로 나올 수 있다는 걸 미리 적는다 — 적지 않으면 우리가 고른 길로
-                안내되는 줄 알고 따라가다 어긋난다.
-              */}
               <p className="mt-2 text-center text-[11px] leading-[16px] text-[#9e9e9e]">
-                카카오맵으로 안내를 시작해요 · 실제 안내 경로는 다를 수 있어요
+                {origin
+                  ? "카카오맵이 이 길로 안내해요 · 출발지와 경유지를 함께 넘겨요"
+                  : "카카오맵으로 안내를 시작해요 · 출발지를 못 넘겨 다른 길로 안내될 수 있어요"}
               </p>
               <p className="mt-1 text-center text-[11px] leading-[16px] text-[#bdbdbd]">
                 {result.at} 실시간 교통 기준
