@@ -12,6 +12,7 @@ import type { LatLng } from "@/app/RouteMap";
 
 const ENDPOINT = "https://dapi.kakao.com/v2/local/search/keyword.json";
 const COORD2ADDRESS = "https://dapi.kakao.com/v2/local/geo/coord2address.json";
+const ADDRESS_SEARCH = "https://dapi.kakao.com/v2/local/search/address.json";
 const JEJU_RECT = "126.05,33.05,126.99,33.62";
 
 /** 길찾기(lib/route.ts)와 같은 한계. 여기서 매달리면 결과 페이지가 끝없이 기다린다. */
@@ -23,7 +24,18 @@ const TIMEOUT_MS = 6000;
  * 시트에서 한 줄이 그대로 늘어나는 것처럼 보인다 (app/destination/page.tsx PlaceSheet).
  * type 은 이름 옆 유형 뱃지다 ("호텔" · "카페" · "해수욕장").
  */
-export type Place = { coord: LatLng; label: string; region: string; address: string; type: string };
+/**
+ * region 은 시트에 늘 보이는 짧은 행정구역이고("제주 서귀포시"), road·jibun 은 주소 카드를 펼쳤을 때
+ * 줄줄이 나오는 전체 주소다. type 은 이름 옆 유형 뱃지다 ("호텔" · "카페" · "해수욕장").
+ *
+ * road 와 jibun 을 한 필드로 합치지 않는 이유 — 주소 카드가 둘을 **각각 한 줄씩** 보여준다
+ * (Figma "목적지 주소 펼쳤을때" 2606:847, 카카오·네이버도 같은 모양이다). 합쳐 두면 화면에서
+ * 다시 못 가른다. 도로명이 없는 장소(성산일출봉·협재해수욕장·우도 같은 관광지)는 road 가 빈 문자열이고,
+ * 그때는 그 줄을 통째로 빼면 된다.
+ *
+ * 우편번호는 여기 없다. 카카오 키워드 검색 응답에 아예 안 들어 있어서 따로 부른다 — postalOf 참고.
+ */
+export type Place = { coord: LatLng; label: string; region: string; road: string; jibun: string; type: string };
 export type Geocoded = Place | { error: string };
 
 /** 도 이름은 늘 같은 값이라 자리만 차지한다 — 제주 안만 검색하므로(JEJU_RECT) 줄여 쓴다. */
@@ -78,10 +90,10 @@ const toPlace = (place: {
   label: place.place_name,
   // region 은 지번 쪽을 기준으로 잡는다 — 도로명이 없는 곳에서도 행정구역은 나와야 한다
   region: shortRegion(place.address_name ?? place.road_address_name ?? ""),
-  // 도로명이 있으면 펼친 주소는 도로명으로 — 길 이름이 들어가야 어디쯤인지 감이 온다.
-  // 다만 카카오는 road_address_name 을 **빈 문자열**로 주는 곳이 많다(흑돼지거리·성산일출봉이 그랬다).
-  // null 이 아니라 "" 라 ?? 로는 안 걸러지므로 || 로 받는다.
-  address: shortJeju(place.road_address_name || place.address_name || ""),
+  // 카카오는 road_address_name 을 **빈 문자열**로 주는 곳이 많다 (성산일출봉·협재해수욕장·우도).
+  // null 이 아니라 "" 라 ?? 로는 안 걸러지므로 || 로 받는다 — 여기가 새면 주소 카드에 빈 줄이 하나 뜬다.
+  road: shortJeju(place.road_address_name || ""),
+  jibun: shortJeju(place.address_name || ""),
   type: typeOf(place.category_name ?? ""),
 });
 
@@ -118,6 +130,43 @@ export async function searchPlaces(query: string, size = 10): Promise<{ places: 
 export async function geocodePlace(query: string): Promise<Geocoded> {
   const found = await searchPlaces(query, 1);
   return "error" in found ? found : found.places[0];
+}
+
+/**
+ * 도로명 주소 → 우편번호 ("63599"). 목적지 시트의 주소 카드 세 번째 줄에만 쓴다.
+ *
+ * **왜 따로 부르는가.** 우편번호는 키워드 검색 응답에 아예 없다 — 실제 응답 키가
+ * address_name · road_address_name · category_name · phone · place_url · x · y 뿐이다.
+ * 그래서 주소 검색 API 를 한 번 더 부른다. 카카오가 방금 준 도로명 문자열을 그대로 되물으므로
+ * 도로명이 있는 곳은 다 찾아진다 (호텔·음식점·카페·시장·공항 다섯 곳으로 확인).
+ *
+ * **좌표로 부르지 않는 이유.** coord2address 에도 zone_no 가 있지만, 좌표가 건물 위에 정확히
+ * 떨어지지 않으면 road_address 를 통째로 null 로 준다. 제주는 그런 좌표가 흔해서 도로명이 있는
+ * 장소도 놓친다. 문자열로 되묻는 쪽이 확실하다.
+ *
+ * 도로명이 없으면 부르지도 않는다 — 그런 곳(성산일출봉·협재해수욕장·우도)은 우편번호도 없다.
+ * 데이터가 빠진 게 아니라 그 장소에 도로명 주소가 없는 것이라, 화면은 그 줄만 빼면 된다.
+ *
+ * 실패는 사유가 아니라 null 이다 (areaAt 과 같은 이유 — 사용자가 할 수 있는 일이 없다).
+ */
+export async function postalOf(road: string): Promise<string | null> {
+  const key = process.env.KAKAO_REST_API_KEY;
+  if (!key || !road.trim()) return null;
+
+  const q = new URLSearchParams({ query: road, size: "1" });
+  try {
+    const res = await fetch(`${ADDRESS_SEARCH}?${q}`, {
+      headers: { Authorization: `KakaoAK ${key}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+
+    // 지번으로 찾힌 결과(address_type REGION_ADDR)는 road_address 가 null 이다 — 그때도 우편번호는 없다
+    return (await res.json()).documents?.[0]?.road_address?.zone_no || null;
+  } catch {
+    return null;
+  }
 }
 
 /**

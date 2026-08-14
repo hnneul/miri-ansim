@@ -5,7 +5,7 @@
 //
 // 얇게 감싸기만 한다. 검색어 정리·실패 문구는 lib/geocode.ts 가 이미 하고 있어서 그대로 흘린다.
 
-import { geocodePlace, searchPlaces, type Geocoded, type Place } from "@/lib/geocode";
+import { geocodePlace, postalOf, searchPlaces, type Geocoded, type Place } from "@/lib/geocode";
 
 export async function findPlace(query: string): Promise<Geocoded> {
   const q = query.trim();
@@ -24,4 +24,15 @@ export async function suggestPlaces(query: string): Promise<Place[]> {
   if (!q) return [];
   const found = await searchPlaces(q);
   return "error" in found ? [] : found.places;
+}
+
+/**
+ * 주소 카드를 펼칠 때 부른다 (lib/geocode.ts postalOf).
+ *
+ * **미리 안 받는 이유.** 목적지는 엔터(findPlace)로도, 자동완성 목록(suggestPlaces)에서 골라서도
+ * 정해진다. 그런데 suggestPlaces 는 한 번에 열 곳까지 돌려주므로, 거기서 미리 받으려면 글자를
+ * 칠 때마다 카카오 호출이 열 배가 된다. 주소를 펼치는 사람은 소수라 그때 한 번이 맞다.
+ */
+export async function findPostal(road: string): Promise<string | null> {
+  return postalOf(road);
 }

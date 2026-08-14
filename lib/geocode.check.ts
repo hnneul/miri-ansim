@@ -8,7 +8,7 @@
 // 답하지 않을 때 우리가 무슨 말을 하느냐다.
 
 import assert from "node:assert";
-import { geocodePlace, areaAt } from "./geocode.ts";
+import { geocodePlace, areaAt, postalOf } from "./geocode.ts";
 
 const 응답 = (body: unknown, status = 200) =>
   (() => Promise.resolve(new Response(JSON.stringify(body), { status }))) as unknown as typeof fetch;
@@ -48,8 +48,9 @@ assert.deepEqual(await geocodePlace("제주국제공항"), {
   label: "제주국제공항",
   // 접힌 줄에 붙는 짧은 행정구역. 도 이름을 줄이고 앞 두 마디만.
   region: "제주 제주시",
-  // 펼치면 나오는 전체 주소. 도로명이 있으면 그쪽이다 — region 으로 시작해야 한 줄이 늘어난 것처럼 보인다.
-  address: "제주 제주시 공항로 2",
+  // 주소 카드가 도로명·지번을 각각 한 줄로 보여준다 — 합쳐 두면 화면에서 다시 못 가른다
+  road: "제주 제주시 공항로 2",
+  jibun: "제주 제주시 용담이동 2002",
   type: "공항",
 });
 
@@ -57,7 +58,10 @@ assert.deepEqual(await geocodePlace("제주국제공항"), {
 // 여기서 던지면 좌표는 멀쩡한데 목적지를 못 고른다.
 globalThis.fetch = 응답({ documents: [{ place_name: "어딘가", x: "126.5", y: "33.4" }] });
 const 주소없음 = await geocodePlace("어딘가");
-assert.deepEqual("error" in 주소없음 ? 주소없음 : [주소없음.region, 주소없음.address, 주소없음.type], ["", "", ""]);
+assert.deepEqual(
+  "error" in 주소없음 ? 주소없음 : [주소없음.region, 주소없음.road, 주소없음.jibun, 주소없음.type],
+  ["", "", "", ""],
+);
 
 // --- ②-b 유형 뱃지 (typeOf) ---
 // 실제 카카오 응답에서 그대로 가져온 경로들이다. 깊이가 제각각인 게 이 규칙의 전부라, 표본을 줄이면
@@ -102,7 +106,12 @@ globalThis.fetch = 응답({
   documents: [{ place_name: "성산일출봉", address_name: "제주특별자치도 서귀포시 성산읍 성산리 78", road_address_name: "", category_name: "여행 > 관광,명소 > 산봉우리", x: "126.9", y: "33.45" }],
 });
 const 도로명없음 = await geocodePlace("성산일출봉");
-assert.deepEqual("error" in 도로명없음 ? 도로명없음 : 도로명없음.address, "제주 서귀포시 성산읍 성산리 78");
+// 도로명은 빈 문자열로 남아야 한다 — 화면은 그걸 보고 "도로명" 줄을 통째로 뺀다.
+// 예전처럼 도로명 자리에 지번을 채워 넣으면 카드에 같은 주소가 두 줄 적힌다.
+assert.deepEqual(
+  "error" in 도로명없음 ? 도로명없음 : [도로명없음.road, 도로명없음.jibun],
+  ["", "제주 서귀포시 성산읍 성산리 78"],
+);
 
 globalThis.fetch = 응답(공항);
 
@@ -164,5 +173,43 @@ globalThis.fetch = 응답({}, 500);
 assert.equal(await areaAt(33.4, 126.5), null);
 globalThis.fetch = (() => Promise.reject(new Error("The operation was aborted"))) as unknown as typeof fetch;
 assert.equal(await areaAt(33.4, 126.5), null);
+
+// --- ⑦ 우편번호 (주소 카드 세 번째 줄) ---
+// 응답 모양은 실제 주소 검색 API 그대로다. 우편번호는 **road_address 안에만** 있고, 지번으로
+// 찾힌 결과는 그 블록이 통째로 null 이라 우편번호도 없다.
+globalThis.fetch = 응답({
+  documents: [
+    {
+      address_name: "제주특별자치도 서귀포시 칠십리로 242",
+      address_type: "ROAD_ADDR",
+      address: { address_name: "제주특별자치도 서귀포시 토평동 486-3" },
+      road_address: { address_name: "제주특별자치도 서귀포시 칠십리로 242", zone_no: "63599" },
+    },
+  ],
+});
+assert.equal(await postalOf("제주 서귀포시 칠십리로 242"), "63599");
+
+// 도로명이 없으면 부르지도 않는다 — 그런 장소는 우편번호가 원래 없다.
+// 여기가 새면 관광지를 고를 때마다 카카오 호출이 한 번씩 헛나간다.
+let 불렀나 = false;
+globalThis.fetch = (() => {
+  불렀나 = true;
+  return Promise.resolve(new Response("{}"));
+}) as unknown as typeof fetch;
+assert.equal(await postalOf(""), null);
+assert.equal(await postalOf("   "), null);
+assert.equal(불렀나, false, "도로명이 없는데 카카오를 불렀다");
+
+// 지번으로만 찾힌 결과 — road_address 가 null 이라 우편번호가 없다
+globalThis.fetch = 응답({ documents: [{ address_type: "REGION_ADDR", road_address: null }] });
+assert.equal(await postalOf("제주 서귀포시 성산읍 성산리 78"), null);
+
+// 못 찾은 경우·서버 오류·네트워크 오류. 주소 카드 한 줄 때문에 시트가 깨지면 안 된다.
+globalThis.fetch = 응답({ documents: [] });
+assert.equal(await postalOf("제주 어딘가로 1"), null);
+globalThis.fetch = 응답({}, 500);
+assert.equal(await postalOf("제주 어딘가로 1"), null);
+globalThis.fetch = (() => Promise.reject(new Error("The operation was aborted"))) as unknown as typeof fetch;
+assert.equal(await postalOf("제주 어딘가로 1"), null);
 
 console.log("geocode.check.ts ok");

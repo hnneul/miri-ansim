@@ -15,7 +15,7 @@ import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
 import { meters } from "@/lib/parking";
 import type { Place } from "@/lib/geocode";
-import { findPlace, suggestPlaces } from "./actions";
+import { findPlace, findPostal, suggestPlaces } from "./actions";
 
 /** 목적지를 못 골랐을 때 지도가 보고 있을 곳 — 제주 한가운데(한라산)라 섬이 통째로 담긴다. */
 const JEJU_CENTER: LatLng = [33.38, 126.55];
@@ -318,8 +318,15 @@ function Destination() {
                               <span className="truncate text-[14px] leading-[22px] text-[#1f1f1f]">{p.label}</span>
                               {p.type && <span className="shrink-0 text-[11px] text-[#9e9e9e]">{p.type}</span>}
                             </span>
-                            {/* 주소가 있어야 같은 이름 중에 어느 지점인지 갈린다 — 없는 곳은 그 줄만 빠진다 */}
-                            {p.address && <span className="mt-[2px] block truncate text-[12px] text-[#9e9e9e]">{p.address}</span>}
+                            {/*
+                              주소가 있어야 같은 이름 중에 어느 지점인지 갈린다 — 없는 곳은 그 줄만 빠진다.
+                              도로명이 있으면 그쪽이다: 길 이름이 들어가야 "스타벅스" 수십 곳이 서로 구분된다.
+                            */}
+                            {(p.road || p.jibun) && (
+                              <span className="mt-[2px] block truncate text-[12px] text-[#9e9e9e]">
+                                {p.road || p.jibun}
+                              </span>
+                            )}
                           </span>
                         </button>
                       </li>
@@ -399,16 +406,30 @@ function PlaceSheet({
   onParking: () => void;
 }) {
   const [notice, setNotice] = useState<string | null>(null);
-  /**
-   * 주소 줄을 펼쳤나. 접히면 행정구역까지만("제주 서귀포시"), 펼치면 전체 주소다
-   * ("제주 서귀포시 칠십리로 242"). 두 값이 같은 글자로 시작하도록 lib/geocode.ts 가 맞춰 주므로,
-   * 줄을 하나 더 붙이는 게 아니라 있던 줄이 늘어나는 것처럼 보인다 — 와이어프레임의 ⌄ 가 그 뜻이다.
-   */
+  /** 주소 카드를 펼쳤나 (Figma "목적지 주소 펼쳤을때" 2606:847). */
   const [openAddress, setOpenAddress] = useState(false);
+  /**
+   * 우편번호. 카드를 처음 펼칠 때 받아온다 (./actions.ts findPostal 주석에 미리 안 받는 이유가 있다).
+   * "아직 안 받음"과 "받아봤는데 없음"을 갈라야 해서 undefined / null 을 둘 다 쓴다 —
+   * null 로 뭉치면 도로명 없는 곳(우편번호가 원래 없는 곳)에서 펼칠 때마다 헛호출이 나간다.
+   */
+  const [postal, setPostal] = useState<string | null | undefined>(undefined);
   const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
 
+  // 목적지가 바뀌면 이전 장소의 우편번호가 남아 있으면 안 된다
+  useEffect(() => {
+    setOpenAddress(false);
+    setPostal(undefined);
+  }, [place]);
+
+  function toggleAddress() {
+    setOpenAddress((v) => !v);
+    // 도로명이 없으면 우편번호도 없다 — 부르지 않는다 (lib/geocode.ts postalOf 주석)
+    if (postal === undefined && place.road) findPostal(place.road).then(setPostal);
+  }
+
   return (
-    <div className="rounded-t-[24px] bg-white pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+    <div className="relative rounded-t-[24px] bg-white pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
       {/* grab — 끌어올릴 수 있어 보이게 하는 표시다. 실제로 끌리지는 않는다 (와이어프레임도 장식이다) */}
       <div aria-hidden className="mx-auto mt-[10px] h-1 w-12 rounded-[2px] bg-[#d6d6d6]" />
 
@@ -432,25 +453,61 @@ function PlaceSheet({
           </div>
 
           {/*
-            거리 + 주소. 주소가 있을 때만 누를 수 있는 버튼이 된다 — 펼쳐도 같은 글자면 누른 보람이 없다.
-            접힌 동안은 truncate 로 한 줄에 가두고, 펼치면 그 제한을 풀어 두 줄이든 세 줄이든 다 보인다.
+            거리 + 지역. 이 줄 자체는 안 바뀌고, ⌄ 를 누르면 주소 카드가 위에 떠오른다
+            (와이어프레임과 카카오·네이버가 다 같은 모양이다 — 줄을 늘리면 아래 버튼들이 밀린다).
+            주소가 아예 없는 장소에서는 누를 게 없으니 disabled 다.
           */}
-          <button
-            type="button"
-            onClick={() => setOpenAddress((v) => !v)}
-            disabled={!place.address || place.address === place.region}
-            aria-expanded={openAddress}
-            className="mt-[6px] flex w-full min-w-0 items-start gap-[6px] text-left text-[14px] leading-[22px] font-medium text-[#9e9e9e] disabled:cursor-default"
-          >
-            <span className={openAddress ? "min-w-0" : "min-w-0 truncate"}>
-              {/* 출발지를 모르면 거리 없이 지역만 — 모르는 값을 0km 로 적으면 거짓말이 된다 */}
-              {km !== null && <span className="mr-[11px]">{km}km</span>}
-              {openAddress ? place.address : place.region}
-            </span>
-            {place.address && place.address !== place.region && (
-              <Chevron className={`mt-[8px] shrink-0 transition-transform ${openAddress ? "rotate-180" : ""}`} />
+          {/*
+            주소 카드가 이 줄을 기준으로 위에 뜬다. 기준을 이 줄 하나로 좁게 잡는 게 중요하다 —
+            바깥 상자(이름 + 이 줄)를 기준 삼으면 카드가 이름보다 더 위로 밀려난다. 와이어프레임은
+            카드 바닥이 이 줄 바로 위, 즉 이름을 덮는 자리다.
+          */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={toggleAddress}
+              disabled={!place.road && !place.jibun}
+              aria-expanded={openAddress}
+              aria-label="주소 보기"
+              className="mt-[6px] flex min-w-0 items-center gap-[6px] text-left text-[14px] leading-[22px] font-medium text-[#9e9e9e] disabled:cursor-default"
+            >
+              <span className="min-w-0 truncate">
+                {/* 출발지를 모르면 거리 없이 지역만 — 모르는 값을 0km 로 적으면 거짓말이 된다 */}
+                {km !== null && <span className="mr-[11px]">{km}km</span>}
+                {place.region}
+              </span>
+              {(place.road || place.jibun) && (
+                <Chevron className={`shrink-0 transition-transform ${openAddress ? "rotate-180" : ""}`} />
+              )}
+            </button>
+
+            {openAddress && (
+              <>
+                {/*
+                  바깥을 눌러 닫는 길. 카드보다 먼저 그려서 뒤에 깔린다.
+                  fixed inset-0 이라 시트 밖(지도)까지 덮는다 — 지도를 끌어서 닫으려는 것도 여기서 잡힌다.
+                */}
+                <button
+                  aria-label="주소 닫기"
+                  onClick={() => setOpenAddress(false)}
+                  className="fixed inset-0 z-10 cursor-default"
+                />
+
+                {/*
+                  카드. 와이어프레임은 320x89 를 x:17 에 두고 시트 위쪽 경계를 24px 넘겨 걸쳐 놓았다.
+                  bottom-full 로 붙이면 줄 수가 둘이든 셋이든 알아서 위로 자란다 — 높이 89 를 박으면
+                  우편번호 없는 곳(도로명이 없는 관광지)에서 빈 칸이 남는다.
+                  -13px 은 시트의 pl-[30px] 을 상쇄해 와이어프레임의 x:17 로 맞추는 값이다.
+                */}
+                <div className="absolute bottom-full left-[-13px] z-20 mb-[3px] w-[320px] rounded-[10px] border border-[#ededed] bg-white px-[16px] py-[12px] shadow-[0_4px_16px_rgba(0,0,0,0.14)]">
+                  <AddressRow badge="도로명" value={place.road} />
+                  <AddressRow badge="지번" value={place.jibun} />
+                  {/* 아직 받는 중이면 줄이 없다. 다 받고도 없으면(도로명 없는 곳) 그대로 안 그린다 */}
+                  <AddressRow badge="우편번호" value={postal ?? ""} filled />
+                </div>
+              </>
             )}
-          </button>
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -491,6 +548,48 @@ function PlaceSheet({
         무엇을 적을지 정해지지 않은 자리다. 빈 테두리만 옮기면 화면이 고장 난 것처럼 보여서 뺐다.
         ponytail: 문구가 정해지면 여기에 되살린다 (lib/briefing.ts 에 규칙 기반 문장이 이미 있다).
       */}
+    </div>
+  );
+}
+
+/**
+ * 주소 카드 한 줄 — 뱃지 + 주소 + 복사 (Figma 2606:847).
+ *
+ * 값이 없으면 줄째 사라진다. 도로명이 없는 장소(성산일출봉·협재해수욕장·우도)가 실제로 있고,
+ * 그러면 우편번호도 없다 — 빈 줄로 남기면 못 받아온 것처럼 보이지만 원래 없는 것이다.
+ *
+ * 복사 자리는 오른쪽 정렬이 아니라 **값 바로 뒤**다. 와이어프레임에서 우편번호 줄의 복사만
+ * x:137 로 앞에 와 있는데(다른 두 줄은 x:228), 값 길이를 따라간다는 뜻이다.
+ */
+function AddressRow({ badge, value, filled = false }: { badge: string; value: string; filled?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  if (!value) return null;
+
+  async function copy() {
+    // 보안 컨텍스트(https·localhost)가 아니면 clipboard 가 아예 없다. 그때는 조용히 넘어간다 —
+    // 누른 사람에게 알릴 수 있는 게 "이 브라우저에서는 안 됩니다"뿐이라 알려도 할 수 있는 일이 없다.
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* 무시 */
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-[15px] py-[2px]">
+      <span
+        className={`grid h-[19px] w-[48px] shrink-0 place-items-center rounded-[4px] text-[10px] leading-none ${
+          filled ? "bg-[#ff7b33] font-bold text-white" : "border border-[#ff7b33] text-[#1f1f1f]"
+        }`}
+      >
+        {badge}
+      </span>
+      <span className="min-w-0 truncate text-[11px] leading-[19px] text-[#1f1f1f]">{value}</span>
+      <button onClick={copy} className="shrink-0 text-[11px] leading-[19px] text-[#2f6fed]">
+        {copied ? "복사됨" : "복사"}
+      </button>
     </div>
   );
 }
