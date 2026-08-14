@@ -579,7 +579,8 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
 
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 68">
-     <path d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z" fill="#ff9a66" stroke-linejoin="round"/>
+     <path d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z" fill="#ff9a66"
+           stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
    </svg>`,
 );
 
