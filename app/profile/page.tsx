@@ -1,8 +1,12 @@
 "use client";
 
 // 마이 — 최종 와이어프레임 MY-01 | 마이 · 운전 설정 (Figma 2371:384).
-// 메인화면(/home) 히어로의 프로필 버튼에서 들어온다. 값은 URL 쿼리에 실려 온 걸 그대로 되읽을 뿐
-// 여기서 고치지 않는다 — 고치는 곳은 온보딩 하나고, "프로필 수정"이 거기로 되돌린다 (lib/profile.ts).
+// 메인화면(/home) 히어로의 프로필 버튼에서 들어온다. 값은 URL 쿼리에 실려 온 걸 되읽는다 (lib/profile.ts).
+//
+// **온보딩이 안 묻는 두 값을 여기서 고친다.** 온보딩은 와이어프레임에 그려진 네 장(빈도·제주경험·
+// 차량·부담유형)뿐이라 운전 경력과 주행 시간대를 정할 곳이 없었고, 그래서 둘이 늘 기본값에
+// 묶여 있었다 — 화면에 "운전 1년 이하"가 고정으로 뜨고, 점수의 isNovice(lib/score.ts)도 늘 참이었다.
+// 온보딩에 화면을 더 지어내는 대신 여기에 칩을 놓는다. 나머지 세 값은 온보딩이 정한 대로 보여주기만 한다.
 //
 // 좌표는 와이어프레임의 390x844 를 옮겼지만 절대배치는 쓰지 않는다 (app/page.tsx 와 같은 이유 —
 // .phone 높이가 노트북에서 844 보다 낮아질 수 있다). 아래 두 줄(안내·버전)은 flex-1 로 바닥에 붙인다.
@@ -10,7 +14,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import { CONCERNS, LABELS, characterOf, parseProfile, parseConcerns } from "@/lib/profile";
+import { CONCERNS, LABELS, OPTIONS, characterOf, parseProfile, parseConcerns } from "@/lib/profile";
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function ProfilePage() {
@@ -38,6 +42,34 @@ const MENU = [
   { title: "이용약관", desc: "서비스 이용 기준" },
 ];
 
+/** 경력 값 → 화면에 쓰는 말. lib/profile.ts 의 CHARACTERS.tier 와 같은 구간이다. */
+const EXP_LABEL: Record<number, string> = { 1: "1년 이하", 3: "2~5년", 10: "5년 이상" };
+
+/** 한 줄짜리 설정. 라벨 아래 칩이 깔린다 */
+function Setting({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-4 first:mt-0">
+      <p className="text-[12px] leading-normal text-[#616161]">{label}</p>
+      <div className="mt-2 flex gap-2">{children}</div>
+    </div>
+  );
+}
+
+/** 온보딩 선택지와 같은 생김새 — 켜면 주황이 차고 글자가 희어진다 */
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={on}
+      className={`h-[38px] rounded-full border-[1.5px] px-4 text-[13px] font-medium transition active:scale-[0.98] ${
+        on ? "border-[#ff7b33] bg-[#ff7b33] text-white" : "border-[#e5e5e5] bg-white text-[#1f1f1f]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function Profile() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,6 +77,18 @@ function Profile() {
   const profile = parseProfile(query);
   const me = characterOf(profile.experienceYears);
   const concerns = parseConcerns(query);
+
+  /*
+   * 고른 값을 URL 에 얹는다. replace 라 뒤로가기 기록이 안 쌓인다 — 칩을 세 번 누르고 뒤로 가면
+   * 세 번 되짚는 게 아니라 온 곳으로 나가야 맞다. 상태를 따로 안 두는 이유는 이 앱이 프로필을
+   * 처음부터 URL 로 나르기 때문이다 (lib/profile.ts). 여기서만 useState 를 쓰면 뒤로가기·새로고침에
+   * 값이 날아가고, /home 으로 돌아갈 때 옛 쿼리를 도로 들고 가게 된다.
+   */
+  function set(key: string, value: string) {
+    const next = new URLSearchParams(searchParams);
+    next.set(key, value);
+    router.replace(`/profile?${next}`, { scroll: false });
+  }
 
   return (
     <div className="flex flex-1 flex-col bg-white">
@@ -102,17 +146,42 @@ function Profile() {
 
       {/*
         와이어프레임은 아바타 오른쪽 아래에 📷 배지를 얹는데 뺐다 — 사진을 올리는 기능이 없고,
-        이 아바타는 올리는 그림이 아니라 운전 경력에서 나온 그림이다. 누를 수 있어 보이는데
-        아무 일도 안 하면 시연에서 더 나쁘다 (/home 프로모 카드와 같은 판단).
+        이 사진은 올리는 그림이 아니다. 누를 수 있어 보이는데 아무 일도 안 하면 시연에서 더 나쁘다
+        (/home 프로모 카드와 같은 판단).
+
+        온보딩은 네 값(빈도·제주경험·차량·부담유형)을 처음부터 다시 고르는 자리다.
+        여기서 고친 경력·시간대는 온보딩이 안 건드리므로 쿼리에 실어 보내 살려둔다 —
+        안 실으면 온보딩을 한 번 돌 때마다 방금 고친 두 값이 기본값으로 되돌아간다.
       */}
       <button
-        onClick={() => router.push("/onboarding")}
+        onClick={() => router.push(`/onboarding?${searchParams}`)}
         className="mx-[34px] mt-[26px] h-[37px] shrink-0 rounded-[32px] bg-[#f5f5f5] text-[13px] text-[#1f1f1f] transition active:scale-[0.99]"
       >
         프로필 수정
       </button>
 
-      <h2 className="mt-[52px] shrink-0 px-10 text-[18px] leading-normal font-bold text-[#1f1f1f]">서비스 정보</h2>
+      {/*
+        온보딩이 안 묻는 두 값. 칩을 누르면 URL 이 바뀌고 위 카드의 문구가 곧바로 따라 움직인다 —
+        "설정한 대로 안 바뀐다"는 게 원래 문제라, 바뀌는 걸 같은 화면에서 보여주는 게 중요하다.
+      */}
+      <div className="mt-8 shrink-0 px-9">
+        <Setting label="운전 경력">
+          {OPTIONS.experienceYears.map((v) => (
+            <Chip key={v} on={profile.experienceYears === v} onClick={() => set("exp", String(v))}>
+              {EXP_LABEL[v]}
+            </Chip>
+          ))}
+        </Setting>
+        <Setting label="주로 운전하는 때">
+          {OPTIONS.timeOfDay.map((v) => (
+            <Chip key={v} on={profile.timeOfDay === v} onClick={() => set("time", v)}>
+              {LABELS.timeOfDay[v]}
+            </Chip>
+          ))}
+        </Setting>
+      </div>
+
+      <h2 className="mt-8 shrink-0 px-10 text-[18px] leading-normal font-bold text-[#1f1f1f]">서비스 정보</h2>
 
       <div className="mt-2 flex shrink-0 flex-col gap-2.5 px-9">
         {MENU.map((m) => (

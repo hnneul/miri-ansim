@@ -3,8 +3,10 @@
 // 프로필 온보딩 — 최종 와이어프레임 ONB 섹션에 그려진 네 장(운전 빈도·제주 경험·차량 크기·부담 유형)이 전부다.
 // 그려지지 않은 화면을 지어내면 와이어프레임과 앱이 갈라진다.
 //
-// 여기서 묻지 않는 나머지 프로필 값(운전 경력·주행 시간대)은 DEFAULT_PROFILE 로 남는다 —
-// 기본값이 가장 부담 큰 쪽(초보·주간)이라 모르는 값을 안전한 척 계산하지는 않는다.
+// 여기서 묻지 않는 나머지 프로필 값(운전 경력·주행 시간대)은 **마이 화면(app/profile)에서 고친다.**
+// 전에는 그 둘이 늘 DEFAULT_PROFILE 에 묶여 있어서, 마이 화면의 "운전 1년 이하"가 무얼 해도
+// 안 바뀌고 점수의 isNovice(lib/score.ts)도 늘 참이었다. 그래서 물고 온 쿼리를 바닥으로 깔아
+// 여기서 안 묻는 값을 보존한다 (아래 goNext).
 //
 // 고른 값은 URL 쿼리로 메인화면(/home)에 넘기고, 거기서 목적지를 붙여 /result 까지 그대로 흘러간다
 // (lib/profile.ts). 저장소가 따로 없어서 새로고침하면 처음부터지만, 네 탭짜리 플로우라
@@ -13,11 +15,11 @@
 // 좌표는 390x844 절대배치를 flex 로 옮겼다 (app/page.tsx 와 같은 이유 — .phone 높이가
 // 노트북에서 844 보다 낮아질 수 있고, 그때 여백(flex-1)부터 줄어야 버튼이 안 잘린다).
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import type { DriverProfile } from "@/lib/score";
-import { CONCERNS, DEFAULT_PROFILE, toProfileQuery } from "@/lib/profile";
+import { CONCERNS, parseProfile, toProfileQuery } from "@/lib/profile";
 
 type Step = {
   /** "N / 4" 옆에 붙는 부가 문구 (마지막 단계 "여러 개 선택 가능") */
@@ -89,8 +91,18 @@ const STEPS: Step[] = [
   },
 ];
 
-export default function Onboarding() {
+// useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
+export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <Onboarding />
+    </Suspense>
+  );
+}
+
+function Onboarding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   // 단계별 선택된 옵션 인덱스. 단일 선택 단계는 길이 0 또는 1, multi 단계만 여러 개.
   const [picks, setPicks] = useState<number[][]>(STEPS.map(() => []));
@@ -111,10 +123,16 @@ export default function Onboarding() {
 
   function goNext() {
     if (step < STEPS.length - 1) return setStep(step + 1);
-    // 각 단계의 patch 를 겹쳐 프로필 완성. 다음 버튼이 선택 전엔 잠겨 있어 빠진 단계는 없다.
+    /*
+     * 각 단계의 patch 를 겹쳐 프로필 완성. 다음 버튼이 선택 전엔 잠겨 있어 빠진 단계는 없다.
+     *
+     * 바닥은 DEFAULT_PROFILE 이 아니라 **물고 온 쿼리**다. 이 네 단계는 경력·시간대를 안 묻는데
+     * (그 둘은 마이 화면에서 고친다), 기본값에서 시작하면 마이에서 고쳐둔 값이 온보딩을 한 번
+     * 돌 때마다 지워진다. 쿼리가 없으면 parseProfile 이 알아서 기본값을 준다.
+     */
     const profile = STEPS.reduce<DriverProfile>(
       (acc, s, idx) => ({ ...acc, ...s.options[picks[idx][0]]?.patch }),
-      DEFAULT_PROFILE,
+      parseProfile(Object.fromEntries(searchParams)),
     );
     // 부담 유형(마지막 단계)은 patch 가 없어 프로필에 안 접힌다 — 고른 인덱스를 따로 넘긴다
     router.push(`/home${toProfileQuery(profile, picks[STEPS.length - 1])}`);
