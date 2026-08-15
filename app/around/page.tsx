@@ -54,6 +54,15 @@ function fitRadius(at: LatLng): number {
 const MIN_FIT_M = 150;
 
 /**
+ * 고른 핀이 덮는 반경 — 이 안에 있는 다른 가게의 점은 지도에서 뺀다.
+ *
+ * 가장 많이 당긴 축척(레벨 1, 축척막대 20m)에서 1px 이 약 0.15m 라, 50px 짜리 고른 핀은
+ * 8m 쯤을 덮는다. 12m 로 잡아 그 언저리까지 치운다. 더 넓히면 멀쩡히 떨어진 가게까지
+ * 지도에서 사라지고, 좁히면 원래 문제가 남는다.
+ */
+const PIN_CLEAR_M = 12;
+
+/**
  * 화면에 담을 폭 = 반경 × 이 값.
  *
  * 2.0(=지름)이면 40곳이 전부 화면에 들어오지만 시내에서는 핀이 서로를 덮는다.
@@ -153,12 +162,21 @@ function Around() {
   // 업종 필터는 nearbyTamna 안에서 **자르기 전에** 걸린다 — 여기서 다시 거르면 안 된다.
   const shops = near?.shops ?? [];
 
-  // 고른 곳이 업종 칩 때문에 목록에서 빠져도 핀은 남긴다 — 지도에 그 핀만 없으면
-  // 어디를 고른 건지 알 수 없다 (/parking 과 같은 규칙).
-  const pins = useMemo(
-    () => (selected && !shops.some((s) => same(selected, s)) ? [...shops, selected] : shops),
-    [shops, selected],
-  );
+  /**
+   * 지도에 찍을 것. 목록(shops)과 따로 노는 두 가지가 있다.
+   *
+   *  1. 고른 곳이 업종 칩 때문에 목록에서 빠져도 핀은 남긴다 — 지도에 그 핀만 없으면
+   *     어디를 고른 건지 알 수 없다 (/parking 과 같은 규칙).
+   *  2. 고른 핀이 깔고 앉는 자리의 점은 뺀다. 가맹점이 몇 미터 간격으로 붙어 있는 자리가
+   *     많아서(제주시청 1km 안 823곳) 고른 핀의 뾰족한 끝 바로 밑에 옆 가게 점이 걸리는데,
+   *     그러면 고른 가게의 점은 분명히 지워졌는데도 "안 지워졌다"로 보인다 — 실제로 7px
+   *     떨어진 경우를 쟀다. 목록에는 그대로 남으니 사라지는 건 지도 위 점 하나뿐이다.
+   */
+  const pins = useMemo(() => {
+    const all = selected && !shops.some((s) => same(selected, s)) ? [...shops, selected] : shops;
+    if (!selected) return all;
+    return all.filter((s) => same(selected, s) || meters(selected.at, s.at) > PIN_CLEAR_M);
+  }, [shops, selected]);
 
   /**
    * 현재 위치로 옮긴다 (/parking 의 locate 와 같다).
@@ -589,27 +607,14 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  */
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-const dot = (fill: string) =>
-  pin(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
-       <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
-         <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
-       </filter>
-       <circle cx="28" cy="26" r="21" fill="${fill}" filter="url(#s)"/>
-     </svg>`,
-  );
-
-const PIN = dot("#ff6114");
-
-/**
- * 한 곳을 고른 동안 쓰는 흐린 점.
- *
- * 가맹점이 몇 미터 간격으로 붙어 있는 자리가 많아서(제주시청 1km 안 823곳), 고른 핀의
- * 뾰족한 끝이 **옆 가게의 점 위에** 내려앉는 일이 흔하다. 그러면 고른 가게의 점은 분명히
- * 사라졌는데도 "안 지워졌다"로 보인다 — 실제로 7px 떨어진 경우를 쟀다.
- * 나머지를 흐리게 하면 고른 하나가 그 자리를 확실히 차지하고, 옆 점은 뒤로 물러난다.
- */
-const PIN_DIM = dot("#ffc9a6");
+const PIN = pin(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+     <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
+       <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
+     </filter>
+     <circle cx="28" cy="26" r="21" fill="#ff6114" filter="url(#s)"/>
+   </svg>`,
+);
 
 const PIN_ON = "/tamna-pin-on.svg";
 
@@ -835,7 +840,7 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
         position: new kakao.maps.LatLng(s.at[0], s.at[1]),
         title: s.name,
         zIndex: on ? 2 : 1,
-        image: new kakao.maps.MarkerImage(on ? PIN_ON : selected ? PIN_DIM : PIN, new kakao.maps.Size(w, h), {
+        image: new kakao.maps.MarkerImage(on ? PIN_ON : PIN, new kakao.maps.Size(w, h), {
           offset: new kakao.maps.Point(ax, ay),
         }),
       });
