@@ -382,9 +382,9 @@ function Sheet({ open, onToggle, label, kinds, kind, onKind, shops, selected, on
       }`}
     >
       {/*
-        손잡이 — 목록을 닫는 **유일한 문**이다. 빈 지도를 눌러도 고른 가맹점만 풀리고 목록은
-        남아서, 이게 없으면 한 번 연 목록을 못 닫는다. 한 곳을 고른 상태에서는 목록으로
-        되돌아가는 문이 된다 (/parking 과 같은 규칙).
+        손잡이 — 목록을 닫는 문이다 (빈 지도를 눌러도 닫히지만, 시트가 62%를 덮은 상태에서는
+        누를 지도가 얼마 없다). 한 곳을 고른 상태에서는 목록으로 되돌아가는 문이 된다
+        (/parking 과 같은 규칙).
 
         보이는 건 4px 막대지만 그대로 두면 누르기 어렵다 — 막대는 그대로 두고 그 둘레를
         버튼으로 넓힌다(위아래 여백 포함 28px). 시트 맨 위 여백(pt-2.5)을 버튼이 대신 먹는다.
@@ -778,10 +778,37 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
     return () => ro.disconnect();
   }, [sdk, move]);
 
-  // 시트를 접었다 펴면 보이는 띠가 달라지므로 기준점도 달라진다. 그런데 지도 자체는 가만히
-  // 있어서 idle 이 오지 않는다 — 여기서 직접 다시 잡아준다.
+  /*
+    시트를 접었다 펴면 보이는 띠가 달라지므로 기준점(focusY)도 달라진다.
+
+    기준점만 다시 잡으면 안 된다 — **지도는 가만히 있는데 기준만 화면의 26% 위로 뛴다.**
+    그러면 보고 있던 동네 대신 검색바 위쪽에서 40곳이 새로 뽑혀서, 목록 보기를 누른 것뿐인데
+    처음 보는 핀이 화면 꼭대기에 우르르 생긴다(상태바에 걸린 채로). 목록을 여는 행위가
+    목록의 내용을 바꾸면 안 된다.
+
+    그래서 기준점이 움직인 만큼 **지도를 옮긴다.** 보던 자리가 새 띠 한가운데로 따라 올라오고,
+    기준 좌표는 그대로라 뽑히는 40곳도 그대로다.
+
+    panBy 는 쓰지 않는다 — 픽셀 값은 맞게 넘어가는데 이 SDK 빌드에서 지도가 꿈쩍도 안 했다
+    (setBounds 의 여백 인자가 먹지 않던 것과 같은 종류다). 대신 getBounds() 로 화면이 덮는
+    위도 폭을 재서 setCenter 로 직접 간다 — focus() 가 쓰는 것과 같은 계산이다.
+    화면을 위로 밀려면 중심이 남쪽으로 가야 하므로 부호는 (fy - prev) 다.
+  */
+  const shownFy = useRef(fy);
   useEffect(() => {
-    if (sdk === "ready" && map.current) idle.current(focus(map.current, fy), false);
+    if (sdk !== "ready" || !map.current) return;
+    const m = map.current;
+    const prev = shownFy.current;
+    shownFy.current = fy;
+
+    const b = prev !== fy ? m.getBounds?.() : null;
+    if (b) {
+      const span = b.getNorthEast().getLat() - b.getSouthWest().getLat();
+      const c = m.getCenter();
+      movedAt.current = Date.now(); // 우리가 옮긴 것 — 기준 장소 이름을 버리면 안 된다
+      m.setCenter(new window.kakao.maps.LatLng(c.getLat() + (fy - prev) * span, c.getLng()));
+    }
+    idle.current(focus(m, fy), false);
   }, [sdk, fy]);
 
   useEffect(() => {
