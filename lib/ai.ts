@@ -8,12 +8,21 @@
 // 일이다. 그래서 응답을 verify() 로 거른다: 우리가 데이터를 확보하지 못한 요인을 언급하거나
 // 주지 않은 숫자를 쓰면 응답을 버리고 규칙 기반 문장(lib/briefing.ts)으로 떨어진다.
 //
-// 호출 1회로 두 개를 받는다 — 같은 사실을 두 번 보낼 이유가 없다:
+// 호출 1회로 네 개를 받는다 — 같은 사실을 네 번 보낼 이유가 없다:
 //   summary  근거 카드용 두 경로 차이 1~2문장 (Supporting 1)
 //   briefing 운전자 맞춤 해석 2~3문장 — 이 조건에서 이 길이 어떤 길인지 (Supporting 2)
 //   verdicts 경로별 판정 한 줄 — 왜 이 길인지 / 왜 이 길이 아닌지 (Core 추천 이유)
+//   radio    경로별 **출발 전 음성 안내 대본** 3~4칸 — 눈이 아니라 귀로 듣는 자리다
+//
+// radio 가 나머지 셋과 다른 점은 매체다. 화면은 숫자를 보여주고(부담점수 42, 좌회전 12번 → 3번)
+// 사람은 그걸 눈으로 훑는다. 음성은 그 숫자가 **무슨 뜻인지** 말한다 — "맞은편 차 흐름을 끊고
+// 들어가야 하는 순간이 아홉 번 줄어듭니다". 표는 저 문장을 못 쓰고, 음성은 저것만 하면 된다.
+// 그래서 화면 문장(verdicts·briefing)을 그대로 읽히지 않는다. 그러면 스크린리더지 안내가 아니다.
 
 import { ACTION, WHY } from "./briefing.ts";
+// 타입만 가져온다 — 지워지는 import 라 route.ts(와 그 6.7MB 데이터)를 물지 않는다.
+// ai.check.ts 가 node 로 바로 도는 것도 이 덕분이다.
+import type { RouteStats } from "./route.ts";
 import type { RiskFactor, ScoreResult, DriverProfile } from "./score.ts";
 import { COMFORT_THRESHOLD, activeWeights } from "./score.ts";
 
@@ -83,7 +92,13 @@ const 금지어 = [
  * 잡을 수 없는 거짓말이다. 한때 A·B 기호를 키로 썼는데, 모델이 그 기호를 문장에도 썼다
  * ("B 경로는 부담점수가 29.4로…"). 화면에 나갈 이름을 그대로 키로 쓰면 그 문제가 없다.
  */
-export type AiSentences = { summary: string; briefing: string[]; verdicts: string[] };
+export type AiSentences = {
+  summary: string;
+  briefing: string[];
+  verdicts: string[];
+  /** 경로별 대본. 바깥이 경로 순서(verdicts 와 같다), 안이 칸(①성격 ②추천이유 ③각오 ④도착) */
+  radio: string[][];
+};
 
 type RouteFacts = {
   이름: string;
@@ -98,6 +113,45 @@ type RouteFacts = {
    * 요인별 점수는 근거 카드가 계산 결과로 직접 보여주므로 AI가 알 필요도 없다.
    */
   요인: { 이름: string; 수치: string; 비중: string; 부담설명: string; 행동수칙: string }[];
+  /**
+   * 근거 화면(HOME-03) 비교표와 같은 다섯 줄. 대본 ②(추천 이유)의 실체가 여기서 나온다.
+   *
+   * 요인만으로 추천 이유를 쓰면 "굽은 길이 많습니다" 수준에서 멈춘다 — 요인은 그 길에 무엇이
+   * 있는지를 말할 뿐 **두 길이 어떻게 다른지**를 말하지 못하기 때문이다. "좌회전이 12번에서
+   * 3번으로 준다"가 초보에게 훨씬 구체적인 이유고, 그 값은 화면 표가 이미 보여주므로
+   * 새 주장이 아니라 옮겨 적는 것이다.
+   *
+   * 요인과 달리 **0도 담는다**("없음"). 비교에서는 오히려 0 쪽이 요지다 (lib/route.ts RouteStats).
+   */
+  비교?: {
+    좌회전유턴: string;
+    회전교차로: string;
+    연속급커브: string;
+    좁은교행: string;
+    고속주행: string;
+  };
+};
+
+/**
+ * 도착지 주차장 — 대본 ④칸의 재료. 주차장을 안 거쳐 온 흐름이면 통째로 없다.
+ *
+ * 쓸 수 있는 사실이 넷인데 넷 다 주지 않는다. 요금 상세(30분 1000원·1일권)와 규모(총 N면)는
+ * **귀로 들어서 할 수 있는 일이 없다** — 화면 카드가 이미 보여주는 값이고, 대본에 넣으면
+ * 낭독이 아니라 표 읽기가 된다. 넣는 건 들으면 행동이 달라지는 것뿐이다.
+ */
+export type ArrivalFacts = {
+  주차장: string;
+  /** "무료" | "유료" | "혼합" — 금액은 주지 않는다 (위 주석) */
+  요금: string;
+  /**
+   * 주차 형태. **null 이면 대본이 아예 말하지 않는다** — 카카오에서 온 곳은 유형을 모른다.
+   * 모르는 걸 지어내지 않는 건 이 프로젝트가 데이터 없는 자리에서 쓰는 규칙이다 (lib/parking.ts).
+   *
+   * 확인됨=false 는 주차장유형으로 **추정**한 값이다. 추정을 단정으로 바꾸면 안 된다 —
+   * 초보에게 평행주차를 직각이라고 알려주는 게 아무 말도 안 하느니만 못하다.
+   */
+  주차형태: { 형태: "직각주차" | "평행주차"; 확인됨: boolean } | null;
+  목적지까지도보분: number | null;
 };
 
 export type Facts = {
@@ -106,6 +160,7 @@ export type Facts = {
   추천경로: string;
   편안임계값: number;
   경로: RouteFacts[];
+  도착?: ArrivalFacts;
 };
 
 /**
@@ -122,7 +177,17 @@ export function factsOf(
   label: string,
   profile: DriverProfile,
   result: ScoreResult,
-  routes: { name: string; badge: string; durationMin: number | null; distanceKm: number | null; risks: RiskFactor[] }[],
+  routes: {
+    name: string;
+    badge: string;
+    durationMin: number | null;
+    distanceKm: number | null;
+    risks: RiskFactor[];
+    /** 없으면 비교표를 안 싣는다 — 대본 ②가 요인만으로 이유를 쓰게 된다 (RouteFacts.비교 주석) */
+    stats?: RouteStats;
+  }[],
+  /** 도착지 주차장. 주차장을 안 거쳐 온 흐름이면 없고, 그때 대본은 ④칸을 쓰지 않는다 */
+  arrival?: ArrivalFacts,
 ): Facts {
   const 점수 = [result.fastScore, result.safeScore];
   const ROUTE_ID = ["fast", "safe"] as const; // routes 배열 순서 = breakdown 의 route 값
@@ -160,7 +225,24 @@ export function factsOf(
         // 부담이 큰 것부터. 점수는 정렬에만 쓰고 프롬프트에서는 뺀다 (RouteFacts 주석 참고)
         .sort((a, b) => b.부담 - a.부담)
         .map(({ 부담: _, ...쓸것 }) => 쓸것),
+      // undefined 면 JSON.stringify 가 키째로 뺀다 — 프롬프트에 "비교: null" 이 안 남는다
+      비교: r.stats && 비교표(r.stats),
     })),
+    도착: arrival,
+  };
+}
+
+/**
+ * 근거 화면 비교표와 같은 형식으로 편다 (app/route/page.tsx 의 Why rows).
+ * 두 곳이 다른 문자열을 쓰면 화면과 음성이 어긋난다 — "12번"과 "12회"가 같은 값이어야 한다.
+ */
+function 비교표(s: RouteStats): NonNullable<RouteFacts["비교"]> {
+  return {
+    좌회전유턴: s.turns ? `${s.turns}번` : "없음",
+    회전교차로: s.roundabouts ? `${s.roundabouts}곳` : "없음",
+    연속급커브: s.sharpCurves ? `${s.sharpCurves}곳` : "없음",
+    좁은교행: s.narrow ? `${Math.round(s.narrow * 100)}%` : "없음",
+    고속주행: s.highSpeedKm ? `${s.highSpeedKm}km` : "없음",
   };
 }
 
@@ -206,7 +288,50 @@ const RULES = `너는 제주 렌터카 초보 운전자에게 경로를 안내�
   예: "운전을 시작한 지 얼마 안 됐다면 평화로 경유가 편합니다. 큰길이라 차선만 지키면 됩니다.",
       "다만 주변 차가 빠른 구간이 경로의 29%로 이어집니다. 속도를 맞춰야 할 것 같은 압박을 받기 쉽습니다.",
       "무리해서 속도를 맞추지 말고 2차로로 가세요."
-- verdicts: [{"경로": "경로 이름", "판정": "두 문장, 80자 안"}, …]. 경로마다 하나씩.`;
+- verdicts: [{"경로": "경로 이름", "판정": "두 문장, 80자 안"}, …]. 경로마다 하나씩.
+- radio: [{"경로": "경로 이름", "대본": ["①", "②", …]}, …]. 경로마다 하나씩.
+
+  **출발 전에 귀로 듣는 안내다.** 화면은 이미 숫자를 보여줬으니, 여기서는 그 숫자가 **무슨 뜻인지**
+  말한다. 위 문장들(summary·briefing·verdicts)을 그대로 옮기지 않는다 — 같은 말을 읽어주면
+  안내가 아니라 낭독이다.
+
+  **번호나 기호를 문장에 쓰지 않는다.** 아래 ①②③④ 는 칸의 역할을 설명하려고 붙인 것이지
+  문장에 넣으라는 게 아니다. "① 이 길은…" 처럼 쓰면 그대로 소리로 읽힌다.
+  머리에 번호·불릿·따옴표 없이 말만 적는다.
+
+  칸마다 역할이 정해져 있다. 순서대로 쓴다:
+  ① 이 길이 **어떤 길인지** 성격 한 덩어리.
+     예: "번영로로 가는 길이에요. 큰길 위주라 차선만 지키면 되는 편한 길입니다."
+  ② **왜 이 길인지.** 다른 경로와 비교해서 말한다 — 여기서만 다른 길을 언급해도 된다.
+     "비교"가 있으면 거기서 **가장 크게 벌어지는 줄 하나**를 골라 그 뜻을 말한다.
+     숫자를 옮겨 적는 게 아니라 그게 운전자에게 무엇인지를 말한다.
+       나쁜 예: "좌회전이 12번에서 3번으로 줄어듭니다." (표가 이미 하는 말이다)
+       좋은 예: "좌회전할 때마다 맞은편 차 흐름을 끊고 들어가야 하는데, 그걸 아홉 번 덜 하게 됩니다."
+     - 그 경로가 추천경로일 때: 위와 같이 무엇이 나아지는지 말한다.
+     - 추천경로가 **아닐 때: 설득하지 않는다.** 이미 이 길을 고른 사람에게 하는 말이다.
+       "이쪽을 고르셨네요"처럼 받고, 무엇과 무엇을 맞바꾼 것인지만 정직하게 말한다.
+       다른 길로 돌리려 하거나 나무라지 않는다.
+     - 추천경로가 "없음"일 때: 두 길의 부담이 비슷하다고 말하고 익숙한 쪽을 권한다.
+  ③ 그래도 **각오할 것 하나**. 그 경로에서 부담이 가장 큰 요인 하나만 골라 "부담설명"을 줄여 쓰고
+     "행동수칙"으로 닫는다. 그 경로에 요인이 하나도 없으면 **이 칸을 쓰지 않는다**.
+  ④ **도착해서 차를 댈 곳.** 사실에 "도착"이 있으면 **반드시 이 칸을 쓴다** — 빼먹지 않는다.
+     ("도착"이 아예 없을 때만 이 칸이 없다.)
+     주차형태를 반드시 말한다 — 출발 전에 알아야 대는 법을 미리 보고 갈 수 있다.
+     초보에게는 평행주차가 길의 급커브보다 무섭고, 그걸 **출발 전에** 알아야 준비할 수 있다.
+     이 칸이 이 안내에서 가장 쓸모 있는 자리다.
+     "확인됨"이 false 면 **단정하지 않는다**: "~일 가능성이 높아요"로 쓴다.
+     주차형태가 없으면(null) 주차 형태를 아예 언급하지 않는다.
+     요금은 무료일 때만 "무료예요" 한 마디로 말하고 **금액은 말하지 않는다**.
+     예(주차형태 평행·확인됨 false·무료·도보 4분): "차는 매일올레시장 공영주차장에 대시면 됩니다.
+     무료예요. 도로변이라 평행주차일 가능성이 높으니 대는 법을 미리 보고 가시면 좋습니다.
+     목적지까지는 걸어서 4분입니다."
+     나쁜 예(주차형태를 빼먹었다): "매일올레시장 공영주차장에 도착하면 도보 4분 정도 필요합니다."
+
+  말투: 조수석에 앉은 아는 사람이 알려주듯. 존댓말, 담백하게.
+  아직 **출발 전**이므로 예고형으로 쓴다 ("중간에 한 번 좁아지는 구간이 나옵니다").
+  주행 중인 것처럼 쓰지 않는다 (나쁜 예: "곧 5.16도로로 들어갑니다").
+  칸마다 **120자 안**, 숫자는 **칸당 세 개까지**. 눈으로 보는 수치(최소 반경 17m 같은 것)는
+  귀로 들어서 쓸 데가 없으니 옮기지 않는다.`;
 
 /** strict 모드는 additionalProperties: false 를 요구한다 */
 const SCHEMA = {
@@ -226,8 +351,24 @@ const SCHEMA = {
       minItems: 2,
       maxItems: 2,
     },
+    // 대본도 경로 이름으로 받는다 (verdicts 와 같은 이유 — 순서만 믿으면 뒤집혀도 통과한다).
+    // 칸 수를 2~4로 열어둔 건 ③(요인 없음)과 ④(주차장 없음)가 빠질 수 있어서다.
+    radio: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          경로: { type: "string" },
+          대본: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+        },
+        required: ["경로", "대본"],
+        additionalProperties: false,
+      },
+      minItems: 2,
+      maxItems: 2,
+    },
   },
-  required: ["summary", "briefing", "verdicts"],
+  required: ["summary", "briefing", "verdicts", "radio"],
   additionalProperties: false,
 } as const;
 
@@ -244,6 +385,51 @@ const SCHEMA = {
  */
 const 판정_최대글자 = 110;
 const 판정_최대숫자 = 2;
+
+/**
+ * 대본 한 칸의 상한. 판정보다 조금 넉넉한데(110 → 120) 매체가 달라서다 — 판정은 요인 목록 위에
+ * 앉는 한 줄이지만 대본 한 칸은 그 자체로 끝나는 한 덩어리다.
+ *
+ * 그렇다고 더 열어주면 안 된다. 눈으로는 긴 문단을 훑다 되돌아갈 수 있지만 **귀로는 못 되감는다** —
+ * 한 칸이 길어지면 지금 어디를 듣고 있는지 놓친다. 숫자 상한은 판정과 같은 값을 쓴다.
+ */
+export const 대본_최대글자 = 120;
+
+/**
+ * 대본 한 칸의 숫자 상한. 판정(2)보다 하나 많은데, **우리가 준 문장 자체가 숫자를 쓰기 때문**이다.
+ *
+ * 처음엔 판정과 같은 2로 뒀다가 실제 응답이 걸렸다:
+ *   "경로의 48%로 이어집니다. 무리해서 속도를 맞출 필요는 없고, 1차로보다 2차로가 편합니다."
+ * 뒷부분은 ACTION.highSpeed 를 그대로 쓴 것이다 — 사람이 검토해서 넣어둔 행동수칙인데
+ * "1차로"·"2차로"가 숫자 둘을 먹는다. 여기에 비중(48%)이 붙으면 셋이 된다.
+ *
+ * 즉 2는 **모델이 아니라 우리 문장을 거부하는 상한**이었다. 실제로 규칙 대본(briefing.ts
+ * radioScript)의 같은 칸도 숫자가 셋이라 이 검증을 통과하지 못했다 — 폴백이 자기 게이트에
+ * 걸리는 상태다. lib/radio.check.ts 가 그 관계를 검사한다.
+ *
+ * 막으려던 건 수치 나열("급커브 42곳, 굽은 구간 12.5km, 최소 반경 7m")이고 그건 넷 이상이다.
+ */
+export const 대본_최대숫자 = 3;
+
+/**
+ * 칸 앞머리의 번호·불릿. **떼어내고 쓴다** — 소리로 나가는 글에서는 "①"이 그대로 읽힌다.
+ *
+ * 프롬프트로도 말리지만 실제로 어기는 걸 봤다("① 이 길은 평화로를 따라…"). 칸의 역할을
+ * ①②③④ 로 설명해 뒀으니 모델이 따라 쓰는 것도 무리는 아니다 — 부탁이 아니라 코드로 막는다.
+ * 버리지 않고 떼기만 하는 이유: 내용은 멀쩡한데 머리 기호 하나로 폴백까지 갈 일은 아니다.
+ *
+ * 숫자 뒤에 **공백을 요구**하는 게 중요하다. `\d+[.)]` 만으로 보면 "5.16도로 경유"의 "5." 가
+ * 걸려서 "16도로 경유"가 된다 — 경로 이름이 통째로 망가진다.
+ */
+const 머리기호 = /^\s*(?:[①②③④⑤⑥]\s*|\d+[.)]\s+|[-•*]\s+)/;
+
+/**
+ * 대본에서 상대 경로를 언급해도 되는 칸. ②(추천 이유)는 비교가 곧 내용이라 다른 길을 말해야 한다.
+ * summary 를 다른경로만의요인 검사에서 빼주는 것과 같은 판단이다 (아래 verify 주석).
+ *
+ * ③④가 빠질 수 있어도 이 인덱스는 안 흔들린다 — ①②는 언제나 있고 뒤쪽만 잘리기 때문이다.
+ */
+const 비교허용_칸 = 1;
 
 /** 문장에 쓰인 숫자가 전부 프롬프트 안에 있던 것인가 */
 function 숫자가사실에있나(text: string, prompt: string): boolean {
@@ -277,7 +463,7 @@ function 다른경로만의요인(facts: Facts, 이름: string): string[] {
  */
 export function verify(v: unknown, facts: Facts): AiSentences | null {
   if (typeof v !== "object" || v === null) return null;
-  const { summary, briefing, verdicts } = v as Record<string, unknown>;
+  const { summary, briefing, verdicts, radio } = v as Record<string, unknown>;
   if (typeof summary !== "string" || !Array.isArray(briefing)) return null;
 
   const lines = briefing.filter((s): s is string => typeof s === "string" && s.trim().length > 0);
@@ -299,7 +485,23 @@ export function verify(v: unknown, facts: Facts): AiSentences | null {
   if (판정.some((s) => s.trim().length > 판정_최대글자)) return null;
   if (판정.some((s) => (s.match(/\d+(\.\d+)?/g) ?? []).length > 판정_최대숫자)) return null;
 
-  const 전체 = [summary, ...lines, ...판정].join(" ");
+  // 대본도 이름으로 맞춰 경로 순서로 편다 (판정과 같은 이유). 한쪽이라도 모양이 어긋나면
+  // 통째로 버린다 — 한 카드에서만 재생 버튼이 죽은 화면보다 둘 다 규칙 대본인 쪽이 앞뒤가 맞는다.
+  if (!Array.isArray(radio)) return null;
+  const 대본 = 이름들.map(
+    (이름) => (radio as { 경로?: unknown; 대본?: unknown }[]).find((r) => r.경로 === 이름)?.대본,
+  );
+  const 칸이성한가 = (d: unknown): d is string[] =>
+    Array.isArray(d) &&
+    d.length >= 2 &&
+    d.length <= 4 &&
+    d.every((s) => typeof s === "string" && s.trim().length > 0);
+  if (!대본.every(칸이성한가)) return null;
+  if (대본.some((d) => d.some((s) => s.trim().length > 대본_최대글자))) return null;
+  if (대본.some((d) => d.some((s) => (s.match(/\d+(\.\d+)?/g) ?? []).length > 대본_최대숫자)))
+    return null;
+
+  const 전체 = [summary, ...lines, ...판정, ...대본.flat()].join(" ");
   if (금지어.some((w) => 전체.includes(w))) return null;
   if (!숫자가사실에있나(전체, promptOf(facts))) return null;
 
@@ -311,10 +513,21 @@ export function verify(v: unknown, facts: Facts): AiSentences | null {
   // 이름으로 맞춰 순서 뒤집힘은 막았지만, 모델이 내용을 바꿔 넣는 건 여기서만 걸린다.
   if (facts.경로.some((r, i) => 다른경로만의요인(facts, r.이름).some((w) => 판정[i].includes(w)))) return null;
 
+  // 대본은 칸마다 기준이 다르다. ②는 추천 이유라 비교가 곧 내용이니 summary 취급이고,
+  // 나머지 칸은 그 길 얘기만 해야 하니 briefing 취급이다 (비교허용_칸 주석).
+  if (
+    facts.경로.some((r, i) => {
+      const 남의것 = 다른경로만의요인(facts, r.이름);
+      return 대본[i].some((s, 칸) => 칸 !== 비교허용_칸 && 남의것.some((w) => s.includes(w)));
+    })
+  )
+    return null;
+
   return {
     summary: summary.trim(),
     briefing: lines.map((s) => s.trim()),
     verdicts: 판정.map((s) => s.trim()),
+    radio: 대본.map((d) => d.map((s) => s.trim().replace(머리기호, ""))),
   };
 }
 
