@@ -34,6 +34,16 @@ export type RiskFactor = {
 
 export type ScoreResult = {
   recommendedRoute: "fast" | "safe" | "single";
+  /**
+   * 추천을 접은 이유. **single 이 성격이 다른 두 경우를 뭉치고 있어서** 필요하다.
+   *
+   *   tie     — 부담이 사실상 같다 (5% 이내). 고를 것도 없다.
+   *   unclear — 차이는 있는데(예: 68 vs 57) 단정할 만큼은 아니다. 시간과 맞바꿔야 한다.
+   *
+   * 이걸 안 남기면 화면이 둘을 같은 문장으로 말하게 되고, 실제로 그랬다 —
+   * 68점과 57점을 두고 "부담이 비슷합니다"라고 적고 있었다. 추천이 있으면 null 이다.
+   */
+  noPick: "tie" | "unclear" | null;
   fastScore: number;
   safeScore: number;
   reasons: string[];
@@ -122,7 +132,13 @@ function scoreRoute(risks: RiskFactor[], p: DriverProfile) {
     const base = BASE_SCORE[r.type];
     const exposure = round2(exposureFactor(r.exposure));
     const multiplier = round2(weight(r.type, p));
-    return { factor: r.label, base, exposure, multiplier, weighted: round1(base * exposure * multiplier) };
+    return {
+      factor: r.label,
+      base,
+      exposure,
+      multiplier,
+      weighted: round1(base * exposure * multiplier),
+    };
   });
   // 합계는 반올림된 값들의 합 — 근거 카드의 숫자가 총점과 어긋나지 않게
   return { total: round1(rows.reduce((s, r) => s + r.weighted, 0)), rows };
@@ -135,7 +151,8 @@ function scoreRoute(risks: RiskFactor[], p: DriverProfile) {
  * 아래 scoreRoutes 는 **두 개를 받아 비교**하는 함수라, 셋 중 하나를 고르는 일에는 못 쓴다.
  * 순위는 프로필에 따라 바뀐다 — 초보는 급커브 가중치가 커서 같은 두 길의 순서가 뒤집힌다.
  */
-export const burdenOf = (risks: RiskFactor[], p: DriverProfile) => scoreRoute(risks, p).total;
+export const burdenOf = (risks: RiskFactor[], p: DriverProfile) =>
+  scoreRoute(risks, p).total;
 
 type RouteInput = { risks: RiskFactor[]; durationMin: number | null };
 
@@ -156,7 +173,9 @@ export function scoreRoutes(
 
   // 부담이 사실상 같으면 어느 쪽도 추천하지 않는다. 0.1점 차이를 "저부담"이라 부르면
   // 사용자는 없는 차이를 믿고 길을 고른다 (실측: 공항→성산 35.9 vs 36).
-  const 무의미한차이 = Math.abs(fast.total - safe.total) <= Math.max(fast.total, safe.total) * 0.05;
+  const 무의미한차이 =
+    Math.abs(fast.total - safe.total) <=
+    Math.max(fast.total, safe.total) * 0.05;
 
   // PLAN.md §5 추천 규칙.
   // 시간 이득이 없으면 부담이 큰 경로를 추천할 근거 자체가 없다 —
@@ -180,7 +199,9 @@ export function scoreRoutes(
           ? "safe"
           : "single";
 
-  const top = [...fast.rows].sort((a, b) => b.weighted - a.weighted).slice(0, 2);
+  const top = [...fast.rows]
+    .sort((a, b) => b.weighted - a.weighted)
+    .slice(0, 2);
   const gap =
     fastRoute.durationMin != null && safeRoute.durationMin != null
       ? fastRoute.durationMin - safeRoute.durationMin
@@ -189,19 +210,21 @@ export function scoreRoutes(
   const lead = 무의미한차이
     ? `두 경로의 부담 차이가 작음 (${fast.total} / ${safe.total})`
     : !fastIsQuicker
-    ? gap != null
-      ? `최단거리 경로가 ${gap}분 더 걸림 — 시간 이득이 없음 (부담점수 ${fast.total})`
-      : `최단거리 경로에 시간 이득이 없음 (부담점수 ${fast.total})`
-    : recommendedRoute === "fast"
-      ? `빠른 경로 부담점수 ${fast.total} — 편안 임계값 ${COMFORT_THRESHOLD} 이하`
-      : recommendedRoute === "safe"
-        ? `빠른 경로 부담점수 ${fast.total} — 임계값 ${COMFORT_THRESHOLD} 초과`
-        : `두 경로의 부담 차이가 작음 (${fast.total} / ${safe.total})`;
+      ? gap != null
+        ? `최단거리 경로가 ${gap}분 더 걸림 — 시간 이득이 없음 (부담점수 ${fast.total})`
+        : `최단거리 경로에 시간 이득이 없음 (부담점수 ${fast.total})`
+      : recommendedRoute === "fast"
+        ? `빠른 경로 부담점수 ${fast.total} — 편안 임계값 ${COMFORT_THRESHOLD} 이하`
+        : recommendedRoute === "safe"
+          ? `빠른 경로 부담점수 ${fast.total} — 임계값 ${COMFORT_THRESHOLD} 초과`
+          : `두 경로의 부담 차이가 작음 (${fast.total} / ${safe.total})`;
 
   const reasons = [lead, ...top.map((r) => `${r.factor} ${r.weighted}점`)];
 
   return {
     recommendedRoute,
+    noPick:
+      recommendedRoute !== "single" ? null : 무의미한차이 ? "tie" : "unclear",
     fastScore: fast.total,
     safeScore: safe.total,
     reasons,

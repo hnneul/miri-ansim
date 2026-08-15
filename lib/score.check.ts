@@ -133,12 +133,35 @@ const 무의미브리핑 = briefing(초보, 무의미, {
   fast: { name: "가길", risks: 큰부담.risks, durationMin: 60 },
   safe: { name: "나길", risks: 같은부담.risks, durationMin: 60 },
 });
-// 추천을 접었으면 한쪽 이름을 부르지 않고 익숙한 길로 넘긴다
+// 추천을 접었으면 한쪽 이름을 부르지 않는다.
+//
+// **"익숙한 길로 가세요"라고 쓰면 안 된다.** 이 앱의 기본 사용자가 경력 1년·제주 처음이라
+// 익숙한 길이 없어서 여기까지 온 사람들이다 — 없는 걸 가리키는 조언이다.
+// 문구가 아니라 그 금지를 검증한다. 말투는 앞으로도 바뀐다.
 assert.ok(
-  무의미브리핑[0].includes("익숙한") &&
+  !무의미브리핑[0].includes("익숙한") &&
     !무의미브리핑[0].includes("가길") &&
     !무의미브리핑[0].includes("나길"),
   `추천을 접은 구간의 브리핑: ${무의미브리핑[0]}`,
+);
+
+// 접은 이유를 갈라 담는다 — 68점과 57점을 두고 "부담이 비슷합니다"라고 쓰던 자리다.
+assert.equal(무의미.noPick, "tie", "부담이 같아서 접었으면 tie 다");
+assert.equal(역전.noPick, null, "추천이 있으면 noPick 은 없다");
+
+// 차이는 있는데(임계값 미달) 단정만 못 하는 경우 — tie 와 다른 말을 해야 한다.
+// 빠른 쪽 부담이 편안 임계값을 넘어야 이 갈래로 들어오므로 노출을 크게 잡는다.
+const 애매 = scoreRoutes(
+  초보,
+  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.5)], durationMin: 60 },
+  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.39)], durationMin: 77 },
+);
+assert.equal(애매.recommendedRoute, "single", `임계값 미달이면 접는다: ${애매.fastScore}/${애매.safeScore}`);
+assert.equal(애매.noPick, "unclear", "부담 차이가 있는데 접었으면 unclear 다");
+const 애매판정 = verdict(애매, { id: "safe", risks: [], durationMin: 77 }, { durationMin: 60 });
+assert.ok(
+  애매판정.includes("17분") && !애매판정.includes("거의 같"),
+  `단정 못 하는 경우엔 맞바꿈을 보여줘야 한다: ${애매판정}`,
 );
 
 // --- 노출 크기 반영 ---
