@@ -7,7 +7,7 @@
 // 부담점수는 lib/score.ts 가 매긴다 — 운전 경력·빈도·차종·시간대(프로필)에 따라 같은 길도 값이 다르다.
 //
 // 근거 화면(HOME-03 | 안심 길 근거, Figma 2153:1986)도 여기 있다 — 라우트가 아니라 상태다.
-// 고른 카드의 › 로 들어간다 (아래 view 주석에 왜 한 파일인지 적어뒀다).
+// 카드 오른쪽 › 로 들어간다 (아래 view 주석에 왜 한 파일인지 적어뒀다).
 //
 // 마지막 "이 길로 갈게요"는 카카오맵을 연다. 턴바이턴 안내를 우리가 만들 이유가 없어서다.
 // 출발지·경유지·도착지를 함께 넘기므로 **여기서 고른 길로 안내된다** (lib/parking.ts navigateTo).
@@ -237,26 +237,39 @@ function Route() {
                   verdict={result.verdicts[chosen.id]}
                 />
               ) : (
-                <div className="mt-[30px] flex gap-[14px] px-4">
-                  {result.routes.map((r) => (
-                    <RouteCard
-                      key={r.id}
-                      route={r}
-                      score={
-                        r.id === "fast"
-                          ? result.score.fastScore
-                          : result.score.safeScore
-                      }
-                      recommended={result.score.recommendedRoute === r.id}
-                      picked={r.id === picked}
-                      onPick={() => setPicked(r.id)}
-                      onWhy={() => {
-                        setPicked(r.id);
-                        setView("why");
-                      }}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/*
+                  추천을 접었으면 **그렇다고 말한다.** 안 말하면 기본 선택된 카드가 주황으로 떠 있어
+                  추천처럼 보이는데 배지는 없는 상태가 된다 — 실제로 그게 뭐냐는 질문을 받았다.
+                  문구는 lib/briefing.ts 가 "부담이 같아서"와 "단정 못 해서"를 갈라 만든다.
+                */}
+                  {result.score.recommendedRoute === "single" && (
+                    <p className="mt-[18px] px-4 text-[13px] leading-[20px] text-[#525252]">
+                      {result.verdicts[picked ?? result.routes[0].id]}
+                    </p>
+                  )}
+
+                  <div className="mt-[18px] flex gap-[14px] px-4">
+                    {result.routes.map((r) => (
+                      <RouteCard
+                        key={r.id}
+                        route={r}
+                        score={
+                          r.id === "fast"
+                            ? result.score.fastScore
+                            : result.score.safeScore
+                        }
+                        recommended={result.score.recommendedRoute === r.id}
+                        picked={r.id === picked}
+                        onPick={() => setPicked(r.id)}
+                        onWhy={() => {
+                          setPicked(r.id);
+                          setView("why");
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
@@ -270,14 +283,19 @@ function Route() {
                 </span>
                 이 길로 갈게요
               </button>
-              <p className="mt-2 text-center text-[11px] leading-[16px] text-[#9e9e9e]">
-                {origin
-                  ? "카카오맵이 이 길로 안내해요 · 출발지와 경유지를 함께 넘겨요"
-                  : "카카오맵으로 안내를 시작해요 · 출발지를 못 넘겨 다른 길로 안내될 수 있어요"}
-              </p>
-              <p className="mt-1 text-center text-[11px] leading-[16px] text-[#bdbdbd]">
-                {result.at} 실시간 교통 기준
-              </p>
+              {/*
+                와이어프레임에는 버튼 밑에 아무것도 없다. 잔글씨 두 줄(안내 방식 · 조회 시각)을
+                달아뒀었는데 화면이 각주투성이가 됐다 — 게다가 지금은 경유지를 실어 보내서
+                "다른 길로 안내될 수 있다"는 경고가 대체로 사실이 아니다.
+
+                출발지를 모를 때만 남긴다. 그때는 경유지를 못 넣어(by/car 형식이 셋을 다 요구한다)
+                정말로 다른 길로 안내될 수 있고, 그건 사용자가 알아야 하는 사실이다.
+              */}
+              {!origin && (
+                <p className="mt-2 text-center text-[11px] leading-[16px] text-[#9e9e9e]">
+                  출발지를 몰라 다른 길로 안내될 수 있어요
+                </p>
+              )}
             </div>
           </>
         )}
@@ -416,6 +434,16 @@ function Why({
         </p>
       )}
 
+      {/* 와이어프레임의 "35분 → 42분" 줄. 판정 문장이 말한 시간 교환을 숫자로 한 번 더 보여준다 */}
+      {other && (
+        <p className="mt-2 text-[13px] text-[#9e9e9e]">
+          {other.durationMin}분 <span aria-hidden>→</span>{" "}
+          <span className="font-bold text-[#1f1f1f]">
+            {route.durationMin}분
+          </span>
+        </p>
+      )}
+
       {/*
         비교표. 왼쪽이 상대 경로, 오른쪽이 이 경로다 (와이어프레임의 "12곳 → 3곳" 방향 그대로).
         상대가 없으면(단일 경로) 화살표 없이 내 값만 적는다 — 비교할 게 없는데 화살표를 그리면
@@ -488,28 +516,25 @@ function RouteCard({
           {recommended ? "맞춤 안심 길" : route.name}
         </span>
         {/*
-          › 는 근거 화면으로 가는 문이다 (와이어프레임의 카드 오른쪽 화살표).
-          카드 안의 버튼이라 <button> 을 겹치면 HTML 이 깨진다 — span 에 역할만 얹고
-          클릭이 바깥 카드로 새지 않게 여기서 끊는다. 고른 카드에만 띄운다: 안 고른 카드의
-          근거를 바로 열면 지도가 다른 길을 그리고 있어 화면과 글이 어긋난다.
+          › — 근거 화면(HOME-03)으로 가는 문. 와이어프레임이 두 카드 모두에 달아 둔 것이다.
+
+          카드가 <button> 이라 그 안에 또 버튼을 넣으면 HTML 이 겹친다. span 에 역할만 얹고
+          클릭이 바깥 카드로 새지 않게 여기서 끊는다 — 대신 그 카드를 고른 뒤에 열어야
+          지도에 굵게 그려진 길과 근거 화면이 어긋나지 않으므로, 누를 때 선택도 같이 옮긴다.
         */}
-        {picked && (
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label="이 길을 고른 이유 보기"
-            onClick={(e) => {
-              e.stopPropagation();
-              onWhy();
-            }}
-            onKeyDown={(e) =>
-              e.key === "Enter" && (e.stopPropagation(), onWhy())
-            }
-            className="ml-auto shrink-0 cursor-pointer px-1 text-[18px] leading-none text-[#fc7f35]"
-          >
-            ›
-          </span>
-        )}
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`${route.name} 근거 보기`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onWhy();
+          }}
+          onKeyDown={(e) => e.key === "Enter" && (e.stopPropagation(), onWhy())}
+          className="ml-auto shrink-0 cursor-pointer px-1 text-[18px] leading-none text-[#9e9e9e]"
+        >
+          ›
+        </span>
       </div>
 
       <div className="mt-[14px] flex items-baseline gap-[6px]">
