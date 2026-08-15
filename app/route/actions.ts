@@ -105,7 +105,7 @@ export async function compareRoutes(
   const radio = Object.fromEntries(
     live.routes.map((r) => [
       r.id,
-      radioScript(score, r, live.routes.find((x) => x.id !== r.id) ?? null, arrival),
+      radioScript(profile, score, r, live.routes.find((x) => x.id !== r.id) ?? null, arrival),
     ]),
   );
 
