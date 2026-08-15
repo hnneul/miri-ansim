@@ -20,11 +20,19 @@ import { parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
 import { COMFORT_THRESHOLD } from "@/lib/score";
 import { viaPoint, type LiveRoute } from "@/lib/route";
-import { compareRoutes, type Compared } from "./actions";
+import RouteRadio from "./RouteRadio";
+import { aiRadio, compareRoutes, type Compared } from "./actions";
 
 /**
  * 시트 높이 = 지도가 아래로 비워 둘 높이. 상태마다 다르다.
  * 비교는 와이어프레임 그대로 350(카드 130 + 버튼 52 + 여백), 근거는 표 다섯 줄이 들어갈 만큼이다.
+ *
+ * 음성 안내 줄(RouteRadio, 58 + 여백 8)이 버튼 위에 들어갔는데 **높이는 그대로 둔다.**
+ * 재보니 안쪽 스크롤 영역에 원래 여유가 있었다 — 비교는 268 자리에 내용이 148,
+ * 근거는 438 자리에 359 였다. 시트를 키우면 그만큼 지도가 줄어드는데, 줄일 이유가 없다.
+ *
+ * 읽는 중에는 문장이 한 줄 더 붙어 근거 화면에서 내용이 넘칠 수 있다. 그건 원래 설계대로
+ * **내용만** 스크롤되고 버튼은 아래 붙어 있다 (아래 시트의 flex 구성).
  */
 const SHEET_H = { compare: 350, why: 520 };
 
@@ -66,6 +74,11 @@ function Route() {
    * (목적지 화면이 세 상태를 한 파일에 둔 것과 같은 이유다.)
    */
   const [view, setView] = useState<"compare" | "why">("compare");
+  /*
+   * AI 대본. 못 받으면 null 이고 화면은 규칙 대본(result.radio)을 그대로 쓴다 —
+   * 재생 버튼이 이것 때문에 늦게 뜨거나 사라지는 일은 없다 (actions.ts aiRadio 주석).
+   */
+  const [aiScript, setAiScript] = useState<string[][] | null>(null);
 
   useEffect(() => {
     if (origin || !("geolocation" in navigator)) return;
@@ -82,7 +95,20 @@ function Route() {
   const load = useCallback(async () => {
     if (!origin || !dest) return;
     setResult(null);
-    const found = await compareRoutes(origin, dest, profile);
+    const found = await compareRoutes(
+      origin,
+      dest,
+      profile,
+      /*
+       * 대본 ④칸(도착해서 차를 댈 곳)의 재료다. dest 는 **주차장** 좌표고, destLat/destLng 는
+       * 원래 고른 **목적지** 좌표라 둘 사이가 걸어갈 거리다 — /destination → /parking 을 거쳐
+       * 오면서 쿼리에 그대로 실려 있다 (routeQuery 가 URLSearchParams 를 통째로 복사한다).
+       *
+       * query.to 가 없으면 주차장을 거쳐 온 흐름이 아니다. 그때는 넘기지 않는다 —
+       * 이름을 "도착지"로 지어내면 대본이 "차는 도착지에 대시면 됩니다"라고 말하게 된다.
+       */
+      query.to ? { name: query.to, place: coord(query.destLat, query.destLng) } : undefined,
+    );
     setResult(found);
     // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다
     if (!("error" in found))
@@ -95,9 +121,38 @@ function Route() {
     load();
   }, [load]);
 
+  /*
+   * 경로가 새로 오면 AI 대본을 다시 받는다. 경로 카드는 이걸 안 기다린다 —
+   * 여기서 await 하면 최대 6초 동안 시트가 "길을 살펴보는 중"에 머문다.
+   *
+   * 같은 프롬프트면 lib/ai.ts 의 캐시가 받아치므로, 시연에서 같은 구간을 반복해 열어도
+   * 무료 한도가 한 번만 닳는다 (temperature 0 이라 캐시가 최적화가 아니라 원래 동작이다).
+   */
+  useEffect(() => {
+    setAiScript(null);
+    if (!result || "error" in result) return;
+    // 응답이 늦게 온 사이에 다른 구간으로 넘어갔으면 버린다 — 앞 구간 대본이 뒤에 붙으면 안 된다
+    let 유효 = true;
+    aiRadio(result.facts).then((r) => {
+      if (유효) setAiScript(r);
+    });
+    return () => {
+      유효 = false;
+    };
+  }, [result]);
+
   const routes = result && !("error" in result) ? result.routes : [];
   const chosen = routes.find((r) => r.id === picked) ?? routes[0] ?? null;
   const sheetH = SHEET_H[view];
+
+  /**
+   * 고른 경로의 대본. AI 것이 있으면 그걸, 없으면 규칙 대본을 쓴다.
+   * 둘의 칸 구성이 같아서 RouteRadio 는 어느 쪽이 왔는지 몰라도 된다.
+   */
+  const 대본 =
+    result && !("error" in result) && chosen
+      ? (aiScript?.[routes.indexOf(chosen)] ?? result.radio[chosen.id] ?? null)
+      : null;
 
   /*
    * 카카오맵으로 넘어간다. 도착지만 넘기면 카카오가 출발지도 경로도 자기 기준으로 다시 잡아서,
@@ -273,7 +328,17 @@ function Route() {
               )}
             </div>
 
-            <div className="shrink-0 px-4 pt-[15px] pb-2">
+            <div className="shrink-0 px-4 pt-2 pb-2">
+              {/*
+                출발 전 음성 안내. "이 길로 갈게요" 바로 위다 — 이 버튼을 누르면 카카오맵으로
+                넘어가 우리 화면을 떠나므로, 길에 대해 들을 수 있는 마지막 자리가 여기다.
+                비교 화면과 근거 화면이 이 영역을 함께 쓰므로 두 상태 모두에서 재생할 수 있다.
+              */}
+              {대본 && chosen && (
+                <div className="mb-2">
+                  <RouteRadio script={대본} routeId={chosen.id} />
+                </div>
+              )}
               <button
                 onClick={go}
                 className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-[#1f1f1f] text-[16px] font-bold text-white transition active:scale-[0.99]"
