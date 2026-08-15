@@ -1,0 +1,51 @@
+{
+  "33.50417,126.49627": {
+    "verdict": "보호",
+    "shotAt": "2026-03-09",
+    "label": "다호마을입구교차로",
+    "guidance": "용담 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 142,
+    "경유": [
+      "route-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.50417160924162&lng=126.49627450764577&bearing=142&label=%EB%8B%A4%ED%98%B8%EB%A7%88%EC%9D%84%EC%9E%85%EA%B5%AC%EA%B5%90%EC%B0%A8%EB%A1%9C"
+  },
+  "33.50025,126.50601": {
+    "verdict": "보호",
+    "shotAt": "2026-03-06",
+    "label": "오라오거리",
+    "guidance": "시청 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 91,
+    "경유": [
+      "route-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.5002503201841&lng=126.50600593231974&bearing=91&label=%EC%98%A4%EB%9D%BC%EC%98%A4%EA%B1%B0%EB%A6%AC"
+  },
+  "33.25078,126.56433": {
+    "verdict": "무신호",
+    "shotAt": "2026-03-06",
+    "label": "중앙로62번길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 210,
+    "경유": [
+      "route-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.25078305542968&lng=126.5643264985591&bearing=210&label="
+  },
+  "33.25046,126.56366": {
+    "verdict": "무신호",
+    "shotAt": "2026-03-06",
+    "label": "중앙로62번길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 258,
+    "경유": [
+      "route-DISTANCE.json",
+      "route-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.250459745169934&lng=126.56365575576332&bearing=258&label="
+  }
+}

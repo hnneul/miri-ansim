@@ -1,0 +1,109 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>비보호 좌회전 판독</title>
+<!--
+  로드뷰 판독 보조 화면 — data/unprotected-left.json 의 verdict 를 채울 때 쓴다.
+
+  왜 만들었나 — 카카오맵의 https://map.kakao.com/link/roadview/{lat},{lng} 는 로드뷰로
+  들어가지 않는다. 지도만 그 좌표로 옮기고 만다. 로드뷰를 열려면 페그맨을 끌어다 놔야 하는데
+  그러면 우리가 보려던 좌표에 정확히 못 떨군다. 여기서는 getNearestPanoId 로 그 좌표의
+  파노라마를 바로 집는다.
+
+  **pan 을 미리 돌려놓는 게 요점이다.** 로드뷰는 열리는 방향이 제각각이라, 안 돌려주면
+  지점마다 마우스로 진입 방향을 찾는 데 판독보다 오래 걸린다. bearing 은
+  scripts/left-turn-worklist.mjs 가 경로 폴리라인에서 계산해 둔 진입 방위각이다.
+
+  열기:
+    http://localhost:3000/roadview-tag.html?key=<JS키>&lat=33.50417&lng=126.49627&bearing=142&label=다호마을입구교차로
+
+  key 는 NEXT_PUBLIC_KAKAO_MAP_KEY 를 넣는다 — 파일에 박아두지 않는 건 parking-tag.html 과
+  같은 이유다. 브라우저로 나가는 값이라 비밀은 아니지만 굳이 커밋할 이유도 없다.
+
+  판독 기준:
+    비보호  = "비보호" 규제표지가 붙어 있다 (이게 보이면 확정이다)
+    보호    = 좌회전 화살표 등화가 있다 (4구 신호등). 유턴 표지의 "좌회전시" 문구도
+              같은 말이다 — 좌회전 현시가 없으면 그 문구가 성립하지 않는다.
+    무신호  = 교차로에 신호등이 아예 없다. **비보호와 다르다** — 비보호는 신호등이 있는
+              교차로에서 좌회전 현시만 없는 것이다. 신호가 없으면 그 말 자체가 성립하지 않는다.
+              초보에게는 오히려 이쪽이 더 부담일 수 있어(아무도 안 막아준다) 따로 남긴다.
+    판단불가 = 표지도 등화도 안 보인다 / 사진이 가려졌다 / 파노라마가 없다
+              → **비워두지 말고 판단불가로 적는다.** 안 보이는 걸 "보호"로 적으면
+                확인한 사실처럼 읽힌다.
+
+  촬영 연월을 같이 적는다 — 사진이 몇 년 전이면 그 사이 신호가 개편됐을 수 있다.
+-->
+<style>
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+  #rv { position: absolute; inset: 0; background: #111; }
+  #tag {
+    position: absolute; z-index: 10; top: 12px; left: 12px;
+    background: rgba(255, 255, 255, 0.94); border-radius: 10px; padding: 10px 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25); font-size: 14px; line-height: 1.5;
+  }
+  #tag b { font-size: 16px; }
+  #tag i { color: #ff6114; font-style: normal; font-weight: 700; }
+  #tag em { color: #616161; font-style: normal; }
+</style>
+<div id="rv"></div>
+<div id="tag"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const lat = +q.get("lat"), lng = +q.get("lng");
+  const pan = q.get("bearing"); // 없으면(계산 실패) 로드뷰가 주는 기본 방향에서 사람이 돌린다
+
+  const tag = document.getElementById("tag");
+  const 적기 = (줄) =>
+    (tag.innerHTML =
+      `<b>${q.get("label") ?? ""}</b><br>진입 <i>${pan ?? "?"}°</i><br>${줄}`);
+  적기("로드뷰 찾는 중…");
+
+  const s = document.createElement("script");
+  s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${q.get("key")}&autoload=false`;
+  s.onload = () =>
+    kakao.maps.load(() => {
+      const at = new kakao.maps.LatLng(lat, lng);
+      const rv = new kakao.maps.Roadview(document.getElementById("rv"));
+
+      // 반경 50m. 교차로 한복판에는 파노라마가 없고 진입 도로 위에 있어서 딱 그 좌표로는 못 잡는다.
+      new kakao.maps.RoadviewClient().getNearestPanoId(at, 50, (panoId) => {
+        if (!panoId) return 적기("<i>이 좌표 50m 안에 로드뷰가 없습니다 → 판단불가</i>");
+        // setPanoId 가 조용히 안 먹고 init 이 끝내 안 오는 로드가 있다 (실측에서 두 번에 한 번쯤).
+        // 원인을 못 찾아 다시 부르는 것으로 덮는다 — 이미 떴으면 init 에서 껐으니 안 돈다.
+        // ponytail: 재시도로 덮은 것. 원인을 찾으면 이 타이머는 지운다.
+        const 다시 = setInterval(() => rv.setPanoId(panoId, at), 2500);
+        kakao.maps.event.addListener(rv, "init", () => clearInterval(다시));
+        rv.setPanoId(panoId, at);
+      });
+
+      // pan 은 init 뒤에 걸어야 먹는다. 파노라마가 다 올라오기 전에 부르면 조용히 무시된다.
+      kakao.maps.event.addListener(rv, "init", () => {
+        if (pan !== null) rv.setViewpoint({ pan: +pan, tilt: 0, zoom: 0 });
+        // 신호등을 확대해 봐야 할 때가 있다 (등화 개수, 표지 글자). 콘솔에서 돌리라고 내놓는다:
+        //   rv.setViewpoint({ pan: 142, tilt: 10, zoom: 2 })
+        window.rv = rv;
+        촬영일();
+      });
+
+      /**
+       * 촬영 일시. SDK 가 주는 값은 없고 **타일 URL 에 들어 있다** —
+       * .../map_roadview/2026/03/9151234/2_103692_9151234_20260309063958_cube/left_1200.jpg
+       *
+       * 사진이 몇 년 전이면 그 사이 신호가 개편됐을 수 있어서, 판정과 반드시 같이 남긴다.
+       * 타일은 init 직후에도 아직 안 붙어 있을 수 있어 잠깐 기다린다. 끝내 못 찾으면
+       * 못 찾았다고 적는다 — 조용히 빼면 언제 기준의 사실인지 모르는 채로 판정만 남는다.
+       */
+      function 촬영일(남은시도 = 20) {
+        const 타일 = [...document.querySelectorAll("#rv img")]
+          .map((i) => i.src)
+          .find((s) => /_(\d{14})_cube/.test(s));
+        const t = 타일?.match(/_(\d{14})_cube/)?.[1];
+        if (t)
+          return 적기(
+            `촬영 <em>${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}</em>`,
+          );
+        if (남은시도) return setTimeout(() => 촬영일(남은시도 - 1), 150);
+        적기("<em>촬영일을 못 찾았습니다 — 손으로 확인할 것</em>");
+      }
+    });
+  document.head.append(s);
+</script>

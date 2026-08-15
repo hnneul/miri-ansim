@@ -192,13 +192,25 @@ function countGuides(sections: { guides?: { guidance?: string }[] }[]): Analysis
   const out = { left: 0, uTurn: 0, roundabout: 0 };
   for (const s of sections)
     for (const g of s.guides ?? []) {
-      const t = g.guidance ?? "";
-      // 회전교차로를 먼저 본다 — "회전교차로에서 왼쪽 9시 방향"이 좌회전으로도 세이면 두 번 센다
-      if (t.includes("회전교차로")) out.roundabout++;
-      else if (t.includes("유턴")) out.uTurn++;
-      else if (t.includes("좌회전")) out.left++;
+      const kind = guideKind(g.guidance ?? "");
+      if (kind) out[kind]++;
     }
   return out;
+}
+
+/**
+ * 안내문 한 줄 → 지점 종류. 못 세는 안내문은 null.
+ *
+ * **세는 쪽과 보러 가는 쪽이 같은 규칙을 써야 한다.** 여기서 센 좌회전을 로드뷰로 하나씩
+ * 확인하러 가는데(scripts/left-turn-worklist.mjs), 규칙이 갈라지면 화면의 "좌회전 12번"과
+ * 판독 목록의 줄 수가 조용히 어긋난다.
+ */
+export function guideKind(guidance: string): keyof Analysis["guides"] | null {
+  // 회전교차로를 먼저 본다 — "회전교차로에서 왼쪽 9시 방향"이 좌회전으로도 세이면 두 번 센다
+  if (guidance.includes("회전교차로")) return "roundabout";
+  if (guidance.includes("유턴")) return "uTurn";
+  if (guidance.includes("좌회전")) return "left";
+  return null;
 }
 
 export function analyze(
