@@ -568,11 +568,12 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  * 기호보다 훨씬 시끄럽다. 어차피 40개가 다 같은 캐시백 가맹점이라 하나하나가 무엇인지 말할 게 없고,
  * 지도가 할 일은 "이 동네에 이만큼 깔려 있다"다. 로고는 고른 하나에만 붙어 그게 어디인지 말한다.
  *
- * 모양은 둘이 같은 path 다 — 머리는 원(중심 23,23 / r 21), 꼬리는 (23,66)에서 그 원에 그은
- * 접선 둘. viewBox 46x68 을 공유하니 크기만 달라지고 실루엣은 어긋나지 않는다.
+ * **모양도 크기도 갈린다.** 안 고른 것은 꼬리도 테두리도 없는 18px 동그라미, 고른 것은 50x70
+ * 물방울이다. 40개가 다 물방울이면 크기 차이(32 vs 50)만으로는 어느 게 골라진 건지 안 읽혔다 —
+ * 모양이 아예 다르고 넓이가 8배쯤 나야 눈이 하나를 집어낸다.
  *
- * 끝점이 66인 이유 — 처음에 56으로 잡았더니 꼬리가 원 밑동에서 12밖에 안 나와(머리는 42다)
- * 물방울이 아니라 뾰족한 데가 붙은 동그라미로 읽혔다. 66이면 꼬리가 22, 머리의 절반이다.
+ * 동그라미는 지도 위 점이니 **한가운데**가 그 가게 자리고, 물방울은 뾰족한 끝이 자리다.
+ * 그래서 아래 기준점이 둘이 다르다.
  *
  * off 는 인라인 data: URI 다 (/parking 과 같은 방식). 로고가 빠지면서 path 하나 182바이트가 돼
  * 파일로 둘 이유가 없어졌고, **파일로 두면 고칠 때마다 브라우저 이미지 캐시에 걸린다** —
@@ -584,12 +585,11 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 const PIN = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 78">
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
      <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
        <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
      </filter>
-     <path transform="translate(5,3)" d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z"
-           fill="#ffebd6" stroke="#ff6114" stroke-width="2" stroke-linejoin="round" filter="url(#s)"/>
+     <circle cx="28" cy="26" r="21" fill="#ff6114" filter="url(#s)"/>
    </svg>`,
 );
 
@@ -598,11 +598,11 @@ const PIN_ON = "/tamna-pin-on.svg";
 /**
  * 핀 크기와 **기준점** — [폭, 높이, 기준 x, 기준 y].
  *
- * 그림자가 번질 자리를 만드느라 캔버스(56x78)가 핀보다 커서, 뾰족한 끝이 더 이상 이미지 맨
- * 아래가 아니다. 카카오는 기본값이 "이미지 아래 가운데"라 그대로 두면 핀이 전부 몇 px 떠서
- * 엉뚱한 건물을 가리킨다. 그래서 끝점 (28,69)을 그린 크기로 환산해 직접 넘긴다.
+ * 그림자가 번질 자리를 만드느라 캔버스가 그림보다 커서, 카카오 기본값("이미지 아래 가운데")을
+ * 그대로 두면 핀이 몇 px 떠서 엉뚱한 건물을 가리킨다. 그려진 자리를 직접 넘겨 막는다.
+ * 동그라미는 원 중심 (28,26), 물방울은 끝점 (28,69) — 각각 그린 크기로 환산한 값이다.
  */
-const PIN_SIZE = [32, 45, 16, 40] as const;
+const PIN_SIZE = [18, 18, 9, 8] as const;
 const PIN_ON_SIZE = [50, 70, 25, 62] as const;
 
 /**
