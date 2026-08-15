@@ -239,7 +239,12 @@ function Around() {
         }}
         move={move}
         onReady={() => setReady(true)}
-        onBlank={() => setSelected(null)}
+        onBlank={() => {
+          // 빈 지도를 누르면 고른 곳을 풀고 목록도 내린다 — 시트가 62%를 덮고 있어서,
+          // 지도를 더 보려면 버튼까지 손을 옮기는 대신 보이는 지도를 툭 치면 된다.
+          setSelected(null);
+          setOpen(false);
+        }}
         fy={focusY(open)}
       />
 
