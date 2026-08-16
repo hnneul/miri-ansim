@@ -15,11 +15,31 @@ import StatusBar from "../../StatusBar";
 import RouteMap, { type LatLng, type MapMarker, type MapRoute } from "../../RouteMap";
 import { navigateTo } from "@/lib/parking";
 import { courseMeta, driveNote, hourMin, stopCount, type Course } from "@/lib/course";
+import { summaryOf, toRecordQuery } from "@/lib/record";
 import { type TripPlan } from "@/lib/trip";
 import { makeCourses, type Made } from "./actions";
 
-/** 날짜별 경로 색. 하루가 한 지역을 도므로 색이 곧 "며칠째"다 (lib/course.ts regionsOf). */
-const DAY_COLORS = ["#ff7d32", "#3d8bd4", "#6ba85b"];
+/**
+ * 날짜별 경로 색. 하루가 한 지역을 도므로 색이 곧 "며칠째"다 (lib/course.ts regionsOf).
+ * 다섯 개인 이유는 그 이상은 색으로 못 가르기 때문이다 — 넘으면 돌려 쓰고, 지도 아래 범례가 짚어준다.
+ */
+const DAY_COLORS = ["#ff7d32", "#3d8bd4", "#6ba85b", "#a05fd0", "#d9534f"];
+
+/**
+ * 번호가 박힌 핀. 마커를 다 같은 모양으로 두면 어디부터 도는지, 어느 날 것인지를 못 읽는다 —
+ * 처음엔 경로마다 "1일차 15분" 말풍선을 달았는데, 하루가 늘 출발지에서 시작하니 말풍선이
+ * 죄다 섬 한가운데 겹쳐 지도를 덮었다. 순서는 번호로, 날짜는 색으로, 시간은 지도 밖 범례로 옮겼다.
+ *
+ * data: URI 라 파일도 외부 요청도 안 늘어난다 (RouteMap MarkerIcon 주석).
+ */
+const pin = (n: number, color: string): string =>
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="32" viewBox="0 0 26 32">` +
+      `<path d="M13 0C5.8 0 0 5.8 0 13c0 9.1 11.3 17.6 12.1 18.2a1.5 1.5 0 0 0 1.8 0C14.7 30.6 26 22.1 26 13 26 5.8 20.2 0 13 0z" fill="${color}"/>` +
+      `<text x="13" y="18" font-size="12" font-weight="700" fill="#fff" text-anchor="middle" font-family="sans-serif">${n}</text>` +
+      `</svg>`,
+  );
 
 export default function CoursePage() {
   return (
@@ -67,7 +87,19 @@ function CourseResult() {
 
   // 07 은 06 위에 뜨는 시트가 아니라 갈아끼우는 화면이다 (와이어프레임도 별도 프레임이다).
   // 덮어 씌우려면 .phone 에 position 을 주고 겹쳐야 하는데, 그럴 이유가 없다.
-  if (navOpen) return <ExternalNav course={course} plan={made.plan} onClose={() => setNavOpen(false)} />;
+  if (navOpen)
+    return (
+      <ExternalNav
+        course={course}
+        plan={made.plan}
+        onClose={() => setNavOpen(false)}
+        // 여행 기록(TRIP-08~09)으로 넘어가는 유일한 문이다. 코스 전체가 아니라 요약만 쿼리로 넘긴다
+        // — 기록에 필요한 건 이름 몇 개와 거리뿐이다 (lib/record.ts 첫 주석).
+        onDone={() =>
+          router.push(`/trip/record?${toRecordQuery(summaryOf(course, made.plan.origin), searchParams)}`)
+        }
+      />
+    );
 
   return (
     <Recommend
@@ -178,17 +210,22 @@ function Recommend({
   const course = courses[picked];
   const origin = plan.originAt as LatLng;
 
-  // 하루가 한 줄. 출발지에서 나가 마지막 장소까지 — 돌아오는 길은 안 그린다(같은 선을 두 번 긋는다)
-  const routes: MapRoute[] = course.days
-    .filter((d) => d.stops.length)
-    .map((d, i) => ({
-      path: [origin, ...d.stops.map((s) => s.at)],
-      color: DAY_COLORS[i % DAY_COLORS.length],
-      weight: 5,
-      label: `${i + 1}일차 ${hourMin(d.driveMin)}`,
-    }));
+  // 하루가 한 줄. 출발지에서 나가 마지막 장소까지 — 돌아오는 길은 안 그린다(같은 선을 두 번 긋는다).
+  // 말풍선(label)은 안 단다 — pin 주석 참고
+  const days = course.days.filter((d) => d.stops.length);
+  const routes: MapRoute[] = days.map((d, i) => ({
+    path: [origin, ...d.stops.map((s) => s.at)],
+    color: DAY_COLORS[i % DAY_COLORS.length],
+    weight: 5,
+  }));
 
-  const markers: MapMarker[] = course.days.flatMap((d) => d.stops.map((s) => ({ coord: s.at, label: s.name })));
+  const markers: MapMarker[] = days.flatMap((d, i) =>
+    d.stops.map((s, n) => ({
+      coord: s.at,
+      label: s.name,
+      icon: { src: pin(n + 1, DAY_COLORS[i % DAY_COLORS.length]), size: [26, 32] as [number, number], anchor: [13, 32] as [number, number] },
+    })),
+  );
 
   return (
     <Frame>
@@ -211,6 +248,20 @@ function Recommend({
         {/* 높이는 이 상자가 정한다 — RouteMap 이 h-full 이라 자기한테 높이를 주면 안 먹는다 */}
         <div className="mt-5 h-[236px] shrink-0 px-[23px]">
           <RouteMap center={origin} routes={routes} markers={markers} className="relative size-full overflow-hidden rounded-[18px]" />
+        </div>
+
+        {/* 지도의 색이 무엇인지 짚어주고, 말풍선이 하던 말(하루 몇 곳·몇 분)을 여기서 한다 */}
+        <div className="mt-3.5 flex shrink-0 flex-col gap-2 px-[23px]">
+          {days.map((d, i) => (
+            <div key={d.date} className="flex items-center gap-2.5">
+              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: DAY_COLORS[i % DAY_COLORS.length] }} />
+              <span className="text-[13px] leading-5 font-medium text-[#262626]">{i + 1}일차</span>
+              <span className="min-w-0 flex-1 truncate text-[12px] leading-[18px] text-[#7d7d7d]">
+                {d.stops.map((s) => s.name).join(" · ")}
+              </span>
+              <span className="shrink-0 text-[12px] leading-[18px] text-[#7d7d7d]">{hourMin(d.driveMin)}</span>
+            </div>
+          ))}
         </div>
 
         {/* 좌표를 못 찾은 "꼭 가고 싶은 곳"은 조용히 빼지 않고 말한다 */}
@@ -287,8 +338,21 @@ function CourseCard({
  *
  * 며칠짜리 코스라도 한 번에 한 날만 넘긴다 — 이틀치를 이어 붙이면 중간에 자는 밤이 경로에
  * 들어가고, 경유지 다섯 개 상한도 금방 넘긴다.
+ *
+ * 다녀온 뒤 돌아올 자리도 여기다 — 내비로 넘기고 나면 이 화면이 그 여행의 마지막 장이라,
+ * "여행 다녀왔어요"가 기록(TRIP-08)으로 이어진다.
  */
-function ExternalNav({ course, plan, onClose }: { course: Course; plan: TripPlan; onClose: () => void }) {
+function ExternalNav({
+  course,
+  plan,
+  onClose,
+  onDone,
+}: {
+  course: Course;
+  plan: TripPlan;
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const days = course.days.filter((d) => d.stops.length);
   const [day, setDay] = useState(0);
   const target = days[day];
@@ -365,9 +429,16 @@ function ExternalNav({ course, plan, onClose }: { course: Course; plan: TripPlan
 
       <div className="flex-1" />
 
+      {/* 주황이 앞으로 가는 자리다 — 코스를 고르고 내비까지 넘긴 다음의 다음 걸음은 기록이다 */}
+      <button
+        onClick={onDone}
+        className="mx-6 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition active:scale-[0.98]"
+      >
+        여행 다녀왔어요
+      </button>
       <button
         onClick={onClose}
-        className="mx-6 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition active:scale-[0.98]"
+        className="mx-6 mt-2.5 h-12 shrink-0 rounded-2xl bg-[#d6d6d6] text-[16px] font-medium text-[#262626] transition active:scale-[0.98]"
       >
         닫기
       </button>

@@ -223,7 +223,13 @@ function Home() {
       */}
       <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
         <Quick icon="/home/quick-tip.png" iconClass="size-[35px]" label="운전 TIP" sub="초보운전자" />
-        <Quick icon="/home/quick-record.png" iconClass="size-[32px]" label="주행 저장" sub="글쓰러 가기" />
+        <Quick
+          icon="/home/quick-record.png"
+          iconClass="size-[32px]"
+          label="주행 저장"
+          sub="글쓰러 가기"
+          href={`/safelog?${searchParams}`}
+        />
         <Quick
           icon="/home/quick-tamna.png"
           iconClass="h-[28px] w-[34px]"
@@ -243,19 +249,24 @@ function Home() {
       <h2 className="mt-[17px] shrink-0 pl-[22px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">여행 기록</h2>
 
       {/*
-        기록 저장소가 아직 없다. 와이어프레임이 두 장을 채워 보여주던 걸 한 장 + 빈 칸으로 줄였다 —
-        가짜 기록을 두 장 쌓아두는 것보다, 한 장으로 어떻게 보이는지만 알려주고 나머지 자리는
-        "여기에 쌓인다"고 비워두는 편이 정직하다. record-1.png 는 되살릴 때를 위해 남겨뒀다.
+        와이어프레임이 두 장을 채워 보여주던 걸 한 장 + ＋ 칸으로 줄였다 — 가짜 기록을 두 장
+        쌓아두는 것보다, 한 장으로 어떻게 보이는지만 알려주는 편이 정직하다.
+        record-1.png 는 되살릴 때를 위해 남겨뒀다.
       */}
       <div className="mt-[14px] flex shrink-0 flex-col gap-[10px] px-[21px]">
         <Record photo="/home/record-2.png" title="중문 나들이" count={23} />
-        {/* 빈 칸. 저장할 곳이 없어 아직 못 누른다 — Quick 의 죽은 칸과 같은 규칙이다 */}
-        <div
-          aria-disabled
-          className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0]"
+        {/*
+          ＋ 칸은 기록 목록(TRIP-09)으로 들어가는 문이다. 요약 쿼리를 안 붙여야 완료 화면(TRIP-08)을
+          건너뛰고 목록부터 뜬다 — 완료 화면은 방금 다녀온 코스가 있을 때만 나오는 자리다
+          (app/trip/record/page.tsx 첫 주석). 프로필 쿼리는 그대로 물려 보낸다.
+        */}
+        <Link
+          href={`/trip/record?${searchParams}`}
+          aria-label="여행 기록 보기"
+          className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0] transition active:scale-[0.99]"
         >
           <img src="/home/icon-add.svg" alt="" className="size-[40px]" />
-        </div>
+        </Link>
       </div>
 
       <p className="mt-[17px] shrink-0 text-center text-[11px] leading-none font-medium text-[#616161]">
