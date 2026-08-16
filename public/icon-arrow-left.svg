@@ -1,5 +1,12 @@
+<!--
+  뒤로가기. 꼬리 달린 화살표(←)에서 홑화살괄호(‹)로 바뀌었다 — 와이어프레임 2900:372.
+  파일을 갈아끼운 이유: 목적지·주차장·경로·온보딩이 전부 이 한 장을 쓰는데, PARK-01(2153:1771)도
+  같은 홑화살괄호라 화면마다 다른 파일을 둘 이유가 없다.
+  피그마는 7.14x13.21 짜리를 바 안에 바로 놓지만, 여기선 24 상자 가운데에 그 크기대로 앉혔다 —
+  누르는 자리가 7px 로 쪼그라들지 않게 (쓰는 쪽은 size-6 그대로).
+-->
 <svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="icon-arrow-left">
-<path id="Vector" d="M19 12H5M11 18L5 12L11 6" stroke="#1A1A1A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector" d="M14.3 6.6L9.7 12L14.3 17.4" stroke="#1A1A1A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 </svg>
