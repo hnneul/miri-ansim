@@ -26,7 +26,8 @@
       "route-쇠소깍-TIME.json",
       "route-제주민속촌-DISTANCE.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.50417160924162&lng=126.49627450764577&bearing=142&label=%EB%8B%A4%ED%98%B8%EB%A7%88%EC%9D%84%EC%9E%85%EA%B5%AC%EA%B5%90%EC%B0%A8%EB%A1%9C"
+    "tag": "/roadview-tag.html?lat=33.50417160924162&lng=126.49627450764577&bearing=142&label=%EB%8B%A4%ED%98%B8%EB%A7%88%EC%9D%84%EC%9E%85%EA%B5%AC%EA%B5%90%EC%B0%A8%EB%A1%9C",
+    "basis": "등화4구"
   },
   "33.50025,126.50601": {
     "verdict": "보호",
@@ -42,7 +43,8 @@
       "route-쇠소깍-DISTANCE.json",
       "route-쇠소깍-TIME.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.5002503201841&lng=126.50600593231974&bearing=91&label=%EC%98%A4%EB%9D%BC%EC%98%A4%EA%B1%B0%EB%A6%AC"
+    "tag": "/roadview-tag.html?lat=33.5002503201841&lng=126.50600593231974&bearing=91&label=%EC%98%A4%EB%9D%BC%EC%98%A4%EA%B1%B0%EB%A6%AC",
+    "basis": "등화4구"
   },
   "33.25078,126.56433": {
     "verdict": "무신호",
@@ -55,7 +57,8 @@
       "route-DISTANCE.json",
       "route-올레시장-DISTANCE.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.25078305542968&lng=126.5643264985591&bearing=210&label="
+    "tag": "/roadview-tag.html?lat=33.25078305542968&lng=126.5643264985591&bearing=210&label=",
+    "basis": "신호없음"
   },
   "33.25046,126.56366": {
     "verdict": "무신호",
@@ -71,7 +74,8 @@
       "route-올레시장-RECOMMEND.json",
       "route-올레시장-TIME.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.250459745169934&lng=126.56365575576332&bearing=258&label="
+    "tag": "/roadview-tag.html?lat=33.250459745169934&lng=126.56365575576332&bearing=258&label=",
+    "basis": "신호없음"
   },
   "33.49972,126.53109": {
     "verdict": null,
@@ -111,7 +115,8 @@
       "route-시청용두암-TIME.json",
       "route-시청용두암-RECOMMEND.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.50944844220021&lng=126.52347671654063&bearing=261&label=%EB%82%A8%EB%AC%B8%EC%82%AC%EA%B1%B0%EB%A6%AC"
+    "tag": "/roadview-tag.html?lat=33.50944844220021&lng=126.52347671654063&bearing=261&label=%EB%82%A8%EB%AC%B8%EC%82%AC%EA%B1%B0%EB%A6%AC",
+    "basis": "등화4구"
   },
   "33.51497,126.51392": {
     "verdict": null,
@@ -152,7 +157,8 @@
       "route-신제주-TIME.json",
       "route-신제주-RECOMMEND.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.48569162733068&lng=126.49645410723146&bearing=1&label=%EC%97%B0%EB%8F%99%EC%82%AC%EA%B1%B0%EB%A6%AC"
+    "tag": "/roadview-tag.html?lat=33.48569162733068&lng=126.49645410723146&bearing=1&label=%EC%97%B0%EB%8F%99%EC%82%AC%EA%B1%B0%EB%A6%AC",
+    "basis": "등화4구"
   },
   "33.48763,126.49866": {
     "verdict": null,
@@ -361,7 +367,8 @@
       "route-용머리-TIME.json",
       "route-용머리-RECOMMEND.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.27379411164411&lng=126.30395888982868&bearing=170&label=%EB%8D%95%EC%88%981%EA%B5%90%EC%B0%A8%EB%A1%9C"
+    "tag": "/roadview-tag.html?lat=33.27379411164411&lng=126.30395888982868&bearing=170&label=%EB%8D%95%EC%88%981%EA%B5%90%EC%B0%A8%EB%A1%9C",
+    "basis": "비보호표지"
   },
   "33.23479,126.30820": {
     "verdict": "무신호",
@@ -529,7 +536,8 @@
     "경유": [
       "route-중문색달-DISTANCE.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.264979660394985&lng=126.37160109328083&bearing=73&label=%EC%B0%BD%EC%B2%9C%EC%82%BC%EA%B1%B0%EB%A6%AC"
+    "tag": "/roadview-tag.html?lat=33.264979660394985&lng=126.37160109328083&bearing=73&label=%EC%B0%BD%EC%B2%9C%EC%82%BC%EA%B1%B0%EB%A6%AC",
+    "basis": "등화4구"
   },
   "33.25030,126.41063": {
     "verdict": null,
