@@ -89,25 +89,19 @@ function 이가(word: string): string {
  * 그리고 두 경우를 갈라 말한다. 예전에는 한 문장이 둘을 덮어서, 68점과 57점을 두고
  * "부담이 비슷합니다"라고 적고 있었다 — 16% 차이를 비슷하다고 부른 것이다 (score.ts noPick).
  *
- *   tie     — 고를 것이 없다. 그러면 남는 축은 시간뿐이다.
- *   unclear — 부담과 시간을 맞바꿔야 한다. 앱이 대신 못 정하니 교환을 그대로 보여주고 넘긴다.
+ *   tie     — 고를 것이 없다. 그러면 남는 축은 시간뿐이다. 그건 말해줄 값어치가 있다.
+ *   unclear — 부담과 시간을 맞바꿔야 한다. **여기서는 아무 말도 안 한다.**
+ *
+ * unclear 에 "부담을 줄이려면 15분을 더 써야 합니다. 직접 고르세요" 같은 줄을 달아뒀었다.
+ * 두 카드가 이미 15분과 12점을 나란히 보여주고 있어서 그 문장은 카드를 읽어 옮긴 것뿐이었고,
+ * 뒤에 붙은 "직접 고르세요"는 판단을 떠넘기는 훈계였다. 앱이 못 고르는 자리에서 할 수 있는
+ * 정직한 일은 카드 두 장을 나란히 두고 비켜서는 것이다 — 빈 문자열은 "할 말 없음"이고,
+ * 부르는 쪽이 그때 줄을 안 그린다 (app/route/page.tsx).
  */
-function 못고른말(
-  result: ScoreResult,
-  route: { durationMin: number | null },
-  other: { durationMin: number | null },
-): string {
-  if (result.noPick === "tie")
-    return "두 길의 부담이 거의 같습니다. 그러면 소요시간이 짧은 쪽이 낫습니다.";
-
-  const gap =
-    route.durationMin != null && other.durationMin != null
-      ? Math.abs(route.durationMin - other.durationMin)
-      : null;
-
-  return gap
-    ? `부담을 줄이려면 ${gap}분을 더 써야 합니다. 시간을 아낄지 부담을 줄일지는 직접 고르세요.`
-    : "두 길이 부담과 시간을 맞바꿉니다. 어느 쪽이 나은지는 오늘 일정에 달렸습니다.";
+function 못고른말(result: ScoreResult): string {
+  return result.noPick === "tie"
+    ? "두 길의 부담이 거의 같습니다. 그러면 소요시간이 짧은 쪽이 낫습니다."
+    : "";
 }
 
 export function verdict(
@@ -120,8 +114,7 @@ export function verdict(
   /** 상대 경로. 추천 이유는 결국 비교라서 한쪽만 보고는 쓸 수 없다 (소요시간만 쓴다). */
   other: { durationMin: number | null },
 ): string {
-  if (result.recommendedRoute === "single")
-    return 못고른말(result, route, other);
+  if (result.recommendedRoute === "single") return 못고른말(result);
 
   // 부담이 가장 큰 요인. breakdown 을 route 로 먼저 좁힌다 — 요인 이름이 양쪽에 같으면
   // factor 만으로 찾다가 다른 경로 행이 잡힌다 (lib/ai.ts factsOf 와 같은 함정이다).
@@ -206,14 +199,12 @@ export function briefing(
   const 빠른분 = gap == null ? null : target === "safe" ? gap : -gap;
 
   // 추천은 lib/score.ts 한 곳에서만 정한다 — 여기서 시간·점수를 다시 보고 갈라선 안 된다.
+  // 못 고른 말은 한 곳에서만 만든다 (위 못고른말). unclear 면 빈 문자열이라 조건말도 안 붙인다 —
+  // "운전을 시작한 지 얼마 안 됐다면 " 만 덩그러니 남으면 문장이 아니다.
+  const 못고른 = pick === "single" ? 못고른말(result) : "";
   const lead =
     pick === "single"
-      ? // 같은 이유로 여기도 "익숙한 길"을 가리키지 않는다 (위 못고른말 주석)
-        `${앞}${
-          result.noPick === "tie"
-            ? "두 길의 부담이 거의 같습니다. 그러면 소요시간이 짧은 쪽이 낫습니다."
-            : "두 길이 부담과 시간을 맞바꿉니다. 어느 쪽이 나은지는 오늘 일정에 달렸습니다."
-        }`
+      ? 못고른 && `${앞}${못고른}`
       : `${앞}두 경로 중에서는 ${name[target]}${이가(name[target])} 편합니다.` +
         (빠른분 != null && 빠른분 > 0 ? ` ${빠른분}분 빠르기도 합니다.` : "");
 
@@ -225,7 +216,8 @@ export function briefing(
     .map((r) => routes[target].risks.find((x) => x.label === r.factor))
     .find((r): r is RiskFactor => !!r);
 
-  if (!top) return [lead, `${name[target]}에는 확인된 위험요인이 없습니다.`];
+  // lead 가 비면(unclear) 빼고 준다 — 빈 문단 하나가 앞에 붙는 것보다 없는 편이 낫다
+  if (!top) return [lead, `${name[target]}에는 확인된 위험요인이 없습니다.`].filter(Boolean);
 
   const loc = top.location.trim();
   const 어디 = loc && loc !== "-" ? `${loc}의 ` : "";
@@ -234,7 +226,7 @@ export function briefing(
     `${name[target]}에서 가장 신경 쓸 곳은 ${어디}${top.label}입니다. 경로의 ${Math.round(top.exposure * 100)}%를 차지합니다.`,
     // WHY 는 두 문장인 것도 있다 — 첫 문장이 "무슨 일이 생기는가"고 나머지는 경로 카드가 보여준다
     `${WHY[top.type].match(/^.*?\./)?.[0] ?? WHY[top.type]} ${ACTION[top.type]}`,
-  ];
+  ].filter(Boolean);
 }
 
 
@@ -392,12 +384,11 @@ export function radioScript(
   // ② 왜 이 길인지. 추천 여부로 세 갈래다 (lib/ai.ts RULES 의 radio ②와 같은 규칙).
   let 둘째칸: string;
   if (result.recommendedRoute === "single")
-    // tie 와 unclear 를 가르는 일은 한 곳에서만 한다 (못고른말). 다만 저건 읽는 글 말투라
-    // 여기서는 같은 뜻을 듣는 말로 다시 쓴다.
+    // tie 와 unclear 를 가르는 규칙은 한 곳에서만 정한다 (못고른말). 다만 저건 읽는 글 말투라
+    // 여기서는 같은 뜻을 듣는 말로 다시 쓴다. unclear 는 화면과 똑같이 **아무 말도 안 한다** —
+    // 빈 칸은 아래에서 빠지므로 대본이 한 칸 짧아진다.
     둘째칸 =
-      result.noPick === "tie"
-        ? "두 길이 비슷해요. 그럼 시간이 짧은 쪽이 나아요."
-        : "부담을 줄일지 시간을 아낄지 맞바꾸는 자리예요. 직접 고르셔도 돼요.";
+      result.noPick === "tie" ? "두 길이 비슷해요. 그럼 시간이 짧은 쪽이 나아요." : "";
   else if (result.recommendedRoute === route.id)
     둘째칸 =
       분 != null && 분 > 0
@@ -419,5 +410,5 @@ export function radioScript(
     // 어떻게 하면 되는지만 남긴다 — 귀로는 짧은 쪽이 남는다.
     ...(top ? [행동[top.type]] : []),
     ...(arrival ? [도착말(arrival)] : []),
-  ];
+  ].filter(Boolean);
 }

@@ -158,10 +158,14 @@ const 애매 = scoreRoutes(
 );
 assert.equal(애매.recommendedRoute, "single", `임계값 미달이면 접는다: ${애매.fastScore}/${애매.safeScore}`);
 assert.equal(애매.noPick, "unclear", "부담 차이가 있는데 접었으면 unclear 다");
+// tie 는 한 줄로 말하고 unclear 는 **아무 말도 안 한다** — 카드 두 장이 이미 시간과 점수를
+// 나란히 보여주므로, 그걸 문장으로 옮겨 적고 "직접 고르세요"를 붙이는 건 훈계였다
+// (lib/briefing.ts 못고른말 주석). 빈 문자열이 그 규칙이고, 화면은 그때 줄을 안 그린다.
 const 애매판정 = verdict(애매, { id: "safe", risks: [], durationMin: 77 }, { durationMin: 60 });
+assert.equal(애매판정, "", `단정 못 하면 말을 얹지 않는다: ${애매판정}`);
 assert.ok(
-  애매판정.includes("17분") && !애매판정.includes("거의 같"),
-  `단정 못 하는 경우엔 맞바꿈을 보여줘야 한다: ${애매판정}`,
+  verdict(무의미, { id: "safe", risks: [], durationMin: 71 }, { durationMin: 80 }).includes("거의 같"),
+  "부담이 같아서 접은 경우(tie)는 그렇다고 말해야 한다",
 );
 
 // --- 노출 크기 반영 ---
