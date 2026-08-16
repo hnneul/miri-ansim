@@ -132,7 +132,23 @@ export async function compareRoutes(
  * 대안이 없는 구간(경로 1개)에서는 부르지 않는다 — 스키마가 경로 두 개를 요구하고,
  * 애초에 비교할 게 없으면 ②칸(왜 이 길인지)이 성립하지 않는다. 규칙 대본이 그 경우를 맡는다.
  */
+/**
+ * ponytail: **AI 대본을 지금은 끈다.** 어느 모델을 쓸지 아직 안 정했다.
+ *
+ * lib/ai.ts 의 askModel 이 openai → groq → gemini×2 를 **순차로** 시도하는데, 1순위가
+ * TIMEOUT_MS(6초)를 넘겨 잘리고 2순위가 받으면 그대로 10초다 — 실측 2026-08-16,
+ * 제주시청→협재에서 10,012ms 였다 (같은 화면의 compareRoutes 는 517ms).
+ *
+ * 끄면 화면이 규칙 대본만 쓴다. **빠지는 기능이 없다** — radioScript 가 늘 값을 채우므로
+ * 재생 버튼도 칸 수도 그대로고, 문장이 덜 매끄러워지는 것뿐이다. 덤으로 RouteRadio 의
+ * 미리받기가 한 벌만 나간다 (대본이 중간에 안 바뀌므로).
+ *
+ * 후보를 정하면 true 로 되돌린다. 그 실측은 lib/ai.smoke.ts 로 계속 할 수 있다.
+ */
+const AI_대본 = false;
+
 export async function aiRadio(facts: Facts): Promise<string[][] | null> {
+  if (!AI_대본) return null;
   if (facts.경로.length < 2) return null;
   return (await aiSentences(facts))?.radio ?? null;
 }
