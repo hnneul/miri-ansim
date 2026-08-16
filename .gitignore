@@ -63,3 +63,6 @@ next-env.d.ts
 # data/route-data.json(폴백 경로) · data/unprotected-left.json(비보호 판독표).
 /data/route-*.json
 !/data/route-data.json
+
+# 구글 클라우드 TTS 서비스 계정 키 — 절대 커밋 금지
+gcp-tts.json

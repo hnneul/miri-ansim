@@ -578,7 +578,8 @@
       "route-산방산-RECOMMEND.json",
       "route-산방산-TIME.json"
     ],
-    "tag": "/roadview-tag.html?lat=33.29458870683599&lng=126.33025582895041&bearing=165&label=%EC%84%9C%EA%B4%912%EA%B5%90%EC%B0%A8%EB%A1%9C"
+    "tag": "/roadview-tag.html?lat=33.29458870683599&lng=126.33025582895041&bearing=165&label=%EC%84%9C%EA%B4%912%EA%B5%90%EC%B0%A8%EB%A1%9C",
+    "basis": "비보호표지"
   },
   "33.25155,126.33364": {
     "verdict": null,
