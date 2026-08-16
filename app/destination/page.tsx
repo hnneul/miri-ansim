@@ -354,7 +354,7 @@ function Destination() {
             {/* 값이 있을 때만 지우기. 와이어프레임 HOME-01 b 의 X 자리다 */}
             {text && (
               <button type="button" onClick={openSearch} aria-label="지우기" className="shrink-0 transition active:scale-90">
-                <img src="/home/icon-close.svg" alt="" className="size-6" />
+                <img src="/home/icon-close-bold.svg" alt="" className="size-6" />
               </button>
             )}
             {/*

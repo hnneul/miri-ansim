@@ -1,0 +1,10 @@
+<!--
+  검색바 안의 지우기 X (와이어프레임 2900:373 — 14x14, 굵기 3, 검정).
+  옆에 있는 icon-close.svg(가늘고 회색)를 안 갈아끼운 이유: 같은 화면 "최근 검색어" 줄의 X 는
+  그대로 가는 회색이라, 한 장으로 합치면 그쪽이 같이 굵어진다.
+-->
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="icon-close-bold">
+<path id="Vector" d="M6.5 6.5L17.5 17.5M17.5 6.5L6.5 17.5" stroke="#1A1A1A" stroke-width="3" stroke-linecap="round"/>
+</g>
+</svg>
