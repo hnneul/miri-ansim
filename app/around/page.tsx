@@ -6,20 +6,21 @@
 //
 // 메인화면(/home)의 "탐나는전 사용처" 카드로 들어온다.
 //
-// 찍는 것은 **탐나는전 캐시백 가맹점**뿐이다 (data/tamna-data.json, 11,912곳).
+// 찍는 것은 **탐나는전 캐시백 가맹점**뿐이다 (11,912곳).
 // 착한가격업소는 여기 섞지 않는다 — 둘 다 놓으면 "여기서 결제하면 10% 돌려받는다"는
 // 이 화면 한 줄이 흐려진다. 착한가격 데이터와 lib/goodprice.ts 는 그대로 남아 있다.
+//
+// 데이터(data/tamna-data.json, 838KB)는 **여기서 읽지 않는다.** 이 파일이 "use client" 라
+// import 하면 그게 통째로 폰으로 내려간다 — 반경 안 40곳만 actions.ts 에서 받아 온다.
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import { loadSdk, type LatLng } from "../RouteMap";
 import { findPlace } from "../destination/actions";
-import { nearbyTamna, type Shop, type TamnaShop } from "@/lib/tamna";
+import { tamnaAround, type Around as Nearby } from "./actions";
+import { type TamnaShop } from "@/lib/tamna";
 import { walkMinutes, meters } from "@/lib/parking";
-import TAMNA from "@/data/tamna-data.json";
-
-const SHOPS = TAMNA.shops as Shop[];
 
 /**
  * 반경 — 도보권 1km.
@@ -40,12 +41,11 @@ const START_LEVEL = 5;
  * 반경(1km)에 맞춰 고정하면 밀집 지역에서 화면이 이상해진다: 제주시청 1km 안에 823곳인데
  * 40곳만 찍으니 가까운 40곳이 150m 안에 다 들어와, 지도는 1.5km를 보여주는데 핀은 한 덩어리로
  * 뭉쳐 서로를 가린다. 그래서 반경이 아니라 **실제로 찍는 40곳이 퍼진 범위**에 축척을 맞춘다.
+ *
+ * 그 40번째 거리는 데이터가 있어야 나오므로 서버가 실어 보낸다 (actions.ts fitM).
+ * 여기서는 너무 당기지 않게 바닥만 받친다 — 그건 지도 쪽 사정이다 (MIN_FIT_M).
  */
-function fitRadius(at: LatLng): number {
-  const near = nearbyTamna("", at, SHOPS, RADIUS_M);
-  if (!near) return RADIUS_M;
-  return Math.max(near.shops[near.shops.length - 1].distM, MIN_FIT_M);
-}
+const fitRadius = (near: Nearby | null) => Math.max(near?.fitM ?? RADIUS_M, MIN_FIT_M);
 
 /**
  * 아무리 뭉쳐 있어도 이보다 더 당기지는 않는다.
@@ -147,10 +147,35 @@ function Around() {
 
   const move = useRef<((at: LatLng, radiusM: number) => void) | null>(null);
 
-  const near = useMemo(
-    () => nearbyTamna(label ?? "이 근처", center, SHOPS, RADIUS_M, kind),
-    [label, center, kind],
-  );
+  /**
+   * 이 자리의 가맹점. 데이터가 서버에 있어서(actions.ts) 계산이 아니라 **받아오는 값**이다.
+   *
+   * 지도가 멎을 때마다(idle) 한 번 나간다. 끄는 동안이 아니라 멎은 뒤라 드래그 한 번에 한 번이고,
+   * 돌아오는 건 많아야 40곳이라 4KB 쯤이다 — 11,912곳 838KB 를 폰이 들고 있던 것과 바꾼 값이다.
+   *
+   * center 는 idle 마다 새 배열로 와서 값이 같아도 참조가 바뀐다. 숫자로 걸어 헛호출을 막는다
+   * (app/route/page.tsx 의 load 와 같은 방식).
+   */
+  const [near, setNear] = useState<Nearby | null>(null);
+  useEffect(() => {
+    // 늦게 온 응답이 그 사이 옮겨간 자리의 목록을 덮으면 안 된다
+    let 유효 = true;
+    tamnaAround(label ?? "이 근처", center, RADIUS_M, kind).then((r) => 유효 && setNear(r));
+    return () => {
+      유효 = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [label, center[0], center[1], kind]);
+
+  /**
+   * 기준을 옮긴다 (현위치·검색·첫 화면). 축척에 쓸 거리가 서버에 있어서 비동기다.
+   *
+   * 옮기고 나면 idle 이 위 effect 를 한 번 더 돌려 같은 자리를 다시 받는다. 그냥 둔다 —
+   * 막으려면 "방금 우리가 간 자리인가"를 좌표로 맞춰봐야 하는데, 그 판정이 한 번 어긋나면
+   * 목록이 옛 동네에 붙은 채로 남는다. 4KB 를 아끼자고 걸 위험이 아니다.
+   */
+  const 옮기기 = async (at: LatLng) =>
+    move.current?.(at, fitRadius(await tamnaAround("", at, RADIUS_M)));
 
   // 칩은 반경 안에 **실제로 있는 업종**으로만 만든다. 목록에 없는 업종을 칩으로 그리면
   // 눌러도 아무 일이 없다 (/parking 이 24시간 칩을 빼둔 것과 같은 이유).
@@ -197,7 +222,7 @@ function Around() {
         setSelected(null);
         setLabel("현재 위치");
         setMe([coords.latitude, coords.longitude]);
-        move.current?.([coords.latitude, coords.longitude], fitRadius([coords.latitude, coords.longitude]));
+        옮기기([coords.latitude, coords.longitude]);
       },
       (err) => {
         setBusy(false);
@@ -225,7 +250,7 @@ function Around() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     if (!ready) return;
-    move.current?.(center, fitRadius(center));
+    옮기기(center);
     locate(true);
     // locate 는 매 렌더 새로 만들어지지만 여기서는 지도가 준비된 그 순간에만 부르면 된다
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,7 +267,7 @@ function Around() {
     if ("error" in found) return setError(found.error);
     setSelected(null);
     setLabel(found.label);
-    move.current?.(found.coord, fitRadius(found.coord));
+    옮기기(found.coord);
   }
 
   return (
