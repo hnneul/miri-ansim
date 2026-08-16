@@ -11,7 +11,7 @@
 // 키가 필요해 CI에 넣을 수 없다.
 
 import { buildCourses, gatherCandidates } from "./course.ts";
-import { DEFAULT_TRIP, INTERESTS, periodLabel, type TripPlan } from "./trip.ts";
+import { DEFAULT_TRIP, THEMES, periodLabel, type TripPlan } from "./trip.ts";
 
 /** 이 스모크가 쓰는 하루 상한 (분 단위 검사에도 같은 값을 쓴다) */
 const DRIVE_HOURS_TEST = 2;
@@ -22,7 +22,7 @@ const plan: TripPlan = {
   end: "2026-08-16",
   origin: "제주국제공항",
   originAt: [33.507, 126.493],
-  interests: [0, 1, 4],
+  theme: 3, // 감성 명소 — 갈래가 둘(카페·전시)이다
   musts: ["성산일출봉"],
   driveHours: DRIVE_HOURS_TEST,
 };
@@ -30,11 +30,12 @@ const plan: TripPlan = {
 const { candidates, missing } = await gatherCandidates(plan);
 
 console.log(`\n후보 ${candidates.length}곳 · 좌표 못 찾은 곳 ${missing.length}`);
-for (const i of plan.interests) {
-  const mine = candidates.filter((c) => c.interest === i);
-  console.log(`  ${INTERESTS[i].label.padEnd(8)} ${String(mine.length).padStart(2)}곳  ${mine.slice(0, 4).map((c) => c.name).join(", ")}`);
-  if (!mine.length) console.log(`    ⚠ 후보가 없다 — query "${INTERESTS[i].query}" / code ${INTERESTS[i].code || "없음"} / kinds ${INTERESTS[i].kinds.join(",")} 를 확인할 것`);
-}
+const recipes = plan.theme === null ? [] : THEMES[plan.theme].recipes;
+recipes.forEach((recipe, r) => {
+  const mine = candidates.filter((c) => c.recipe === r);
+  console.log(`  ${recipe.label.padEnd(8)} ${String(mine.length).padStart(2)}곳  ${mine.slice(0, 4).map((c) => c.name).join(", ")}`);
+  if (!mine.length) console.log(`    ⚠ 후보가 없다 — query "${recipe.query}" / code ${recipe.code || "없음"} / kinds ${recipe.kinds.join(",")} 를 확인할 것`);
+});
 if (missing.length) console.log(`  ⚠ 꼭 가고 싶은 곳 중 좌표를 못 받은 곳: ${missing.join(", ")}`);
 
 const courses = buildCourses(plan, candidates);

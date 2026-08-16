@@ -17,18 +17,18 @@ import { DEFAULT_TRIP, type TripPlan } from "./trip.ts";
 
 const AIRPORT: [number, number] = [33.507, 126.493];
 
-const spot = (name: string, at: [number, number], interest: number | null, must = false): Candidate => ({
+const spot = (name: string, at: [number, number], recipe: number | null, must = false): Candidate => ({
   name,
   at,
   addr: null,
   kind: "테스트",
-  interest,
+  recipe,
   must,
 });
 
 // 실제 제주 좌표다 — 거리 계산이 말이 되는지 눈으로 확인할 수 있어야 한다.
-// 관심사마다 다섯 곳씩 두는 건 실제와 같은 조건을 만들기 위해서다: 카카오는 한 관심사에
-// 최대 15곳을 주므로 후보가 늘 자리(하루 3곳 × 일수)보다 많다.
+// 갈래마다 다섯 곳씩 두는 건 실제와 같은 조건을 만들기 위해서다: 카카오는 한 갈래에
+// 최대 15곳 × 앵커 4곳을 주므로 후보가 늘 자리(하루 3곳 × 일수)보다 많다.
 const BEACHES = [
   spot("이호테우해수욕장", [33.4939, 126.4536], 0),
   spot("함덕해수욕장", [33.5432, 126.6695], 0),
@@ -52,7 +52,7 @@ const plan = (over: Partial<TripPlan> = {}): TripPlan => ({
   end: "2026-08-15",
   origin: "제주국제공항",
   originAt: AIRPORT,
-  interests: [0, 1],
+  theme: 1, // 자연 속 산책 — 갈래가 둘(오름·숲길)이라 코스도 둘로 갈린다
   ...over,
 });
 
@@ -69,8 +69,8 @@ for (const c of base) {
   // 합계는 날짜별 값의 합이다 (화면이 둘을 따로 보여준다)
   assert.equal(c.totalMin, c.days.reduce((s, d) => s + d.driveMin, 0));
 }
-// 두 코스가 서로 다른 관심사를 앞세운다
-assert.notEqual(base[0].theme, base[1].theme);
+// 두 코스가 서로 다른 갈래를 앞세운다
+assert.notEqual(base[0].lead, base[1].lead);
 assert.notDeepEqual(stopsOf(base[0]), stopsOf(base[1]), "내용이 같은 코스를 둘로 늘리지 않는다");
 
 // --- 1. 꼭 가고 싶은 곳은 안 빠진다 ---
@@ -142,7 +142,7 @@ assert.deepEqual(stopsOf(shuffled[0]), stopsOf(base[0]), "후보 순서가 달�
 
 // --- 4. 가짜 선택지를 만들지 않는다 ---
 // 후보가 자리보다 적으면 두 코스가 같은 곳을 돌 수밖에 없다 — 그럴 땐 카드가 하나다
-const fits = buildCourses(plan(), BEACHES.slice(0, 3));
+const fits = buildCourses(plan({ theme: 0 }), BEACHES.slice(0, 3));
 assert.equal(fits.length, 1, "후보가 자리 안에 다 들어가면 코스는 하나");
 assert.equal(fits[0].days.flatMap((d) => d.stops).length, 3, "그 하나에는 후보가 다 들어간다");
 

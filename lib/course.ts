@@ -11,7 +11,7 @@
 import { meters } from "./parking.ts";
 import { searchSpotsNear, type Spot } from "./poi.ts";
 import { geocodePlace } from "./geocode.ts";
-import { INTERESTS, nightsOf, type TripPlan } from "./trip.ts";
+import { THEMES, nightsOf, type TripPlan } from "./trip.ts";
 import type { LatLng } from "@/app/RouteMap";
 
 /**
@@ -58,8 +58,8 @@ export const driveMinutes = (m: number) => Math.round(((m * DETOUR) / 1000 / SPE
 
 /** 코스 후보 한 곳. must 는 사용자가 "꼭 가고 싶은 곳"에 직접 넣은 자리다. */
 export type Candidate = Spot & {
-  /** 어느 관심 장소(INTERESTS 인덱스)에서 나왔는지. must 로 들어온 곳은 null */
-  interest: number | null;
+  /** 테마의 몇 번째 갈래(THEMES[t].recipes 인덱스)에서 나왔는지. must 로 들어온 곳은 null */
+  recipe: number | null;
   must: boolean;
 };
 
@@ -79,8 +79,8 @@ export type Day = {
 };
 
 export type Course = {
-  /** 이 코스를 이끄는 관심 장소(INTERESTS 인덱스). 관심사 없이 짜였으면 null */
-  theme: number | null;
+  /** 이 코스를 이끄는 갈래(THEMES[t].recipes 인덱스). 갈래가 하나뿐인 테마면 null */
+  lead: number | null;
   /** 규칙으로 지은 이름. 2b 에서 AI 문장으로 갈아끼운다 (실패하면 이 값이 그대로 남는다) */
   title: string;
   days: Day[];
@@ -91,13 +91,13 @@ export type Course = {
 /* ─────────────────────────── 후보 수집 (네트워크) ─────────────────────────── */
 
 /**
- * 코스에 쓸 후보를 모은다. 관심 장소 × 앵커(ANCHORS)마다 카카오를 한 번씩 부르고,
+ * 코스에 쓸 후보를 모은다. 고른 테마의 갈래 × 앵커(ANCHORS)마다 카카오를 한 번씩 부르고,
  * "꼭 가고 싶은 곳"은 이름만 있으므로 지오코딩으로 좌표를 붙인다.
  *
- * 관심사를 다 고르면 24회가 나가는데, 전부 병렬이라 0.2초쯤 걸린다(실측). 쿼터도 넉넉하다 —
- * 월 300만 중 앱 전체가 쓰는 게 만 오천 남짓이라, 이걸 아끼려고 앵커 수를 조절할 이유가 없었다.
+ * 갈래가 둘인 테마면 8회가 나가는데 전부 병렬이라 0.2초쯤 걸린다(실측). 쿼터도 넉넉하다 —
+ * 월 300만 중 앱 전체가 쓰는 게 만 오천 남짓이다.
  *
- * 실패한 호출은 건너뛴다 — 스물넷 중 하나가 응답을 못 받았다고 코스를 통째로 못 만들 이유가 없다.
+ * 실패한 호출은 건너뛴다 — 여덟 중 하나가 응답을 못 받았다고 코스를 통째로 못 만들 이유가 없다.
  * 다만 must 는 사용자가 직접 지목한 곳이라, 좌표를 못 받으면 조용히 빼지 않고 missing 으로 알린다.
  */
 export async function gatherCandidates(
@@ -106,11 +106,12 @@ export async function gatherCandidates(
   const origin = plan.originAt;
   if (!origin) return { candidates: [], missing: plan.musts };
 
-  const fromInterests = await Promise.all(
-    plan.interests.flatMap((i) =>
+  const recipes = plan.theme === null ? [] : THEMES[plan.theme].recipes;
+  const fromTheme = await Promise.all(
+    recipes.flatMap((recipe, r) =>
       ANCHORS.map(async (at) => {
-        const found = await searchSpotsNear(at, INTERESTS[i], 20000);
-        return "error" in found ? [] : found.spots.map((s): Candidate => ({ ...s, interest: i, must: false }));
+        const found = await searchSpotsNear(at, recipe, 20000);
+        return "error" in found ? [] : found.spots.map((s): Candidate => ({ ...s, recipe: r, must: false }));
       }),
     ),
   );
@@ -123,13 +124,13 @@ export async function gatherCandidates(
         missing.push(name);
         return null;
       }
-      return { name: found.label, at: found.coord, addr: found.road || found.jibun || null, kind: found.type, interest: null, must: true };
+      return { name: found.label, at: found.coord, addr: found.road || found.jibun || null, kind: found.type, recipe: null, must: true };
     }),
   );
 
   // must 를 앞에 둔다 — 뒤의 dedupe 가 먼저 온 쪽을 남기므로, 같은 곳이 관심사 검색에도
   // 걸렸을 때 must 표시가 살아남는다 (must 는 절대 빠지면 안 되는 자리다).
-  return { candidates: dedupe([...fromMusts.filter(Boolean as unknown as (c: Candidate | null) => c is Candidate), ...fromInterests.flat()]), missing };
+  return { candidates: dedupe([...fromMusts.filter(Boolean as unknown as (c: Candidate | null) => c is Candidate), ...fromTheme.flat()]), missing };
 }
 
 /** 같은 장소가 여러 관심사에 걸린다. 이름이 같으면 한 곳으로 본다 — 먼저 온 쪽을 남긴다. */
@@ -165,15 +166,15 @@ export function buildCourses(plan: TripPlan, candidates: Candidate[]): Course[] 
   const reachable = candidates.filter((c) => c.must || 2 * driveMinutes(meters(origin, c.at)) <= capMin);
   if (!reachable.length) return [];
 
-  const themes = themesOf(reachable);
+  const leads = leadsOf(reachable);
   const courses: Course[] = [];
   const used = new Set<string>();
 
   for (let n = 0; n < COURSE_COUNT; n++) {
-    const theme = themes[n] ?? null;
-    // 두 번째 코스는 첫 코스가 안 쓴 후보를 먼저 본다. 관심사가 하나뿐일 때 이게 유일한 차이다
+    const lead = leads[n] ?? null;
+    // 두 번째 코스는 첫 코스가 안 쓴 후보를 먼저 본다. 갈래가 하나뿐일 때 이게 유일한 차이다
     const pool = n === 0 ? reachable : [...reachable.filter((c) => c.must || !used.has(c.name)), ...reachable];
-    const course = schedule(dedupe(pool), origin, plan.start, period.days, capMin, theme);
+    const course = schedule(dedupe(pool), origin, plan.start, period.days, capMin, plan.theme, lead);
     if (!course.days.some((d) => d.stops.length)) break;
 
     // 앞 코스와 장소가 똑같으면 카드를 하나 더 만들지 않는다
@@ -186,10 +187,10 @@ export function buildCourses(plan: TripPlan, candidates: Candidate[]): Course[] 
   return courses;
 }
 
-/** 후보가 많은 관심사 순. 같으면 화면 순서(인덱스)로 — 순서가 흔들리면 코스도 흔들린다. */
-function themesOf(candidates: Candidate[]): number[] {
+/** 후보가 많은 갈래 순. 같으면 표 순서(인덱스)로 — 순서가 흔들리면 코스도 흔들린다. */
+function leadsOf(candidates: Candidate[]): number[] {
   const count = new Map<number, number>();
-  for (const c of candidates) if (c.interest !== null) count.set(c.interest, (count.get(c.interest) ?? 0) + 1);
+  for (const c of candidates) if (c.recipe !== null) count.set(c.recipe, (count.get(c.recipe) ?? 0) + 1);
   return [...count.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([i]) => i);
 }
 
@@ -233,6 +234,7 @@ function schedule(
   days: number,
   capMin: number,
   theme: number | null,
+  lead: number | null,
 ): Course {
   const bands = regionsOf(pool, days, origin);
   const out: Day[] = [];
@@ -256,9 +258,9 @@ function schedule(
       // 같은 자리를 두 번 세우지 않는다 — 카카오는 한 장소를 여러 이름으로 준다
       eligible0 = eligible0.filter((c) => c.must || stops.every((s) => meters(s.at, c.at) > MIN_GAP_M));
 
-      // 이 코스의 관심사가 이 지역에 있으면 그것부터. 없으면 지역에 있는 것으로 채운다
-      const themed = eligible0.filter((c) => c.interest === theme);
-      if (themed.length) eligible0 = themed;
+      // 이 코스가 앞세우는 갈래가 이 지역에 있으면 그것부터. 없으면 지역에 있는 것으로 채운다
+      const led = eligible0.filter((c) => c.recipe === lead);
+      if (led.length) eligible0 = led;
 
       /*
         하루의 첫 자리는 남은 must 중 가장 가까운 곳으로 연다.
@@ -302,8 +304,8 @@ function schedule(
   }
 
   return {
-    theme,
-    title: titleOf(theme),
+    lead,
+    title: titleOf(theme, lead),
     days: out,
     totalM: out.reduce((s, d) => s + d.driveM, 0),
     totalMin: out.reduce((s, d) => s + d.driveMin, 0),
@@ -324,9 +326,15 @@ function dayAfter(start: string, add: number): string {
   return new Date(Date.parse(`${start}T00:00:00Z`) + add * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** AI 가 이름을 못 지었을 때 남는 이름. 없는 감상 대신 무엇 중심인지만 말한다. */
-const titleOf = (theme: number | null) =>
-  theme === null ? "가볍게 도는 코스" : `${INTERESTS[theme].label} 중심 코스`;
+/**
+ * AI 가 이름을 못 지었을 때 남는 이름. 없는 감상 대신 무엇 중심인지만 말한다.
+ * 갈래가 둘인 테마에서는 갈래까지 붙여야 두 카드가 구분된다 ("제주 먹거리 여행 · 시장").
+ */
+function titleOf(theme: number | null, lead: number | null): string {
+  if (theme === null) return "가볍게 도는 코스";
+  const { label, recipes } = THEMES[theme];
+  return recipes.length > 1 && lead !== null ? `${label} · ${recipes[lead].label}` : label;
+}
 
 /* ─────────────────────────── 화면 문구 ─────────────────────────── */
 
