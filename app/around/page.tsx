@@ -311,9 +311,9 @@ function Around() {
             type="button"
             onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="뒤로"
-            className="grid size-9 shrink-0 place-items-center rounded-full text-[18px] text-[#1f1f1f] active:bg-black/5"
+            className="shrink-0 transition active:scale-90"
           >
-            ←
+            <img src="/icon-arrow-left.svg" alt="" className="size-6" />
           </button>
           <input
             value={query}
