@@ -93,31 +93,38 @@ export type TripPlan = {
   /** YYYY-MM-DD. 빈 문자열이면 아직 안 골랐다 (start·end 는 늘 같이 차거나 같이 빈다) */
   start: string;
   end: string;
-  companion: Companion;
+  /** 아직 안 고르면 null */
+  companion: Companion | null;
   people: Record<PeopleKey, number>;
   /** 출발 위치 이름. 빈 문자열이면 아직 안 골랐다 */
   origin: string;
   /** 출발 위치 좌표. 이름만 받은 경우(직접 입력)를 위해 따로 둔다 */
   originAt: LatLng | null;
-  driveHours: number;
+  /** 아직 안 고르면 null. 0 은 "시간 상관없음"이라 null 과 다르다 */
+  driveHours: number | null;
   musts: string[];
 };
 
 /**
- * 아무것도 안 고른 상태. 날짜·출발 위치가 비어 있어 isReady 가 막는다 —
- * 이 둘은 코스 생성이 없으면 계산을 못 하는 값이라 기본값으로 지어내지 않는다.
- * 나머지는 와이어프레임의 선택 상태를 따른다 (친구 2명 · 2시간 이내).
+ * 아무것도 안 고른 상태 — 처음 열면 목록의 다섯 줄이 전부 비어 있어야 한다.
+ *
+ * 한때 동행과 하루 운전에 기본값(친구 2명 · 2시간)을 넣어뒀는데, 와이어프레임에 그려진
+ * "친구 2명"은 기본값이 아니라 **다 고른 뒤의 모습**이었다. 고른 적 없는 값을 채워두면
+ * 사용자는 손대지 않고 지나가고, 코스는 묻지도 않은 조건으로 짜인다.
+ *
+ * people 만 0 이 아닌 이유는 이게 화면에 안 보이는 값이라서다 — 동행을 안 고르면 줄 자체가
+ * 비어 보이고, 04-B 를 열었을 때 카운터가 시작할 자리로만 쓰인다.
  */
 export const DEFAULT_TRIP: TripPlan = {
   moods: [],
   interests: [],
   start: "",
   end: "",
-  companion: "friend",
+  companion: null,
   people: { adult: 2, teen: 0, child: 0 },
   origin: "",
   originAt: null,
-  driveHours: 2,
+  driveHours: null,
   musts: [],
 };
 
@@ -146,14 +153,15 @@ export function periodLabel(plan: TripPlan): string | null {
 
 export const peopleTotal = (plan: TripPlan) => PEOPLE.reduce((sum, p) => sum + plan.people[p.key], 0);
 
-/** "친구 2명" — TRIP-04 목록과 TRIP-04-B 버튼이 같이 쓴다 */
-export function companionLabel(plan: TripPlan): string {
+/** "친구 2명" — TRIP-04 목록과 TRIP-04-B 버튼이 같이 쓴다. 안 골랐으면 null */
+export function companionLabel(plan: TripPlan): string | null {
   const found = COMPANIONS.find((c) => c.id === plan.companion);
-  return `${found?.label ?? ""} ${peopleTotal(plan)}명`.trim();
+  return found ? `${found.label} ${peopleTotal(plan)}명` : null;
 }
 
+/** "2시간 이내". 안 골랐으면 null */
 export const driveLabel = (plan: TripPlan) =>
-  DRIVE_HOURS.find((d) => d.hours === plan.driveHours)?.label ?? DRIVE_HOURS[1].label;
+  DRIVE_HOURS.find((d) => d.hours === plan.driveHours)?.label ?? null;
 
 /** 고른 취향·관심 장소를 한 줄로 — "한적함 · 자연 · 바다 · 카페". 아무것도 안 골랐으면 null */
 export function keywordLine(plan: TripPlan): string | null {
@@ -168,11 +176,18 @@ export function mustLabel(plan: TripPlan): string | null {
 }
 
 /**
- * 코스를 만들 수 있는 상태인지. 날짜와 출발 위치가 있어야 한다 —
- * 둘 다 이동시간 계산의 입력이라, 없으면 코스가 아니라 장소 목록만 나온다.
- * 취향·관심 장소가 비어도 막지 않는다: 그건 후보를 좁히는 값이지 없다고 못 만드는 값이 아니다.
+ * 코스를 만들 수 있는 상태인지. 목록의 다섯 줄 중 "꼭 가고 싶은 곳"만 빼고 다 골라야 한다 —
+ * 날짜·출발 위치·하루 운전은 전부 이동시간 계산의 입력이고, 안 고른 값을 대신 지어내면
+ * 묻지도 않은 조건으로 코스가 짜인다. 꼭 가고 싶은 곳은 없어도 코스가 나온다.
+ *
+ * 취향·관심 장소도 막지 않는다: 후보를 좁히는 값이지 없다고 못 만드는 값이 아니다
+ * (통합 화면에서 이미 하나씩은 고르게 되어 있다).
  */
-export const isReady = (plan: TripPlan) => nightsOf(plan.start, plan.end) !== null && plan.origin !== "";
+export const isReady = (plan: TripPlan) =>
+  nightsOf(plan.start, plan.end) !== null &&
+  plan.origin !== "" &&
+  plan.companion !== null &&
+  plan.driveHours !== null;
 
 /** ?key=value 에서 같은 키가 여러 번 오면 첫 값 (lib/profile.ts 와 같은 규칙) */
 const oneOf = (sp: Record<string, string | string[] | undefined>, k: string) =>
@@ -212,7 +227,8 @@ export function parseTrip(sp: Record<string, string | string[] | undefined>): Tr
   // 한쪽만 성하면 기간을 못 세므로 둘 다 버린다 — 반쪽 날짜로 "당일치기"를 지어내지 않는다
   const period = nightsOf(start, end) ? { start, end } : { start: "", end: "" };
 
-  const companion = COMPANIONS.find((c) => c.id === oneOf(sp, "with"))?.id ?? DEFAULT_TRIP.companion;
+  // 목록 밖이거나 없으면 null — 기본값으로 채우면 고른 적 없는 동행이 코스에 들어간다
+  const companion = COMPANIONS.find((c) => c.id === oneOf(sp, "with"))?.id ?? null;
   const counts = (oneOf(sp, "ppl") ?? "").split(",");
 
   const lat = Number(oneOf(sp, "originLat"));
@@ -233,7 +249,7 @@ export function parseTrip(sp: Record<string, string | string[] | undefined>): Tr
     origin: (oneOf(sp, "origin") ?? "").trim(),
     // 좌표는 둘 다 수여야 쓴다. 하나만 오면 지도 위 엉뚱한 자리에 찍히느니 없는 편이 낫다
     originAt: Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null,
-    driveHours: DRIVE_HOURS.some((d) => d.hours === driveRaw) ? driveRaw : DEFAULT_TRIP.driveHours,
+    driveHours: DRIVE_HOURS.some((d) => d.hours === driveRaw) ? driveRaw : null,
     musts: allOf(sp, "must")
       .map((m) => m.trim())
       .filter(Boolean)
@@ -253,14 +269,17 @@ export function toTripQuery(plan: TripPlan): string {
     params.set("from", plan.start);
     params.set("to", plan.end);
   }
-  params.set("with", plan.companion);
-  params.set("ppl", PEOPLE.map((p) => plan.people[p.key]).join(","));
+  // 안 고른 동행은 키째 뺀다 — 인원도 같이 뺀다 (동행 없이 인원만 있으면 읽을 데가 없다)
+  if (plan.companion) {
+    params.set("with", plan.companion);
+    params.set("ppl", PEOPLE.map((p) => plan.people[p.key]).join(","));
+  }
   if (plan.origin) params.set("origin", plan.origin);
   if (plan.originAt) {
     params.set("originLat", String(plan.originAt[0]));
     params.set("originLng", String(plan.originAt[1]));
   }
-  params.set("drive", String(plan.driveHours));
+  if (plan.driveHours !== null) params.set("drive", String(plan.driveHours));
   for (const m of plan.musts.slice(0, MAX_MUSTS)) params.append("must", m);
   return `?${params}`;
 }

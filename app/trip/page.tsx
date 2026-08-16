@@ -9,9 +9,7 @@
 // 04-A~E 는 "적용하기"를 눌러야 반영된다. 그래서 각자 초안(draft)을 들고 있다가 그때 한 번
 // 올려 보낸다 — 뒤로 나가면 고치던 값이 없던 일이 되는 게 와이어프레임의 동작이다.
 //
-// **색이 두 가지다.** 취향·관심 장소가 한 화면으로 합쳐지면서(TRIP-02) 그 화면만 다시 그려졌고,
-// 그때 accent 가 #ff7d32 → #ff5914 로, 본문이 #262626 → #1f1f1f 로 바뀌었다. 디자인 파일이
-// 지금 그 상태라 그대로 옮겼다 — 플로우 전체를 새 톤으로 옮길지는 아직 정해지지 않았다.
+// 색은 이 플로우 전용 토큰이다 (피그마 NEW AI Travel — accent #ff7d32, 나머지 화면의 #fc7f35 와 다르다).
 //
 // 좌표는 390x844 를 옮기되 절대배치는 쓰지 않는다 — .phone 이 노트북에서 844 보다 낮아질 수 있어서
 // 가운데(flex-1)부터 줄어야 하단 버튼이 안 잘린다 (app/onboarding/page.tsx 와 같은 이유).
@@ -107,9 +105,9 @@ function Trip() {
         </div>
         <div className="mt-6 flex flex-col gap-4 px-[23px]">
           <Field icon="📅" name="여행 기간" value={periodLabel(plan)} empty="날짜를 골라주세요" go={() => setView("period")} />
-          <Field icon="👥" name="누구와 가나요?" value={companionLabel(plan)} go={() => setView("companion")} />
+          <Field icon="👥" name="누구와 가나요?" value={companionLabel(plan)} empty="동행을 골라주세요" go={() => setView("companion")} />
           <Field icon="✈️" name="출발 위치" value={plan.origin || null} empty="위치를 골라주세요" go={() => setView("origin")} />
-          <Field icon="🚗" name="하루 운전" value={driveLabel(plan)} go={() => setView("drive")} />
+          <Field icon="🚗" name="하루 운전" value={driveLabel(plan)} empty="운전 시간을 골라주세요" go={() => setView("drive")} />
           <Field icon="📍" name="꼭 가고 싶은 곳" value={mustLabel(plan)} empty="선택 안 함" go={() => setView("must")} />
         </div>
       </Shell>
@@ -143,16 +141,13 @@ function Shell({
   label,
   onNext,
   disabled,
-  accent = "#ff7d32",
   note,
 }: {
   children: React.ReactNode;
   label: string;
   onNext: () => void;
   disabled?: boolean;
-  /** 통합 화면(TRIP-02)만 다른 주황을 쓴다 — TasteView 주석 참고 */
-  accent?: string;
-  /** 버튼 아래 작은 안내. 없으면 그 자리는 여백이다 */
+  /** 버튼 아래 작은 안내. 없으면 그 자리는 여백이다 (통합 화면만 쓴다) */
   note?: string;
 }) {
   return (
@@ -160,19 +155,22 @@ function Shell({
     // auto 라, 없으면 내용이 길 때(장소 검색 결과) 이 상자째 늘어나 버튼이 프레임 밖으로 밀린다.
     <div className="flex min-h-0 flex-1 flex-col bg-white">
       <StatusBar tone="text-[#262626]" />
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-6">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
+      {/* 본문과 버튼 사이 20 · 버튼 아래 안내까지 15 — 피그마 세로 좌표(710 → 730 → 793) 그대로 */}
       <button
         onClick={onNext}
         disabled={disabled}
-        style={{ backgroundColor: accent }}
-        className={`mx-6 mt-2 h-12 shrink-0 text-white transition active:scale-[0.98] disabled:opacity-40 ${
-          note ? "rounded-3xl text-[14px] font-bold" : "rounded-2xl text-[16px] font-medium"
-        }`}
+        className="mx-6 mt-5 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition active:scale-[0.98] disabled:opacity-40"
       >
         {label}
       </button>
+      {/*
+        안내 아래 여백만 피그마(33)보다 얇다. 우리 상태바가 59 인데 와이어프레임의 자리표시자는
+        26 이라 세로로 33 이 모자란데(StatusBar.tsx — 다이내믹 아일랜드를 실측으로 피한다),
+        글자 사이 간격을 조금씩 줄여 메우면 화면 전체가 원본과 어긋난다. 아무것도 없는 맨 아래에서 뺀다.
+      */}
       {note ? (
-        <p className="mt-3 shrink-0 pb-8 text-center text-[9px] text-[#6e6e6e]">{note}</p>
+        <p className="mt-[15px] shrink-0 pb-2 text-center text-[9px] leading-[18px] text-[#7d7d7d]">{note}</p>
       ) : (
         <div className="h-[67px] shrink-0" />
       )}
@@ -183,7 +181,7 @@ function Shell({
 /** 뒤로 화살표 — 온보딩과 같은 아이콘·같은 44px 터치 영역을 쓴다 */
 function Back({ onClick, title }: { onClick: () => void; title?: string }) {
   return (
-    <div className="flex h-14 shrink-0 items-center gap-2 pl-[15px]">
+    <div className="flex h-11 shrink-0 items-center gap-2 pl-[15px]">
       <button onClick={onClick} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center">
         <img src="/icon-arrow-left.svg" alt="" className="size-6" />
       </button>
@@ -216,9 +214,8 @@ function Title({ lines, subtitle }: { lines: [string] | [string, string]; subtit
  * 원래 두 화면이었는데 와이어프레임에서 하나로 합쳐졌다 ("TRIP-02 + TRIP-03 통합 제안").
  * 진행 표시("1 / 3"과 막대)도 같이 없어졌다 — 단계가 둘뿐이면 셀 것도 없다.
  *
- * 색이 나머지 화면과 다르다. 이 화면만 다시 그려지면서 accent 가 #ff7d32 → #ff5914 로,
- * 본문이 #262626 → #1f1f1f 로 바뀌었다. 디자인 파일 그대로 옮겼고, 플로우 전체를 이 톤으로
- * 옮길지는 확인이 필요하다 (지금은 TRIP-01·04·04-A~E 가 예전 톤이다).
+ * 배치·문구는 새로 그린 화면을 따르되 색은 플로우의 기존 값을 쓴다. 디자인 파일에서는 이 화면만
+ * 다른 주황(#ff5914)으로 다시 그려졌는데, 한 플로우 안에서 주황이 두 개로 갈리는 쪽이 더 나쁘다.
  */
 function TasteView({
   plan,
@@ -238,25 +235,26 @@ function TasteView({
       label="일정·동행 입력하기"
       onNext={onNext}
       disabled={plan.moods.length === 0 || plan.interests.length === 0}
-      accent="#ff5914"
       note="선택 내용은 언제든 다시 바꿀 수 있어요."
     >
       <Back onClick={onBack} />
 
       <div className="flex shrink-0 items-start justify-between gap-4 px-6">
         <div className="min-w-0">
-          <h2 className="text-[25px] leading-tight font-bold text-[#1f1f1f]">
+          {/* 렌더를 픽셀로 재서 맞춘 값 — 제목 두 줄이 82~135(줄 간격 28), 부제 잉크가 145 에서 시작한다 */}
+          <h2 className="text-[25px] leading-[28px] font-bold text-[#262626]">
             어떤 제주 여행을
             <br />
             원하시나요?
           </h2>
-          <p className="mt-3 text-[11px] leading-[18px] text-[#6e6e6e]">여행 분위기와 관심 장소를 함께 골라주세요.</p>
+          <p className="mt-[10px] text-[11px] leading-[18px] text-[#7d7d7d]">여행 분위기와 관심 장소를 함께 골라주세요.</p>
         </div>
-        <img src="/character/home-hero.png" alt="" className="size-[62px] shrink-0 rounded-[31px] object-cover" />
+        <img src="/character/trip-taste.png" alt="" className="size-[62px] shrink-0 object-contain" />
       </div>
 
       <SectionLabel n={1} title="좋아하는 여행 분위기" hint="복수 선택 가능" />
-      <div className="mt-2 grid grid-cols-2 gap-3 px-6">
+      {/* 164x64 두 칸, 칸 사이 14 / 줄 사이 12 (피그마 left 24·202, top 222·298) */}
+      <div className="mt-2.5 grid shrink-0 grid-cols-2 gap-x-[14px] gap-y-3 px-6">
         {MOODS.map((m, i) => {
           const on = plan.moods.includes(i);
           return (
@@ -264,16 +262,18 @@ function TasteView({
               key={m.label}
               onClick={() => setPlan({ ...plan, moods: toggle(plan.moods, i) })}
               aria-pressed={on}
-              className={`flex h-16 items-center gap-2 rounded-2xl border px-3 text-left transition ${
-                on ? "border-[#ff5914] bg-[#fff7f0]" : "border-[#e5ded6] bg-white"
+              className={`flex h-16 gap-1.5 rounded-2xl border px-[13px] pt-[11px] text-left transition ${
+                on ? "border-[#ff7d32] bg-[#fff0e6]" : "border-[#eae7e2] bg-white"
               }`}
             >
-              <span className="w-7 shrink-0 text-[20px]">{m.emoji}</span>
+              <span className="w-7 shrink-0 text-[20px] leading-[31px]">{m.emoji}</span>
               <span className="min-w-0 flex-1">
-                <span className={`block truncate text-[12px] font-bold ${on ? "text-[#ff5914]" : "text-[#1f1f1f]"}`}>
+                <span
+                  className={`block truncate text-[12px] leading-[19px] font-bold ${on ? "text-[#ff7d32]" : "text-[#262626]"}`}
+                >
                   {m.label}
                 </span>
-                <span className="block truncate text-[9px] text-[#6e6e6e]">{m.desc}</span>
+                <span className="mt-[3px] block truncate text-[9px] leading-[18px] text-[#7d7d7d]">{m.desc}</span>
               </span>
             </button>
           );
@@ -281,7 +281,11 @@ function TasteView({
       </div>
 
       <SectionLabel n={2} title="관심 있는 장소" hint="여러 개 선택" />
-      <div className="mt-2 grid grid-cols-3 gap-[9px] px-6">
+      {/*
+        104x58 세 칸. 피그마는 left 24·137·250 이라 오른쪽 여백만 36 으로 남는데(왼쪽은 24),
+        좌우 여백을 24 로 맞추고 칸 너비를 108 로 늘린다 — 한쪽만 뜬 여백은 옮길 값이 아니라 흘린 값이다.
+      */}
+      <div className="mt-2.5 grid shrink-0 grid-cols-3 gap-x-[9px] gap-y-3 px-6">
         {INTERESTS.map((it, i) => {
           const on = plan.interests.includes(i);
           return (
@@ -289,13 +293,13 @@ function TasteView({
               key={it.label}
               onClick={() => setPlan({ ...plan, interests: toggle(plan.interests, i) })}
               aria-pressed={on}
-              className={`flex h-[58px] flex-col items-center justify-center gap-0.5 rounded-[14px] border transition ${
-                on ? "border-[#ff5914] bg-[#fff7f0]" : "border-[#e5ded6] bg-white"
+              className={`h-[58px] rounded-[14px] border pt-[7px] text-center transition ${
+                on ? "border-[#ff7d32] bg-[#fff0e6]" : "border-[#eae7e2] bg-white"
               }`}
             >
-              <span className="text-[18px] leading-none">{it.emoji}</span>
+              <span className="block text-[18px] leading-[26px]">{it.emoji}</span>
               <span
-                className={`max-w-full truncate px-1 text-[10px] ${on ? "font-bold text-[#ff5914]" : "font-medium text-[#6e6e6e]"}`}
+                className={`block truncate px-1 text-[10px] leading-[18px] ${on ? "font-bold text-[#ff7d32]" : "font-medium text-[#7d7d7d]"}`}
               >
                 {it.label}
               </span>
@@ -305,31 +309,42 @@ function TasteView({
       </div>
 
       {/* 고른 것을 한 줄로 되읽어 준다. "수정"은 갈 데가 따로 없어(같은 화면이다) 첫 선택지로 올려보낸다 */}
-      <div className="mt-6 flex h-[74px] shrink-0 items-center gap-3 rounded-2xl bg-[#f6f6f6] px-4 mx-6">
+      <div className="mt-7 mx-6 flex h-[74px] shrink-0 items-start rounded-2xl bg-[#f6f4f1] px-4 pt-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold text-[#6e6e6e]">선택한 여행 키워드</p>
-          <p className="mt-1 truncate text-[13px] font-bold text-[#1f1f1f]">{keywords ?? "아직 고른 게 없어요"}</p>
+          <p className="text-[10px] leading-[18px] font-bold text-[#7d7d7d]">선택한 여행 키워드</p>
+          <p className="mt-1 truncate text-[13px] leading-[20px] font-bold text-[#262626]">
+            {keywords ?? "아직 고른 게 없어요"}
+          </p>
         </div>
-        <a href="#taste-top" className="shrink-0 text-[10px] font-medium text-[#ff5914]">
+        <a href="#taste-top" className="mt-[19px] shrink-0 text-[10px] leading-[18px] font-medium text-[#ff7d32]">
           수정 ›
         </a>
       </div>
 
-      <div className="mt-3 flex h-[42px] shrink-0 items-center gap-2.5 rounded-[14px] bg-[#fff7f0] px-3.5 mx-6">
-        <span className="text-[13px] font-bold text-[#ff5914]">✦</span>
-        <span className="text-[10px] font-medium text-[#6e6e6e]">선택한 취향을 바탕으로 제주 코스를 추천해요.</span>
+      <div className="mt-3.5 mx-6 flex h-[42px] shrink-0 items-start gap-1.5 rounded-[14px] bg-[#fff0e6] px-3.5 pt-2.5">
+        <span className="text-[13px] leading-[20px] font-bold text-[#ff7d32]">✦</span>
+        <span className="text-[10px] leading-[18px] font-medium text-[#7d7d7d]">
+          선택한 취향을 바탕으로 제주 코스를 추천해요.
+        </span>
       </div>
     </Shell>
   );
 }
 
+/**
+ * "1. 좋아하는 여행 분위기" + 오른쪽 끝 "복수 선택 가능" (14px Bold / 9px Medium).
+ * 위 여백이 둘이 다르다 — 1번은 부제 아래 28, 2번은 카드 아래 30 (피그마 190·392 좌표 그대로).
+ */
 function SectionLabel({ n, title, hint }: { n: number; title: string; hint: string }) {
   return (
-    <div id={n === 1 ? "taste-top" : undefined} className="mt-6 flex shrink-0 items-baseline justify-between px-6">
-      <h3 className="text-[14px] font-bold text-[#1f1f1f]">
+    <div
+      id={n === 1 ? "taste-top" : undefined}
+      className={`flex shrink-0 items-baseline justify-between px-6 ${n === 1 ? "mt-7" : "mt-[30px]"}`}
+    >
+      <h3 className="text-[14px] leading-[22px] font-bold text-[#262626]">
         {n}. {title}
       </h3>
-      <span className="text-[9px] font-medium text-[#ff5914]">{hint}</span>
+      <span className="text-[9px] leading-[18px] font-medium text-[#ff7d32]">{hint}</span>
     </div>
   );
 }
@@ -494,11 +509,7 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
           <span className="mb-4 text-[24px]">🌸</span>
           <span>🌿</span>
         </div>
-        <img
-          src="/character/home-hero.png"
-          alt="귤이 캐릭터"
-          className="mt-1 h-[190px] w-[263px] object-contain"
-        />
+        <img src="/character/trip-hero.png" alt="귤이 캐릭터" className="mt-1 h-[225px] w-[263px] object-contain" />
         <div className="mt-4 flex w-[300px] justify-center rounded-[20px] bg-[#fff0e6] px-6 py-6">
           <p className="text-[14px] leading-[21px] text-[#262626]">오늘의 제주를 가장 완벽하게 즐기는 법 !</p>
         </div>
@@ -572,7 +583,7 @@ function DateBox({
 /* ─────────────────────────────── TRIP-04-B ─────────────────────────────── */
 
 function CompanionView({ plan, onBack, onApply }: DetailProps) {
-  const [companion, setCompanion] = useState<Companion>(plan.companion);
+  const [companion, setCompanion] = useState<Companion | null>(plan.companion);
   const [people, setPeople] = useState(plan.people);
   const draft = { ...plan, companion, people };
 
@@ -582,8 +593,9 @@ function CompanionView({ plan, onBack, onApply }: DetailProps) {
       title={["누구와 함께 떠나나요?"]}
       subtitle="동행 유형과 인원을 알려주면 쉬는 장소도 맞출게요."
       onBack={onBack}
-      label={`${companionLabel(draft)} 적용하기`}
+      label={companion ? `${companionLabel(draft)} 적용하기` : "동행을 골라주세요"}
       onApply={() => onApply({ companion, people })}
+      disabled={!companion}
     >
       <div className="grid grid-cols-2 gap-3.5 px-[23px]">
         {COMPANIONS.map((c) => (
@@ -721,7 +733,7 @@ function OriginView({ onBack, onApply }: Omit<DetailProps, "plan">) {
 /* ─────────────────────────────── TRIP-04-D ─────────────────────────────── */
 
 function DriveView({ plan, onBack, onApply }: DetailProps) {
-  const [hours, setHours] = useState(plan.driveHours);
+  const [hours, setHours] = useState<number | null>(plan.driveHours);
 
   return (
     <Detail
@@ -729,8 +741,9 @@ function DriveView({ plan, onBack, onApply }: DetailProps) {
       title={["하루에 얼마나", "운전할 수 있나요?"]}
       subtitle="선택한 시간 안에서 장소와 휴식 순서를 조정할게요."
       onBack={onBack}
-      label={`${driveLabel({ ...plan, driveHours: hours })} 적용하기`}
+      label={hours === null ? "운전 시간을 골라주세요" : `${driveLabel({ ...plan, driveHours: hours })} 적용하기`}
       onApply={() => onApply({ driveHours: hours })}
+      disabled={hours === null}
     >
       <div className="flex flex-col gap-3.5 px-[23px]">
         {DRIVE_HOURS.map((d) => (

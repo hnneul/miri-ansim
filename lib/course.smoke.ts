@@ -13,6 +13,9 @@
 import { buildCourses, gatherCandidates } from "./course.ts";
 import { DEFAULT_TRIP, INTERESTS, periodLabel, type TripPlan } from "./trip.ts";
 
+/** 이 스모크가 쓰는 하루 상한 (분 단위 검사에도 같은 값을 쓴다) */
+const DRIVE_HOURS_TEST = 2;
+
 const plan: TripPlan = {
   ...DEFAULT_TRIP,
   start: "2026-08-14",
@@ -21,7 +24,7 @@ const plan: TripPlan = {
   originAt: [33.507, 126.493],
   interests: [0, 1, 4],
   musts: ["성산일출봉"],
-  driveHours: 2,
+  driveHours: DRIVE_HOURS_TEST,
 };
 
 const { candidates, missing } = await gatherCandidates(plan);
@@ -50,6 +53,6 @@ for (const c of courses) {
   if (!c.days.flatMap((d) => d.stops).some((s) => s.name.includes("성산일출봉")))
     console.log(`\n⚠ "${c.title}" 에 꼭 가고 싶은 곳이 빠졌다`);
   for (const d of c.days)
-    if (d.driveMin > plan.driveHours * 60 && d.stops.length > 1)
-      console.log(`\n⚠ ${d.date} 가 하루 상한(${plan.driveHours * 60}분)을 넘었다: ${d.driveMin}분 / ${d.stops.length}곳`);
+    if (d.driveMin > DRIVE_HOURS_TEST * 60 && d.stops.length > 1)
+      console.log(`\n⚠ ${d.date} 가 하루 상한(${DRIVE_HOURS_TEST * 60}분)을 넘었다: ${d.driveMin}분 / ${d.stops.length}곳`);
 }

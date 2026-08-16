@@ -12,6 +12,7 @@ import {
   MOODS,
   companionLabel,
   isReady,
+  driveLabel,
   mustLabel,
   nightsOf,
   parseTrip,
@@ -81,9 +82,9 @@ assert.equal(parseTrip({ from: "2026-08-16", to: "2026-08-14" }).end, "");
 // 한쪽만 와도 둘 다 버린다
 assert.equal(parseTrip({ from: "2026-08-14" }).start, "");
 
-// 허용 목록 밖의 동행·운전시간은 기본값
-assert.equal(parseTrip({ with: "coworker" }).companion, DEFAULT_TRIP.companion);
-assert.equal(parseTrip({ drive: "24" }).driveHours, DEFAULT_TRIP.driveHours);
+// 허용 목록 밖의 동행·운전시간은 null — 기본값으로 채우면 고른 적 없는 조건이 코스에 들어간다
+assert.equal(parseTrip({ with: "coworker" }).companion, null);
+assert.equal(parseTrip({ drive: "24" }).driveHours, null);
 // 0(상관없음)은 유효한 값이라 기본값으로 떨어지면 안 된다
 assert.equal(parseTrip({ drive: "0" }).driveHours, 0);
 
@@ -117,7 +118,10 @@ assert.equal(periodLabel({ ...full, end: full.start }), "당일치기");
 assert.equal(periodLabel(DEFAULT_TRIP), null);
 
 assert.equal(companionLabel(full), "가족 6명");
-assert.equal(companionLabel(DEFAULT_TRIP), "친구 2명");
+// 안 고른 값은 문구를 지어내지 않는다 — 화면이 "동행을 골라주세요"를 대신 쓴다
+assert.equal(companionLabel(DEFAULT_TRIP), null);
+assert.equal(driveLabel(full), "시간 상관없음");
+assert.equal(driveLabel(DEFAULT_TRIP), null);
 
 assert.equal(mustLabel(full), "성산일출봉 외 1곳");
 assert.equal(mustLabel({ ...full, musts: ["비자림"] }), "비자림");
@@ -126,9 +130,12 @@ assert.equal(mustLabel(DEFAULT_TRIP), null);
 // --- 코스를 만들 수 있는 조건 ---
 assert.equal(isReady(full), true);
 assert.equal(isReady(DEFAULT_TRIP), false);
-// 날짜만 있고 출발 위치가 없으면 못 만든다 (이동시간의 기준점이 없다)
+// 다섯 줄 중 "꼭 가고 싶은 곳"만 빼고 하나라도 비면 못 만든다
 assert.equal(isReady({ ...full, origin: "" }), false);
 assert.equal(isReady({ ...full, start: "", end: "" }), false);
+assert.equal(isReady({ ...full, companion: null }), false);
+assert.equal(isReady({ ...full, driveHours: null }), false);
+assert.equal(isReady({ ...full, musts: [] }), true, "꼭 가고 싶은 곳은 없어도 코스가 나온다");
 // 취향·관심 장소는 비어도 막지 않는다 — 후보를 좁히는 값이지 필수 입력이 아니다
 assert.equal(isReady({ ...full, moods: [], interests: [] }), true);
 
