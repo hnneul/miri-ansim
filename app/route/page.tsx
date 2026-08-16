@@ -294,15 +294,20 @@ function Route() {
               ) : (
                 <>
                   {/*
-                  추천을 접었으면 **그렇다고 말한다.** 안 말하면 기본 선택된 카드가 주황으로 떠 있어
-                  추천처럼 보이는데 배지는 없는 상태가 된다 — 실제로 그게 뭐냐는 질문을 받았다.
-                  문구는 lib/briefing.ts 가 "부담이 같아서"와 "단정 못 해서"를 갈라 만든다.
+                  추천을 접었을 때만 나오는 줄이다. 부담이 같아서 못 고른 경우(tie)는 그렇다고
+                  말해준다 — 안 말하면 기본 선택된 카드가 주황으로 떠 있어 추천처럼 보이는데
+                  배지는 없는 상태가 된다.
+
+                  판단이 애매한 경우(unclear)는 lib/briefing.ts 가 빈 문자열을 주고, 그러면 이
+                  줄을 안 그린다. **빈 값 검사가 곧 그 규칙이다** — 여기서 tie 인지 다시 보지
+                  않는다. 무슨 말을 할지는 briefing.ts 한 곳에서만 정한다 (못고른말 주석).
                 */}
-                  {result.score.recommendedRoute === "single" && (
-                    <p className="mt-[18px] px-4 text-[13px] leading-[20px] text-[#525252]">
-                      {result.verdicts[picked ?? result.routes[0].id]}
-                    </p>
-                  )}
+                  {result.verdicts[picked ?? result.routes[0].id] &&
+                    result.score.recommendedRoute === "single" && (
+                      <p className="mt-[18px] px-4 text-[13px] leading-[20px] text-[#525252]">
+                        {result.verdicts[picked ?? result.routes[0].id]}
+                      </p>
+                    )}
 
                   <div className="mt-[18px] flex gap-[14px] px-4">
                     {result.routes.map((r) => (
@@ -330,11 +335,14 @@ function Route() {
 
             <div className="shrink-0 px-4 pt-2 pb-2">
               {/*
-                출발 전 음성 안내. "이 길로 갈게요" 바로 위다 — 이 버튼을 누르면 카카오맵으로
-                넘어가 우리 화면을 떠나므로, 길에 대해 들을 수 있는 마지막 자리가 여기다.
-                비교 화면과 근거 화면이 이 영역을 함께 쓰므로 두 상태 모두에서 재생할 수 있다.
+                출발 전 음성 안내. **근거 화면에만 둔다.**
+
+                비교 화면에도 띄웠었는데, 거기는 아직 길을 고르는 중이라 무엇을 들려줄지가 정해지지
+                않은 자리다 — 카드를 누르기도 전에 기본 선택된 길의 대본이 재생됐다. 근거 화면은
+                이미 한 길을 고르고 들어온 자리고, 다음 버튼이 카카오맵이라 **길에 대해 들을 수
+                있는 마지막 자리**다.
               */}
-              {대본 && chosen && (
+              {view === "why" && 대본 && chosen && (
                 <div className="mb-2">
                   <RouteRadio script={대본} routeId={chosen.id} />
                 </div>
