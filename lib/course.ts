@@ -328,6 +328,30 @@ function dayAfter(start: string, add: number): string {
 const titleOf = (theme: number | null) =>
   theme === null ? "가볍게 도는 코스" : `${INTERESTS[theme].label} 중심 코스`;
 
+/* ─────────────────────────── 화면 문구 ─────────────────────────── */
+
+/** 95 → "1시간 35분" · 40 → "40분" · 120 → "2시간" */
+export const hourMin = (m: number) =>
+  m < 60 ? `${m}분` : m % 60 === 0 ? `${m / 60}시간` : `${Math.floor(m / 60)}시간 ${m % 60}분`;
+
+export const stopCount = (c: Course) => c.days.reduce((n, d) => n + d.stops.length, 0);
+
+/** 카드 한 줄 — "5곳 · 이동 1시간 45분" */
+export const courseMeta = (c: Course) => `${stopCount(c)}곳 · 이동 ${hourMin(c.totalMin)}`;
+
+/**
+ * 카드 오른쪽 아래 한 줄. 하루 평균 운전 시간이 고른 상한의 어디쯤인지만 말한다.
+ *
+ * lib/score.ts 의 부담점수가 **아니다** — 그건 급커브·차로수 같은 경로 분석이 있어야 나오고,
+ * 여기서는 아직 구간별 길찾기를 안 했다. 지어낸 등급 대신 우리가 실제로 계산한 값(운전 시간)만
+ * 말한다. ponytail: 고른 코스에 compareRoutes 를 태우면 진짜 부담점수로 바꾼다.
+ */
+export function driveNote(c: Course, driveHours: number | null): string {
+  const perDay = c.totalMin / Math.max(c.days.length, 1);
+  const ratio = perDay / (driveHours ? driveHours * 60 : 180);
+  return ratio < 0.5 ? "운전 부담 낮음" : ratio < 0.85 ? "여유 있는 편" : "이동이 많은 편";
+}
+
 const sameStops = (a: Course, b: Course) => {
   const names = (c: Course) => c.days.flatMap((d) => d.stops.map((s) => s.name)).join("|");
   return names(a) === names(b);

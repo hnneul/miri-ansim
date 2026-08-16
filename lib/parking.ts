@@ -271,7 +271,7 @@ export type NaviPoint = { name: string; at: [number, number] };
  *
  *   /link/to/{도착}                     도착지만
  *   /link/from/{출발}/to/{도착}          출발지까지
- *   /link/by/car/{출발}/{경유}/{도착}     경유지까지 (최대 5개)
+ *   /link/by/car/{출발}/{경유...}/{도착}  경유지까지 (최대 5개)
  *
  * 실측으로 확인했다 (제주공항→서귀포시청): 경유지 없이 52.5km 평화로, 516로 위에 경유지를
  * 하나 찍으면 43.5km 516로로 바뀐다. 라벨은 지어낸 문자열이어도 되고 좌표가 경로를 정한다.
@@ -282,26 +282,39 @@ export type NaviPoint = { name: string; at: [number, number] };
  * 이름에 쉼표가 든 곳이 있어("함덕리 1002-83, 1004-5, 6") 반드시 인코딩해야 한다 —
  * 카카오 링크가 쉼표로 이름·위도·경도를 가르기 때문에 안 하면 좌표가 밀린다.
  */
-export function navigateTo(
+/** 카카오 링크가 받는 경유지 개수 상한 */
+const VIA_MAX = 5;
+
+/**
+ * 링크 주소만 만든다. navigateTo 에서 떼어낸 이유는 window 없이 확인하기 위해서다 —
+ * 이름 인코딩과 경유지 순서는 눈으로 봐서는 틀린 걸 못 잡는다 (lib/parking.check.ts).
+ */
+export function naviLink(
   dest: NaviPoint,
-  opts: { from?: NaviPoint; via?: NaviPoint } = {},
-) {
+  opts: { from?: NaviPoint; via?: NaviPoint | NaviPoint[] } = {},
+): string {
   const p = ({ name, at }: NaviPoint) =>
     `${encodeURIComponent(name)},${at[0]},${at[1]}`;
-  const { from, via } = opts;
+  const { from } = opts;
+  // 경유지는 여러 개 받는다 — 길 비교(app/route)는 한 점이면 되지만 여행 코스(app/trip/course)는
+  // 하루에 들르는 곳을 전부 넘긴다. 카카오 상한이 5개라 넘치면 앞에서 자른다.
+  const via = opts.via ? (Array.isArray(opts.via) ? opts.via : [opts.via]).slice(0, VIA_MAX) : [];
 
   const path =
-    from && via
-      ? `by/car/${p(from)}/${p(via)}/${p(dest)}`
+    from && via.length
+      ? `by/car/${p(from)}/${via.map(p).join("/")}/${p(dest)}`
       : from
         ? `from/${p(from)}/to/${p(dest)}`
         : `to/${p(dest)}`;
 
-  return window.open(
-    `https://map.kakao.com/link/${path}`,
-    "_blank",
-    "noopener",
-  );
+  return `https://map.kakao.com/link/${path}`;
+}
+
+export function navigateTo(
+  dest: NaviPoint,
+  opts: { from?: NaviPoint; via?: NaviPoint | NaviPoint[] } = {},
+) {
+  return window.open(naviLink(dest, opts), "_blank", "noopener");
 }
 
 /** 초보가 편한 쪽(직각)인가. 배지 하나를 붙일지 말지에만 쓴다. */

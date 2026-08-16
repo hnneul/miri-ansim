@@ -9,6 +9,7 @@ import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  naviLink,
   parallelOdds, recommendedSpots, nearestSpots, nearbyParking,
   spotsAround, mergeSpots, walkMinutes, isEasyParking, parkingKind, onStreetBlind, feeText, feeDetail, WALK10_M, REACH_M,
   type Parking, type ParkingSpot, type Lot,
@@ -124,7 +125,7 @@ for (const [id, d] of 계산) {
 // --- ③ 주차장 찾기 화면(/parking) ---
 // 목적지가 없는 화면이라 "반경 안 전부"가 아니라 "지금 보는 곳에서 가까운 몇 곳"을 준다.
 // 칩 이름과 실제 기준이 어긋나면 사용자가 거짓말을 읽게 되므로 그 짝을 여기서 묶어둔다.
-assert.equal(walkMinutes(WALK10_M), 10, `"도보 10분" 칩 반경(${WALK10_M}m)이 표시 분수와 어긋난다`);
+assert.equal(walkMinutes(WALK10_M), 10, `"도보 10분" 필터 반경(${WALK10_M}m)이 표시 분수와 어긋난다`);
 assert.equal(walkMinutes(0), 1, "도보 0분이라고 말하지 않는다");
 assert.ok(isEasyParking({ type: "노외" }) && !isEasyParking({ type: "노상" }));
 // 카카오에서 온 곳은 유형을 모른다 — 모르는 걸 "쉽다"고 단언하면 안 된다
@@ -199,7 +200,7 @@ const 무료 = spotsAround(시청, LOTS, { free: true });
 assert.ok(무료.length && 무료.every((s) => s.fee === "무료"), "무료 칩에 유료·혼합이 섞였다");
 assert.ok(LOTS.some((s) => s.fee === "혼합"), "혼합 표본이 사라졌다 — 위 검증이 무의미해진다");
 
-// "도보 10분" 칩은 반경 밖을 자른다
+// "도보 10분" 필터는 반경 밖을 자른다 (화면 칩에서는 뺐지만 lib 의 선택지로 남아 있다)
 assert.ok(spotsAround(시청, LOTS, { walk10: true }).every((s) => s.walkM <= WALK10_M));
 
 // 걸어갈 수 없는 곳은 아예 안 준다. 성산일출봉에서 10km 밖 세화리 주차장이 "도보 160분"으로
@@ -244,3 +245,39 @@ console.log("✅ 주차장 평행·직각 프록시 판정 정상");
 console.log(`   좌표 있는 주차장 ${DATA.spots.length}곳 · 유형별 구획수:`, DATA.stats);
 for (const [id, d] of 계산)
   console.log(`   ${id.padEnd(9)} ${d!.total}곳`, d!.byType, `→ ${parallelOdds(d!).level}`);
+
+// --- 카카오맵 링크 (naviLink) ---
+// 코스 하루치를 통째로 넘기는 자리다 (app/trip/course). 경유지 순서가 밀리거나 이름이
+// 인코딩되지 않으면 엉뚱한 길로 안내되는데, 링크만 봐서는 틀린 걸 못 잡는다.
+{
+  const at = (n: number): [number, number] => [33.4 + n / 100, 126.5 + n / 100];
+  const pt = (name: string, n: number) => ({ name, at: at(n) });
+
+  // 목적지만
+  assert.equal(naviLink(pt("성산일출봉", 1)), "https://map.kakao.com/link/to/%EC%84%B1%EC%82%B0%EC%9D%BC%EC%B6%9C%EB%B4%89,33.41,126.51");
+
+  // 출발지 + 목적지
+  assert.ok(naviLink(pt("도착", 2), { from: pt("출발", 1) }).includes("/link/from/"));
+
+  // 출발지 + 경유지 여러 개 + 목적지 — 적은 순서가 그대로 링크 순서여야 한다
+  const many = naviLink(pt("끝", 9), { from: pt("처음", 0), via: [pt("하나", 1), pt("둘", 2), pt("셋", 3)] });
+  const parts = many.split("/link/by/car/")[1].split("/").map((s) => decodeURIComponent(s.split(",")[0]));
+  assert.deepEqual(parts, ["처음", "하나", "둘", "셋", "끝"]);
+
+  // 경유지 하나만 줄 때는 배열이 아니어도 된다 (app/route 가 그렇게 부른다)
+  assert.deepEqual(
+    naviLink(pt("끝", 9), { from: pt("처음", 0), via: pt("하나", 1) }),
+    naviLink(pt("끝", 9), { from: pt("처음", 0), via: [pt("하나", 1)] }),
+  );
+
+  // 카카오 상한이 5개다. 넘치면 앞에서 자른다 — 안 자르면 링크가 통째로 무시된다
+  const over = naviLink(pt("끝", 9), { from: pt("처음", 0), via: Array.from({ length: 8 }, (_, i) => pt(`경유${i}`, i + 1)) });
+  assert.equal(over.split("/link/by/car/")[1].split("/").length, 7, "출발 + 경유 5 + 도착");
+
+  // 이름에 쉼표가 들어가도 좌표가 안 밀린다 (카카오가 쉼표로 이름·위도·경도를 가른다)
+  const comma = naviLink({ name: "함덕리 1002-83, 1004-5", at: [33.5, 126.6] });
+  assert.equal(comma.split("/link/to/")[1].split(",").length, 3);
+
+  // 경유지 없이 from 만 주면 by/car 로 가지 않는다
+  assert.ok(!naviLink(pt("도착", 2), { from: pt("출발", 1), via: [] }).includes("by/car"));
+}
