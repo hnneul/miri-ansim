@@ -19,6 +19,7 @@ import RouteMap, { type LatLng } from "../RouteMap";
 import { parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
 import { COMFORT_THRESHOLD } from "@/lib/score";
+import { tradeoff } from "@/lib/briefing";
 import { viaPoint, type LiveRoute } from "@/lib/route";
 import RouteRadio from "./RouteRadio";
 import { aiRadio, compareRoutes, type Compared } from "./actions";
@@ -259,8 +260,19 @@ function Route() {
         안이 넘치면 **내용만** 스크롤하고 버튼은 아래 붙어 있게 flex 로 나눈다 (줄 수가 늘어도 안 잘린다).
         지도에 넘기는 padBottom 도 같은 값을 써야 마커가 시트에 안 걸린다.
       */}
+      {/*
+        근거 화면 시트만 아래로 갈수록 옅은 파랑이다 (와이어프레임 2153:1992 배경).
+        그 위에 얹히는 흰 카드(tradeoff-card)가 테두리 없이 떠 보이게 하는 장치다 —
+        시트가 통째로 흰색이면 카드도 같이 사라진다. 비교 화면은 카드 두 장이 이미
+        테두리를 갖고 있어서 흰 바탕 그대로 둔다.
+      */}
       <div
-        style={{ height: sheetH }}
+        style={{
+          height: sheetH,
+          ...(view === "why" && {
+            backgroundImage: "linear-gradient(180deg, #ffffff 55%, #d2eafe 100%)",
+          }),
+        }}
         className="absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]"
       >
         <div
@@ -288,8 +300,8 @@ function Route() {
                       ? result.score.fastScore
                       : result.score.safeScore
                   }
-                  recommended={result.score.recommendedRoute === chosen.id}
-                  verdict={result.verdicts[chosen.id]}
+                  pick={result.score.recommendedRoute}
+                  대본={대본}
                 />
               ) : (
                 <>
@@ -335,19 +347,6 @@ function Route() {
 
             <div className="shrink-0 px-4 pt-2 pb-2">
               {/*
-                출발 전 음성 안내. **근거 화면에만 둔다.**
-
-                비교 화면에도 띄웠었는데, 거기는 아직 길을 고르는 중이라 무엇을 들려줄지가 정해지지
-                않은 자리다 — 카드를 누르기도 전에 기본 선택된 길의 대본이 재생됐다. 근거 화면은
-                이미 한 길을 고르고 들어온 자리고, 다음 버튼이 카카오맵이라 **길에 대해 들을 수
-                있는 마지막 자리**다.
-              */}
-              {view === "why" && 대본 && chosen && (
-                <div className="mb-2">
-                  <RouteRadio script={대본} routeId={chosen.id} />
-                </div>
-              )}
-              {/*
                 두 화면이 같은 글씨의 버튼을 쓰지만 **하는 일이 다르다.**
                 비교(HOME-02)의 검정 버튼은 근거 화면으로 넘기고, 근거(HOME-03)의 주황 버튼이
                 실제로 카카오맵을 연다. 와이어프레임이 색을 갈라 둔 게 그 뜻이다
@@ -374,16 +373,19 @@ function Route() {
                 이 길로 갈게요
               </button>
               {/*
-                와이어프레임에는 버튼 밑에 아무것도 없다. 잔글씨 두 줄(안내 방식 · 조회 시각)을
-                달아뒀었는데 화면이 각주투성이가 됐다 — 게다가 지금은 경유지를 실어 보내서
-                "다른 길로 안내될 수 있다"는 경고가 대체로 사실이 아니다.
+                버튼 밑 한 줄. **근거 화면에만** 있다 (와이어프레임 2153:3973) — 비교 화면의
+                버튼은 다음 화면으로 넘어갈 뿐이라 안내가 시작된다고 말하면 거짓말이다.
 
-                출발지를 모를 때만 남긴다. 그때는 경유지를 못 넣어(by/car 형식이 셋을 다 요구한다)
-                정말로 다른 길로 안내될 수 있고, 그건 사용자가 알아야 하는 사실이다.
+                출발지를 모르면 그 자리에 경고를 대신 넣는다. 그때는 경유지를 못 실어
+                (by/car 형식이 출발·경유·도착 셋을 다 요구한다) 정말로 다른 길로 안내될 수 있고,
+                그건 "이 길로 안내해요"보다 먼저 알아야 하는 사실이다. 둘을 같이 띄우지 않는다 —
+                버튼 밑에 잔글씨가 두 줄이면 화면이 각주투성이가 된다.
               */}
-              {!origin && (
+              {view === "why" && (
                 <p className="mt-2 text-center text-[11px] leading-[16px] text-[#9e9e9e]">
-                  출발지를 몰라 다른 길로 안내될 수 있어요
+                  {origin
+                    ? "카카오맵이 이 길로 안내해요"
+                    : "출발지를 몰라 다른 길로 안내될 수 있어요"}
                 </p>
               )}
             </div>
@@ -456,27 +458,37 @@ function Notice({ children, tone }: { children: string; tone?: "error" }) {
  * 표는 route.stats 로 만든다. 요인 목록(risks)으로는 못 만드는데, 거기는 값이 0인 요인을
  * 아예 빼기 때문이다 — 표에서 요지는 오히려 0 쪽이다 ("급커브 12곳 → 없음").
  *
- * **와이어프레임의 네 줄 중 두 줄은 뺐다.** "사고 잦은 곳"은 채울 데이터가 없고(도로교통공단
- * 사고다발지역 데이터를 따로 받아야 한다), "비보호 좌회전"의 **비보호** 여부는 신호 데이터가
- * 없어 모른다 — 좌회전 횟수는 정확하므로 그 줄은 "좌회전·유턴"으로 이름만 줄여 남겼다.
- * 모르는 걸 0이나 "없음"으로 적으면 확인한 사실처럼 읽힌다.
+ * **"사고 잦은 곳"은 아직 뺐다** — 채울 데이터가 없다 (도로교통공단 사고다발지역을 따로 받아야
+ * 한다). 모르는 걸 0이나 "없음"으로 적으면 확인한 사실처럼 읽힌다.
+ *
+ * **"비보호 좌회전"은 되살렸다.** 한동안 신호 데이터가 없어 못 채우고 "좌회전·유턴" 횟수만
+ * 적었는데, 제주는 신호현시를 주는 출처가 없어서(제주 C-ITS API가 2026-04-01 종료) 로드뷰로
+ * 직접 판독해 표를 만들었다 (lib/unprotected.ts). 좌회전 **횟수**는 뺐다 — 초보에게 무서운 건
+ * 좌회전 자체가 아니라 아무도 안 지켜주는 좌회전이라, 둘을 같이 적으면 요지가 흐려진다.
+ *
+ * 판독표에 없는 좌회전을 지나면 "확인 안 됨"이 된다. **0(봤더니 없다)과 구분해서 적는다.**
  */
 function Why({
   route,
   other,
   score,
-  recommended,
-  verdict,
+  pick,
+  대본,
 }: {
   route: LiveRoute;
   /** 상대 경로. 없으면(단일 경로) 비교 칸 없이 내 값만 적는다 */
   other: LiveRoute | null;
   score: number;
-  recommended: boolean;
-  verdict?: string;
+  /** 추천 결과 그대로 (lib/score.ts). "single" 은 추천을 접었다는 뜻이다 */
+  pick: "fast" | "safe" | "single";
+  대본: string[] | null;
 }) {
+  const recommended = pick === route.id;
+  const 한줄 = tradeoff(pick, route, other);
   const rows: { label: string; mine: string; theirs: string }[] = [
-    row("좌회전 · 유턴", (s) => (s.turns ? `${s.turns}번` : "없음")),
+    row("비보호 좌회전", (s) =>
+      s.unprotected === null ? "확인 안 됨" : s.unprotected ? `${s.unprotected}번` : "없음",
+    ),
     row("회전교차로", (s) => (s.roundabouts ? `${s.roundabouts}곳` : "없음")),
     row("연속 급커브", (s) => (s.sharpCurves ? `${s.sharpCurves}곳` : "없음")),
     row("좁은 교행 구간", (s) =>
@@ -485,7 +497,15 @@ function Why({
     row("고속주행 구간", (s) =>
       s.highSpeedKm ? `${s.highSpeedKm}km` : "없음",
     ),
-  ];
+    /*
+      보이는 값이 죄다 "확인 안 됨"인 줄은 뺀다.
+
+      비보호 좌회전은 판독한 구간에만 값이 있어서(lib/unprotected.ts), 아직 안 본 구간에서는
+      양쪽 다 빈 값이 된다 — 그 줄은 표의 맨 위를 차지하고서 아무것도 안 알려준다.
+      "없음"과는 다르다: 없음은 확인해서 없다는 사실이고, 확인 안 됨은 사실이 아니라 공백이다.
+      한쪽이라도 값이 있으면 남긴다. 그때는 "확인 안 됨 → 3번"이 비교로 읽힌다.
+    */
+  ].filter((r) => [r.mine, r.theirs].some((v) => v && v !== "확인 안 됨"));
 
   function row(label: string, of: (s: LiveRoute["stats"]) => string) {
     return {
@@ -506,9 +526,14 @@ function Why({
         <span className="min-w-0 truncate text-[16px] font-bold text-[#1f1f1f]">
           {recommended ? "맞춤 안심 길" : route.name}
         </span>
+        {/*
+          점수만 주황이다. 비교 화면의 카드에서는 검정인데(거기선 두 값을 나란히 재는 자리라
+          한쪽만 물들면 그게 답처럼 보인다) 여기는 이미 한 길을 고르고 들어온 자리라
+          이 화면의 주인공이 그 숫자다 — 와이어프레임도 여기서만 주황으로 칠했다.
+        */}
         <span className="ml-auto flex shrink-0 items-baseline gap-[6px]">
           <span className="text-[12px] text-[#9e9e9e]">부담점수</span>
-          <span className="text-[28px] leading-none font-bold text-[#1f1f1f]">
+          <span className="text-[34px] leading-none font-bold text-[#fc7f35]">
             {Math.round(score)}
           </span>
           <span className="text-[12px] font-medium text-[#9e9e9e]">
@@ -517,21 +542,54 @@ function Why({
         </span>
       </div>
 
-      {/* 한 줄 판정. lib/briefing.ts 가 만든다 — 점수와 임계값을 읊지 않고 교환을 말한다 */}
-      {verdict && (
-        <p className="mt-3 text-[13px] leading-[20px] text-[#525252]">
-          {verdict}
-        </p>
+      {/*
+        tradeoff-card (와이어프레임 2153:2024) — 판정 한 줄과 시간 교환을 **한 상자에** 담는다.
+        둘은 같은 말을 글과 숫자로 하는 것이라 떨어뜨려 두면 관계가 안 보인다.
+
+        판정은 굵은 검정 14px 다. 회색 잔글씨로 뒀었는데, 이 화면에서 유일하게 "그래서 어떻다"를
+        말하는 줄이라 표보다 흐리면 안 된다. 시간은 왼쪽에 상대, 오른쪽 끝에 이 길 —
+        양끝으로 벌려야 "35분에서 42분으로"가 한눈에 읽힌다 (붙여 쓰면 그냥 숫자 두 개다).
+
+        카드가 흰색이고 시트도 흰색이라 테두리 없이 겹친다. 시트 아래쪽에 옅은 파랑이 깔려서
+        (아래 sheet 배경) 표 근처로 갈수록 카드가 떠 보인다 — 와이어프레임이 그렇게 그렸다.
+      */}
+      {(한줄 || other) && (
+        <div className="mt-3 rounded-[9px] bg-white px-[14px] py-3">
+          {한줄 && (
+            <p className="text-[14px] leading-[20px] font-bold text-[#1f1f1f]">
+              {한줄}
+            </p>
+          )}
+          {other && (
+            <div
+              className={`flex items-center justify-between ${한줄 ? "mt-3" : ""}`}
+            >
+              <span className="text-[12px] text-[#949494]">
+                {other.durationMin}분
+              </span>
+              <span className="flex items-center gap-[8px] text-[13px]">
+                <span aria-hidden className="font-medium text-[#949494]">
+                  →
+                </span>
+                <span className="font-bold text-[#1f1f1f]">
+                  {route.durationMin}분
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* 와이어프레임의 "35분 → 42분" 줄. 판정 문장이 말한 시간 교환을 숫자로 한 번 더 보여준다 */}
-      {other && (
-        <p className="mt-2 text-[13px] text-[#9e9e9e]">
-          {other.durationMin}분 <span aria-hidden>→</span>{" "}
-          <span className="font-bold text-[#1f1f1f]">
-            {route.durationMin}분
-          </span>
-        </p>
+      {/*
+        듣기 줄 — **판정 카드와 표 사이**가 제자리다 (와이어프레임 2153:3981, top 170).
+        한동안 버튼 바로 위에 뒀는데 그건 비교 화면과 공용이던 자리를 그대로 물려받은 것이지
+        고른 자리가 아니었다. 여기가 맞는 이유는 순서다: 무엇과 무엇을 맞바꾸는지 한 줄로 읽고
+        (위 카드) → 더 들을 사람은 듣고 → 숫자로 확인한다(아래 표).
+      */}
+      {대본 && (
+        <div className="mt-3">
+          <RouteRadio script={대본} routeId={route.id} />
+        </div>
       )}
 
       {/*
@@ -539,7 +597,8 @@ function Why({
         상대가 없으면(단일 경로) 화살표 없이 내 값만 적는다 — 비교할 게 없는데 화살표를 그리면
         왼쪽 빈칸이 0으로 읽힌다.
       */}
-      <dl className="mt-4 overflow-hidden rounded-[10px] border border-[#e5e5e5]">
+      {/* 테두리가 주황이다 — 이 화면에서 눈이 가야 할 곳이 표라는 뜻이다 (와이어프레임 2153:2002) */}
+      <dl className="mt-4 overflow-hidden rounded-[10px] border border-[#fc7f35]">
         {rows.map((r, i) => (
           <div
             key={r.label}

@@ -148,6 +148,51 @@ export function verdict(
     : `이 길은 추천하지 않습니다.${뒤}`;
 }
 
+/**
+ * 근거 화면(HOME-03)의 굵은 한 줄 — 이 길을 고르면 **무엇과 무엇을 맞바꾸는가**.
+ *
+ * verdict() 와 나눠 쓴다. 저건 요인 이름과 비율까지 말하는 설명문인데(경로 카드 옆에 앉는 자리라
+ * 표가 없다), 여기는 바로 아래에 비교표가 통째로 붙어 있다 — "고속주행 구간이 47%를 차지하니"는
+ * 표의 그 줄을 소리 내어 읽는 것뿐이고, 카드 한 줄에 넣으면 세 줄로 접혀 표보다 무거워진다.
+ *
+ * 말투가 "~해요"인 것도 이 줄뿐이다. 화면 글은 "~합니다"체지만(verdict·briefing) 여기는
+ * 와이어프레임이 정한 문구 모양을 그대로 따른다 — 짧게 끊어 말을 거는 자리다.
+ */
+export function tradeoff(
+  /** lib/score.ts 의 추천 결과 그대로. "single" 은 **추천을 접었다**는 뜻이다 */
+  pick: ScoreResult["recommendedRoute"],
+  route: { id: "fast" | "safe"; durationMin: number | null },
+  other: { durationMin: number | null } | null,
+): string {
+  // 비교할 상대가 없으면 맞바꿀 것도 없다
+  if (!other || route.durationMin == null || other.durationMin == null) return "";
+
+  /*
+   * 추천을 접었으면 아무 말도 안 한다. 여기에 boolean(recommended)만 받았더니 "추천이 아니다"와
+   * "추천 자체가 없다"가 한 갈래로 뭉쳐서, 못 고른 구간에서 두 길 중 하나를 나무라고 있었다.
+   * 무슨 말을 할지는 못고른말() 이 정하고 비교 화면이 그걸 그린다 — 여기서 다시 정하지 않는다.
+   */
+  if (pick === "single") return "";
+
+  const 분 = other.durationMin - route.durationMin; // 양수면 이 길이 빠르다
+
+  if (pick === route.id)
+    return 분 > 0
+      ? `빠른 길보다 ${분}분 빠르고, 부담도 적어요`
+      : 분 < 0
+        ? `빠른 길보다 ${-분}분 더, 대신 훨씬 편해요`
+        : "시간은 같은데 부담이 더 적어요";
+
+  /*
+   * 추천하지 않은 길을 고른 사람에게 하는 말이다 — 되돌리려 하지 않는다 (radioScript ②와 같은 규칙).
+   * 이 길이 더 느리기까지 하면 시간 얘기를 아예 꺼내지 않는다. 바로 아래 줄이 "58분 → 67분"으로
+   * 이미 보여주고 있어서, 글로 한 번 더 짚으면 고른 사람을 나무라는 말이 된다.
+   */
+  return 분 > 0
+    ? `${분}분 빠르지만, 긴장할 구간이 더 많아요`
+    : "긴장할 구간이 더 많은 길이에요";
+}
+
 type RouteLike = {
   name: string;
   risks: RiskFactor[];

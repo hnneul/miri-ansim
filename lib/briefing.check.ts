@@ -5,7 +5,7 @@
 // 부담점수·임계값은 같은 화면이 이미 큰 글씨로 보여준다 — 여기서 또 읊으면 자리가 비는 셈이다.
 
 import assert from "node:assert";
-import { briefing } from "./briefing.ts";
+import { briefing, tradeoff } from "./briefing.ts";
 import { scoreRoutes, type DriverProfile, type RiskFactor } from "./score.ts";
 
 const 초보: DriverProfile = {
@@ -74,4 +74,40 @@ const 요인없음 = 해석(초보, { fast: { ...fast, risks: [] }, safe: { ...s
 assert.deepEqual(요인없음.length, 2);
 assert.ok(요인없음[1].includes("확인된 위험요인이 없습니다"), 요인없음[1]);
 
+// --- ⑤ 근거 화면(HOME-03)의 굵은 한 줄 — tradeoff() ---
+// 카드 한 줄에 들어가야 하므로 짧아야 하고, **시간 차이를 잘못 말하면 안 된다.**
+// 실제로 9분 차이를 "시간은 비슷한데"라고 적고 있었다.
+const 느림 = { id: "safe" as const, durationMin: 67 };
+const 빠름 = { id: "fast" as const, durationMin: 58 };
+
+// 추천받은 길: 더 걸리면 그 대가를 말하고, 더 빠르면 둘 다 얻었다고 말한다
+assert.equal(tradeoff("safe", 느림, 빠름), "빠른 길보다 9분 더, 대신 훨씬 편해요");
+assert.equal(tradeoff("fast", 빠름, 느림), "빠른 길보다 9분 빠르고, 부담도 적어요");
+assert.equal(tradeoff("fast", { id: "fast", durationMin: 58 }, { durationMin: 58 }), "시간은 같은데 부담이 더 적어요");
+
+// 추천 안 된 길: 나무라지 않는다. 느리기까지 하면 시간 얘기를 아예 안 꺼낸다 —
+// 바로 아래 "58분 → 67분" 줄이 이미 보여주므로 글로 또 짚으면 고른 사람을 탓하는 말이 된다.
+assert.equal(tradeoff("safe", 빠름, 느림), "9분 빠르지만, 긴장할 구간이 더 많아요");
+assert.equal(tradeoff("fast", 느림, 빠름), "긴장할 구간이 더 많은 길이에요");
+for (const 말 of [tradeoff("safe", 빠름, 느림), tradeoff("fast", 느림, 빠름)])
+  for (const 나무람 of ["추천하지 않", "부담이 큰", "다시 생각"])
+    assert.ok(!말.includes(나무람), `고른 사람을 나무란다: ${말}`);
+
+// 추천을 접었으면 **아무 말도 안 한다** — "추천이 아니다"와 "추천이 없다"를 가른다.
+// 한 갈래로 뭉쳤을 때 못 고른 구간에서 두 길 중 하나를 나무라고 있었다.
+assert.equal(tradeoff("single", 느림, 빠름), "");
+assert.equal(tradeoff("single", 빠름, 느림), "");
+// 비교할 상대가 없으면 맞바꿀 것도 없다
+assert.equal(tradeoff("safe", 느림, null), "");
+assert.equal(tradeoff("safe", { id: "safe", durationMin: null }, 빠름), "");
+
+// 카드 한 줄에 들어가야 한다 — 길어지면 세 줄로 접혀 아래 표보다 무거워진다
+for (const p of ["fast", "safe", "single"] as const)
+  for (const [r, o] of [
+    [느림, 빠름],
+    [빠름, 느림],
+  ] as const)
+    assert.ok(tradeoff(p, r, o).length <= 30, `한 줄에 안 들어간다: ${tradeoff(p, r, o)}`);
+
 console.log("✅ 폴백 해석 문장 정상 — 점수 말투 없음, 조건별 분기·조사·빈 요인 처리 확인");
+console.log("✅ 근거 화면 한 줄 정상 — 시간 방향·추천 접음·나무라지 않기·길이 확인");
