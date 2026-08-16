@@ -3,14 +3,16 @@
 // 네트워크를 안 탄다. gatherCandidates(카카오 호출)와 buildCourses(순수 계산)를 나눠둔 이유가
 // 이것이다 — 코스 규칙은 실제 응답 없이 전부 확인할 수 있어야 한다.
 //
-// 여기서 지키는 약속 넷:
+// 여기서 지키는 약속:
 //   1. "꼭 가고 싶은 곳"은 절대 안 빠진다
-//   2. 하루 운전 시간을 넘기지 않는다 (한 곳도 못 가는 경우만 예외)
-//   3. 같은 입력이면 같은 코스가 나온다
-//   4. 내용이 같은 코스를 둘로 늘리지 않는다
+//   2. 하루 운전 시간을 넘기지 않고, 못 가는 곳은 후보에서 아예 빠진다
+//   3. 하루는 한 지역을 돈다 (섬을 왔다 갔다 하지 않는다)
+//   4. 같은 입력이면 같은 코스가 나온다
+//   5. 내용이 같은 코스를 둘로 늘리지 않는다
 
 import assert from "node:assert";
 import { buildCourses, driveMinutes, type Candidate, type Course } from "./course.ts";
+import { meters } from "./parking.ts";
 import { DEFAULT_TRIP, type TripPlan } from "./trip.ts";
 
 const AIRPORT: [number, number] = [33.507, 126.493];
@@ -109,6 +111,27 @@ for (const d of noCap[0].days) {
   const legs = d.stops.reduce((s, x) => s + x.legMin, 0);
   assert.ok(d.driveMin > legs, "돌아오는 길이 빠져 있다");
 }
+
+// --- 날짜별로 지역이 갈린다 ---
+// 하루는 한 지역을 돈다. 두 날의 경도 범위가 겹치면 섬을 왔다 갔다 하는 코스다.
+for (const c of base) {
+  const lngs = c.days.map((d) => d.stops.map((s) => s.at[1]));
+  const [a, b] = lngs;
+  if (a.length && b.length) {
+    const apart = Math.max(...a) < Math.min(...b) || Math.max(...b) < Math.min(...a);
+    assert.ok(apart, `하루가 다른 날의 지역을 침범했다: ${c.days.map((d) => d.stops.map((s) => s.name).join(",")).join(" | ")}`);
+  }
+}
+
+// --- 못 가는 곳은 후보에서 빠진다 ---
+// "1시간 이내"를 골랐으면 편도 30분 밖은 아예 안 나온다. 사용자가 지목한 must 만 예외다.
+for (const c of buildCourses(plan({ driveHours: 1 }), [SEONGSAN, ...BEACHES, ...OREUM]))
+  for (const s of c.days.flatMap((d) => d.stops))
+    if (!s.must)
+      assert.ok(
+        2 * driveMinutes(meters(AIRPORT, s.at)) <= 60,
+        `${s.name} 은 하루 상한(60분)으로 왕복이 안 되는데 코스에 들어왔다`,
+      );
 
 // --- 3. 같은 입력이면 같은 코스 ---
 const again = buildCourses(plan(), [...BEACHES, ...OREUM]);

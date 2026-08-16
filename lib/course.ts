@@ -134,19 +134,28 @@ export function buildCourses(plan: TripPlan, candidates: Candidate[]): Course[] 
   if (!origin || !period || candidates.length === 0) return [];
 
   const capMin = plan.driveHours ? plan.driveHours * 60 : Infinity;
-  const themes = themesOf(candidates);
 
+  /*
+    하루 상한으로 왕복이 안 되는 곳은 아예 뺀다.
+
+    "2시간 이내"를 고른 사람에게 편도 88분짜리 성산일출봉을 내밀 수는 없다. 예전에는 이 걸러내기
+    없이 schedule 이 담는 중에 상한을 봤는데, 그러면 못 갈 곳이 자리만 차지하다 버려졌다.
+    직접 지목한 must 는 예외다 — 사용자가 알고 고른 곳이라 시간을 넘겨서라도 넣는다.
+  */
+  const reachable = candidates.filter((c) => c.must || 2 * driveMinutes(meters(origin, c.at)) <= capMin);
+  if (!reachable.length) return [];
+
+  const themes = themesOf(reachable);
   const courses: Course[] = [];
   const used = new Set<string>();
 
   for (let n = 0; n < COURSE_COUNT; n++) {
     const theme = themes[n] ?? null;
     // 두 번째 코스는 첫 코스가 안 쓴 후보를 먼저 본다. 관심사가 하나뿐일 때 이게 유일한 차이다
-    const pool = n === 0 ? candidates : [...candidates.filter((c) => c.must || !used.has(c.name)), ...candidates];
-    const picked = pick(dedupe(pool), theme, period.days, origin);
-    if (picked.length === 0) break;
+    const pool = n === 0 ? reachable : [...reachable.filter((c) => c.must || !used.has(c.name)), ...reachable];
+    const course = schedule(dedupe(pool), origin, plan.start, period.days, capMin, theme);
+    if (!course.days.some((d) => d.stops.length)) break;
 
-    const course = schedule(picked, origin, plan.start, period.days, capMin, theme);
     // 앞 코스와 장소가 똑같으면 카드를 하나 더 만들지 않는다
     if (courses.some((c) => sameStops(c, course))) break;
 
@@ -165,35 +174,27 @@ function themesOf(candidates: Candidate[]): number[] {
 }
 
 /**
- * 코스에 넣을 자리를 고른다. must 가 먼저고, 그 다음이 이 코스의 관심사, 마지막이 나머지다.
- * must 가 자리를 다 먹어도 자르지 않는다 — 사용자가 지목한 곳을 개수 때문에 빼면 안 된다.
+ * 후보를 날짜 수만큼의 지역으로 가른다 — 하루에 한 지역을 돈다.
  *
- * 관심사 안에서는 출발지에 가까운 순으로 자른다. 두 가지를 동시에 푼다 —
- * 자리가 모자랄 때 덜 운전하는 쪽을 남기고, 카카오가 후보를 어떤 순서로 주든 같은 코스가 나온다
- * (정확도순 응답은 같은 검색어면 대체로 같지만, 그걸 코스의 재현성이 기대고 있으면 안 된다).
+ * **왜 지역으로 나누나.** 예전에는 출발지에서 가까운 순으로 자리를 채웠는데, 그러면 후보를
+ * 아무리 많이 모아도 공항 근처 몇 곳이 자리를 다 먹었다. 실제로 후보를 23곳에서 93곳으로
+ * 늘려봐도 코스는 한 곳만 바뀌었고, 하루 운전 시간을 "상관없음"으로 풀어도 결과가 같았다 —
+ * 성산·중문은 목록에 있는데도 영영 안 뽑혔다. 제주 여행이 원래 동부·서부로 나눠 도는 것이라,
+ * 날짜에 지역을 배정하는 편이 실제 여행에도 가깝다.
+ *
+ * 경도로 자르는 이유: 제주는 동서 73km · 남북 40km 라 동서 축이 훨씬 길다.
+ * 가까운 지역부터 도는 이유: 도착한 날에 섬 반대편까지 건너가지 않는다.
  */
-function pick(pool: Candidate[], theme: number | null, days: number, origin: LatLng): Candidate[] {
-  const room = Math.max(days * STOPS_PER_DAY, pool.filter((c) => c.must).length);
-  const near = (a: Candidate, b: Candidate) => meters(origin, a.at) - meters(origin, b.at) || (a.name < b.name ? -1 : 1);
-  const musts = pool.filter((c) => c.must); // 사용자가 적은 순서를 그대로 둔다
-  const themed = pool.filter((c) => !c.must && c.interest === theme).sort(near);
-  const rest = pool.filter((c) => !c.must && c.interest !== theme).sort(near);
+function regionsOf(pool: Candidate[], days: number, origin: LatLng): Candidate[][] {
+  if (days === 1) return [pool];
 
-  /*
-    겹치는 후보는 여기서 걸러낸다 — 자리를 다 채운 뒤가 아니라, 채우는 동안에.
+  const sorted = [...pool].sort((a, b) => a.at[1] - b.at[1] || (a.name < b.name ? -1 : 1));
+  const per = Math.ceil(sorted.length / days);
+  const bands = Array.from({ length: days }, (_, i) => sorted.slice(i * per, (i + 1) * per));
 
-    처음엔 schedule 이 담을 때 걸렀는데, 그러면 이미 뽑아둔 아홉 곳 중 여럿이 한 동네에 몰려
-    있을 때 그 자리가 통째로 날아가 하루가 한 곳으로 줄었다. 자리를 더 넉넉히 뽑아 해결하려
-    했더니 이번엔 후보를 다 담게 되어 두 코스가 똑같아졌다 (관심사가 힘을 쓰는 곳이 이 자르기다).
-    고를 때 거르면 둘 다 풀린다: 뽑힌 아홉 곳이 이미 서로 떨어져 있고, 자르는 개수는 그대로다.
-  */
-  const out = [...musts];
-  for (const c of [...themed, ...rest]) {
-    if (out.length >= room) break;
-    if (out.some((p) => meters(p.at, c.at) <= MIN_GAP_M)) continue;
-    out.push(c);
-  }
-  return out;
+  const reach = (band: Candidate[]) =>
+    band.length ? band.reduce((s, c) => s + meters(origin, c.at), 0) / band.length : Infinity;
+  return bands.sort((a, b) => reach(a) - reach(b));
 }
 
 /**
@@ -206,22 +207,22 @@ function pick(pool: Candidate[], theme: number | null, days: number, origin: Lat
  * 무엇보다 같은 입력에 같은 순서가 나온다.
  */
 function schedule(
-  picked: Candidate[],
+  pool: Candidate[],
   origin: LatLng,
   start: string,
   days: number,
   capMin: number,
   theme: number | null,
 ): Course {
-  const left = [...picked];
+  const bands = regionsOf(pool, days, origin);
   const out: Day[] = [];
 
   for (let d = 0; d < days; d++) {
+    const left = [...bands[d]];
     const stops: Stop[] = [];
     let at = origin;
     let driveM = 0;
     let driveMin = 0;
-    const lastDay = d === days - 1;
 
     while (left.length) {
       /*
@@ -230,7 +231,14 @@ function schedule(
         그래서 정원이 찬 뒤에는 must 만 더 들어간다.
       */
       const filled = stops.filter((s) => !s.must).length;
-      const eligible0 = filled >= STOPS_PER_DAY ? left.filter((c) => c.must) : left;
+      let eligible0 = filled >= STOPS_PER_DAY ? left.filter((c) => c.must) : left;
+
+      // 같은 자리를 두 번 세우지 않는다 — 카카오는 한 장소를 여러 이름으로 준다
+      eligible0 = eligible0.filter((c) => c.must || stops.every((s) => meters(s.at, c.at) > MIN_GAP_M));
+
+      // 이 코스의 관심사가 이 지역에 있으면 그것부터. 없으면 지역에 있는 것으로 채운다
+      const themed = eligible0.filter((c) => c.interest === theme);
+      if (themed.length) eligible0 = themed;
 
       /*
         하루의 첫 자리는 남은 must 중 가장 가까운 곳으로 연다.
@@ -251,15 +259,11 @@ function schedule(
       const homeMin = driveMinutes(meters(next.at, origin));
 
       // 이 자리를 넣고 돌아오는 것까지 하루 상한을 넘는가.
-      // 하루의 첫 자리는 넘겨도 넣는다 — 가장 가까운 곳조차 상한 밖이면 그날은 아무 데도 못 간다.
+      // 하루의 첫 자리는 넘겨도 넣는다 — 가장 가까운 곳조차 상한 밖이면 그날은 아무 데도 못 간다
+      // (must 가 그렇다. reachable 을 통과한 나머지는 혼자서는 늘 상한 안이다).
       if (stops.length && driveMin + legMin + homeMin > capMin) {
-        // 아직 날이 남았으면 다음 날로 미룬다
-        if (!lastDay) break;
-        // 마지막 날이면 더 미룰 곳이 없다. must 는 넘겨서라도 넣고, 나머지는 못 간 곳으로 남긴다
-        if (!next.must) {
-          left.splice(left.indexOf(next), 1);
-          continue;
-        }
+        left.splice(left.indexOf(next), 1);
+        continue;
       }
 
       left.splice(left.indexOf(next), 1);
