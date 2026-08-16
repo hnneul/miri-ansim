@@ -1,6 +1,8 @@
 "use client";
 
-// 메인화면 — 최종 와이어프레임 "NEW 매인화면" (Figma 2581:1799).
+// 메인화면 — 최종 와이어프레임 "NEW 매인화면" (Figma 2759:2219).
+// 같은 이름의 프레임이 캔버스에 둘 있다. 첫 칸이 혼잡도인 쪽(2759:2125)이 아니라 운전 TIP 인
+// 이쪽이 최신이다 — 나머지는 두 벌이 같다.
 // 온보딩(/onboarding)을 마치면 여기로 온다. 프로필은 URL 쿼리로 계속 나르고(lib/profile.ts),
 // 목적지를 검색하면 그대로 /destination 으로 넘긴다.
 //
@@ -214,9 +216,14 @@ function Home() {
       {/*
         빠르게 둘러보기 4칸. 갈 화면이 없는 칸은 흐리게 두고 못 누르게 막는다 —
         눌리는데 아무 일도 없으면 시연에서 더 나쁘다.
+
+        첫 칸이 혼잡도에서 운전 TIP 으로 바뀌었다 (와이어프레임 2759:2219). 혼잡도는 실시간 도로
+        API 승인을 기다리는 중이라 화면이 없고, 팁은 만들 화면이 정해져 있다 —
+        둘 다 아직 흐린 칸이지만 나올 순서가 다르다. 되살리려면 quick-traffic.png 가 그대로 있다.
       */}
       <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
-        <Quick icon="/home/quick-traffic.png" iconClass="size-[39px]" label="혼잡도" sub="실시간 도로" />
+        <Quick icon="/home/quick-tip.png" iconClass="size-[35px]" label="운전 TIP" sub="초보운전자" />
+        <Quick icon="/home/quick-record.png" iconClass="size-[32px]" label="주행 저장" sub="글쓰러 가기" />
         <Quick
           icon="/home/quick-tamna.png"
           iconClass="h-[28px] w-[34px]"
@@ -231,15 +238,24 @@ function Home() {
           sub="AI 맞춤 추천"
           href={`/trip?${searchParams}`}
         />
-        <Quick icon="/home/quick-record.png" iconClass="size-[32px]" label="여행 기록" sub="글쓰러 가기" />
       </div>
 
-      <h2 className="mt-[17px] shrink-0 pl-[22px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">안심 길 기록</h2>
+      <h2 className="mt-[17px] shrink-0 pl-[22px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">여행 기록</h2>
 
-      {/* 기록 저장소가 아직 없어 와이어프레임의 두 장을 그대로 둔다 */}
+      {/*
+        기록 저장소가 아직 없다. 와이어프레임이 두 장을 채워 보여주던 걸 한 장 + 빈 칸으로 줄였다 —
+        가짜 기록을 두 장 쌓아두는 것보다, 한 장으로 어떻게 보이는지만 알려주고 나머지 자리는
+        "여기에 쌓인다"고 비워두는 편이 정직하다. record-1.png 는 되살릴 때를 위해 남겨뒀다.
+      */}
       <div className="mt-[14px] flex shrink-0 flex-col gap-[10px] px-[21px]">
-        <Record photo="/home/record-1.png" title="애월에서 협재까지" count={23} />
         <Record photo="/home/record-2.png" title="중문 나들이" count={23} />
+        {/* 빈 칸. 저장할 곳이 없어 아직 못 누른다 — Quick 의 죽은 칸과 같은 규칙이다 */}
+        <div
+          aria-disabled
+          className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0]"
+        >
+          <img src="/home/icon-add.svg" alt="" className="size-[40px]" />
+        </div>
       </div>
 
       <p className="mt-[17px] shrink-0 text-center text-[11px] leading-none font-medium text-[#616161]">
@@ -290,7 +306,7 @@ function Quick({
 }
 
 /**
- * 안심 길 기록 카드.
+ * 여행 기록 카드.
  *
  * 글자 크기는 와이어프레임(9.06px / 6.04px)을 그대로 옮기지 않고 13/10 으로 올렸다 —
  * 저 값은 디자인에서 2배 크기 컴포넌트를 축소해 붙이며 딸려온 숫자로 보이고, 실제 390px 화면에서는
