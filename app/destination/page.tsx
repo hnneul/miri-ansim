@@ -314,8 +314,8 @@ function Destination() {
           실제로 눌러야 하는 것들만 pointer-events-auto 로 되살린다.
         */}
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-          {/* 검색바 + 프로필. 와이어프레임(2443:2433) 기준 바 289x54, 아바타 54, 사이 11 */}
-          <div className="pointer-events-auto flex shrink-0 items-center gap-[11px] pt-[19px] pr-4 pl-5">
+          {/* 검색바. 와이어프레임(2129:1793) 기준 높이 54, 좌우 여백 20 */}
+          <div className="pointer-events-auto flex shrink-0 items-center pt-[19px] pr-5 pl-5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -324,9 +324,6 @@ function Destination() {
             /*
               흰 바탕 + 주황 테두리로 바뀌었다 (메인화면 검색바와 같은 모양이다).
               전에 쓰던 주황 15% 배경은 지도 위에서 상호명이 비쳐 글자가 묻혔는데, 흰 바탕이라 그 문제도 같이 없어진다.
-
-              min-w-0 이 없으면 안쪽 내용 폭이 최소 폭이 돼서 폼이 안 줄고, 오른쪽 아바타가
-              패딩 밖으로 밀려난다 (input 의 min-w-0 만으로는 폼 자신이 안 줄어든다).
             */
             className="flex h-[54px] min-w-0 flex-1 items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]"
           >
@@ -369,20 +366,6 @@ function Destination() {
               검색
             </button>
           </form>
-
-          {/*
-            아바타는 와이어프레임에 박힌 그림 한 장이다 (profile 2153:1643, 메인화면과 같은 avatar-my).
-            경력에 따라 캐릭터가 갈리던 걸(lib/profile.ts characterOf) 여기서도 뗐다 — 메인화면과 이 화면이
-            서로 다른 얼굴을 달고 있으면 같은 사람의 프로필로 안 읽힌다.
-            되살리려면 src 를 characterOf(parseProfile(query).experienceYears).src 로 되돌리면 된다.
-          */}
-          <button
-            onClick={() => router.push(`/profile?${searchParams}`)}
-            aria-label="마이"
-            className="size-[54px] shrink-0 overflow-hidden rounded-full border border-[#f8f8f8] transition active:scale-95"
-          >
-            <img src="/character/avatar-my.png" alt="" className="size-full rounded-full object-cover" />
-          </button>
         </div>
 
           {/*
