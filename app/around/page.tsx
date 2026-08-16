@@ -322,13 +322,14 @@ function Around() {
             aria-label="기준 장소"
             className="min-w-0 flex-1 text-[14px] text-[#1f1f1f] outline-none placeholder:text-[#8a8a8a]"
           />
+          {/* 돋보기는 /home·/destination 과 같은 자산을 쓴다 — 여기만 글자 ⌕ 라 모양이 혼자 달랐다 */}
           <button
             type="submit"
             aria-label="검색"
             disabled={busy}
-            className="shrink-0 text-[17px] leading-none text-[#1f1f1f] disabled:opacity-40"
+            className="shrink-0 transition active:scale-90 disabled:opacity-40"
           >
-            ⌕
+            <img src="/home/icon-search.svg" alt="" className="h-[18px] w-[17px]" />
           </button>
         </form>
 
