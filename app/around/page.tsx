@@ -633,11 +633,11 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 const PIN = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 40">
      <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
        <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
      </filter>
-     <circle cx="28" cy="26" r="21" fill="#ff6114" filter="url(#s)"/>
+     <rect x="6" y="6" width="44" height="28" rx="14" fill="#ff6114" filter="url(#s)"/>
    </svg>`,
 );
 
@@ -648,9 +648,9 @@ const PIN_ON = "/tamna-pin-on.svg";
  *
  * 그림자가 번질 자리를 만드느라 캔버스가 그림보다 커서, 카카오 기본값("이미지 아래 가운데")을
  * 그대로 두면 핀이 몇 px 떠서 엉뚱한 건물을 가리킨다. 그려진 자리를 직접 넘겨 막는다.
- * 동그라미는 원 중심 (28,26), 물방울은 끝점 (28,69) — 각각 그린 크기로 환산한 값이다.
+ * 타원은 한가운데 (28,20), 물방울은 끝점 (28,69) — 각각 그린 크기로 환산한 값이다.
  */
-const PIN_SIZE = [22, 22, 11, 10] as const;
+const PIN_SIZE = [38, 27, 19, 14] as const;
 const PIN_ON_SIZE = [50, 70, 25, 62] as const;
 
 /**
