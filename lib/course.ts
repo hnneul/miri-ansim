@@ -25,6 +25,21 @@ const DETOUR = 1.3;
 /** 평균 주행 속도(km/h). 제주 일반도로 기준 — 고속도로가 없는 섬이라 한 값으로 잡는다. */
 const SPEED_KMH = 40;
 
+/**
+ * 후보를 찾는 기준점. 카카오 반경 상한이 20km 인데 제주는 동서 73km 라, 출발지 한 곳에서만
+ * 찾으면 섬 절반이 후보에서 빠진다 — 공항에서 성산은 42km, 서귀포는 29km 다.
+ * 실측: 해수욕장 후보가 한 곳에서 10곳, 네 곳에서 38곳. 중문·월정리·협재·표선이 그 차이다.
+ *
+ * 네 곳으로 섬이 덮인다. 출발지는 앵커에 안 넣는다 — 제주가 좁아 어느 출발지든
+ * 이 넷 중 하나의 반경 안이고, 겹치는 결과는 dedupe 가 정리한다.
+ */
+const ANCHORS: LatLng[] = [
+  [33.4996, 126.5312], // 제주시
+  [33.2541, 126.56], // 서귀포
+  [33.458, 126.9425], // 성산
+  [33.414, 126.269], // 한림
+];
+
 /** 하루에 넣을 장소 수. 3곳이면 이동·관람·식사가 한 낮에 들어간다. */
 const STOPS_PER_DAY = 3;
 
@@ -76,10 +91,13 @@ export type Course = {
 /* ─────────────────────────── 후보 수집 (네트워크) ─────────────────────────── */
 
 /**
- * 코스에 쓸 후보를 모은다. 관심 장소마다 카카오를 한 번씩 부르고, "꼭 가고 싶은 곳"은
- * 이름만 있으므로 지오코딩으로 좌표를 붙인다.
+ * 코스에 쓸 후보를 모은다. 관심 장소 × 앵커(ANCHORS)마다 카카오를 한 번씩 부르고,
+ * "꼭 가고 싶은 곳"은 이름만 있으므로 지오코딩으로 좌표를 붙인다.
  *
- * 실패한 관심사는 건너뛴다 — 여섯 중 하나가 응답을 못 받았다고 코스를 통째로 못 만들 이유가 없다.
+ * 관심사를 다 고르면 24회가 나가는데, 전부 병렬이라 0.2초쯤 걸린다(실측). 쿼터도 넉넉하다 —
+ * 월 300만 중 앱 전체가 쓰는 게 만 오천 남짓이라, 이걸 아끼려고 앵커 수를 조절할 이유가 없었다.
+ *
+ * 실패한 호출은 건너뛴다 — 스물넷 중 하나가 응답을 못 받았다고 코스를 통째로 못 만들 이유가 없다.
  * 다만 must 는 사용자가 직접 지목한 곳이라, 좌표를 못 받으면 조용히 빼지 않고 missing 으로 알린다.
  */
 export async function gatherCandidates(
@@ -89,10 +107,12 @@ export async function gatherCandidates(
   if (!origin) return { candidates: [], missing: plan.musts };
 
   const fromInterests = await Promise.all(
-    plan.interests.map(async (i) => {
-      const found = await searchSpotsNear(origin, INTERESTS[i], 20000);
-      return "error" in found ? [] : found.spots.map((s): Candidate => ({ ...s, interest: i, must: false }));
-    }),
+    plan.interests.flatMap((i) =>
+      ANCHORS.map(async (at) => {
+        const found = await searchSpotsNear(at, INTERESTS[i], 20000);
+        return "error" in found ? [] : found.spots.map((s): Candidate => ({ ...s, interest: i, must: false }));
+      }),
+    ),
   );
 
   const missing: string[] = [];
