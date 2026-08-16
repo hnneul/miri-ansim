@@ -18,6 +18,7 @@ import {
   type LinkIndex,
 } from "./analyze.ts";
 import { distance, type LatLng } from "./curvature.ts";
+import { unprotectedCount } from "./unprotected.ts";
 import { burdenOf, type DriverProfile, type RiskFactor } from "./score.ts";
 
 const ENDPOINT = "https://apis-navi.kakaomobility.com/v1/directions";
@@ -232,6 +233,13 @@ export function risksOf(a: Analysis): RiskFactor[] {
 export type RouteStats = {
   /** 좌회전·유턴 (번). 맞은편 흐름을 끊고 들어가는 판단의 횟수다 */
   turns: number;
+  /**
+   * 비보호 좌회전 (번). **판독표에 없는 좌회전을 지나면 null** — "확인 안 됨"이다.
+   *
+   * 0(확인해보니 없다)과 null(모른다)을 구분해야 한다. 굳혀둔 구간은 네 곳을 다 봤으므로
+   * 0 이 사실이지만, 임의 구간은 대개 판독 안 된 지점을 지난다 (lib/unprotected.ts).
+   */
+  unprotected: number | null;
   /** 회전교차로 (곳) */
   roundabouts: number;
   /** 연속 급커브 (곳) */
@@ -294,6 +302,7 @@ function toRoute(
     risks: risksOf(a),
     stats: {
       turns: a.guides.left + a.guides.uTurn,
+      unprotected: unprotectedCount(a.turnPoints),
       roundabouts: a.guides.roundabout,
       sharpCurves: a.sharpCurve.sections,
       narrow: a.narrow.exposure,

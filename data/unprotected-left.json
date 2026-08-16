@@ -7,7 +7,24 @@
     "kind": "left",
     "bearing": 142,
     "경유": [
-      "route-DISTANCE.json"
+      "route-DISTANCE.json",
+      "route-시내-DISTANCE.json",
+      "route-시내-TIME.json",
+      "route-함덕-DISTANCE.json",
+      "route-함덕-TIME.json",
+      "route-비자림-DISTANCE.json",
+      "route-동문시장2-DISTANCE.json",
+      "route-동문시장2-TIME.json",
+      "route-시내-RECOMMEND.json",
+      "route-동문시장2-RECOMMEND.json",
+      "route-올레시장-DISTANCE.json",
+      "route-만장굴-DISTANCE.json",
+      "route-천지연폭포-DISTANCE.json",
+      "route-월정리-DISTANCE.json",
+      "route-표선-DISTANCE.json",
+      "route-쇠소깍-DISTANCE.json",
+      "route-쇠소깍-TIME.json",
+      "route-제주민속촌-DISTANCE.json"
     ],
     "tag": "/roadview-tag.html?lat=33.50417160924162&lng=126.49627450764577&bearing=142&label=%EB%8B%A4%ED%98%B8%EB%A7%88%EC%9D%84%EC%9E%85%EA%B5%AC%EA%B5%90%EC%B0%A8%EB%A1%9C"
   },
@@ -19,7 +36,11 @@
     "kind": "left",
     "bearing": 91,
     "경유": [
-      "route-DISTANCE.json"
+      "route-DISTANCE.json",
+      "route-올레시장-DISTANCE.json",
+      "route-천지연폭포-DISTANCE.json",
+      "route-쇠소깍-DISTANCE.json",
+      "route-쇠소깍-TIME.json"
     ],
     "tag": "/roadview-tag.html?lat=33.5002503201841&lng=126.50600593231974&bearing=91&label=%EC%98%A4%EB%9D%BC%EC%98%A4%EA%B1%B0%EB%A6%AC"
   },
@@ -31,7 +52,8 @@
     "kind": "left",
     "bearing": 210,
     "경유": [
-      "route-DISTANCE.json"
+      "route-DISTANCE.json",
+      "route-올레시장-DISTANCE.json"
     ],
     "tag": "/roadview-tag.html?lat=33.25078305542968&lng=126.5643264985591&bearing=210&label="
   },
@@ -44,8 +66,676 @@
     "bearing": 258,
     "경유": [
       "route-DISTANCE.json",
-      "route-TIME.json"
+      "route-TIME.json",
+      "route-올레시장-DISTANCE.json",
+      "route-올레시장-RECOMMEND.json",
+      "route-올레시장-TIME.json"
     ],
     "tag": "/roadview-tag.html?lat=33.250459745169934&lng=126.56365575576332&bearing=258&label="
+  },
+  "33.49972,126.53109": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 335,
+    "경유": [
+      "route-시청용두암-DISTANCE.json",
+      "route-시청용두암-TIME.json",
+      "route-시청용두암-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.49972080931781&lng=126.53108868926168&bearing=335&label="
+  },
+  "33.49996,126.53094": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "광양9길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 244,
+    "경유": [
+      "route-시청용두암-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.49996252704952&lng=126.53094470950307&bearing=244&label="
+  },
+  "33.50945,126.52348": {
+    "verdict": "보호",
+    "shotAt": null,
+    "label": "남문사거리",
+    "guidance": "남초등학교 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 261,
+    "경유": [
+      "route-시청용두암-DISTANCE.json",
+      "route-시청용두암-TIME.json",
+      "route-시청용두암-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.50944844220021&lng=126.52347671654063&bearing=261&label=%EB%82%A8%EB%AC%B8%EC%82%AC%EA%B1%B0%EB%A6%AC"
+  },
+  "33.51497,126.51392": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "흥운길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 280,
+    "경유": [
+      "route-시청용두암-DISTANCE.json",
+      "route-시청용두암-TIME.json",
+      "route-시청용두암-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.51496899474461&lng=126.51392215329126&bearing=280&label="
+  },
+  "33.50124,126.53016": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "동광로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 240,
+    "경유": [
+      "route-시청용두암-TIME.json",
+      "route-시청용두암-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.50124245825859&lng=126.53015902383733&bearing=240&label="
+  },
+  "33.48569,126.49645": {
+    "verdict": "보호",
+    "shotAt": null,
+    "label": "연동사거리",
+    "guidance": "도청 공항 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 1,
+    "경유": [
+      "route-신제주-DISTANCE.json",
+      "route-신제주-TIME.json",
+      "route-신제주-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.48569162733068&lng=126.49645410723146&bearing=1&label=%EC%97%B0%EB%8F%99%EC%82%AC%EA%B1%B0%EB%A6%AC"
+  },
+  "33.48763,126.49866": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "선덕로3길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 1,
+    "경유": [
+      "route-신제주-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.48762968583485&lng=126.49865862918533&bearing=1&label="
+  },
+  "33.48855,126.49870": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 272,
+    "경유": [
+      "route-신제주-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.488549746862546&lng=126.49869655026477&bearing=272&label="
+  },
+  "33.48876,126.49796": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 89,
+    "경유": [
+      "route-신제주-TIME.json",
+      "route-신제주-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.48875721313796&lng=126.49796130143669&bearing=89&label="
+  },
+  "33.51160,126.54765": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "국립박물관",
+    "guidance": "조천 성산 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 63,
+    "경유": [
+      "route-함덕-DISTANCE.json",
+      "route-함덕-TIME.json",
+      "route-비자림-DISTANCE.json",
+      "route-만장굴-DISTANCE.json",
+      "route-월정리-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.51160042855388&lng=126.54764554383324&bearing=63&label=%EA%B5%AD%EB%A6%BD%EB%B0%95%EB%AC%BC%EA%B4%80"
+  },
+  "33.52046,126.59789": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "삼양검문소",
+    "guidance": "조천 성산 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 76,
+    "경유": [
+      "route-함덕-DISTANCE.json",
+      "route-함덕-TIME.json",
+      "route-비자림-DISTANCE.json",
+      "route-만장굴-DISTANCE.json",
+      "route-월정리-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.52046492762533&lng=126.59789396942425&bearing=76&label=%EC%82%BC%EC%96%91%EA%B2%80%EB%AC%B8%EC%86%8C"
+  },
+  "33.53955,126.67004": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "함덕18길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 7,
+    "경유": [
+      "route-함덕-DISTANCE.json",
+      "route-함덕-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.53955395123215&lng=126.6700435127422&bearing=7&label="
+  },
+  "33.54045,126.67022": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "신북로",
+    "guidance": "조천 제주 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 300,
+    "경유": [
+      "route-함덕-DISTANCE.json",
+      "route-함덕-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.54044845884465&lng=126.67022360954925&bearing=300&label="
+  },
+  "33.54263,126.66977": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "조함해안로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 269,
+    "경유": [
+      "route-함덕-DISTANCE.json",
+      "route-함덕-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.54262543571309&lng=126.66977036130092&bearing=269&label="
+  },
+  "33.39692,126.24402": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "한림로",
+    "guidance": "신창 모슬포 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 214,
+    "경유": [
+      "route-협재-TIME.json",
+      "route-협재-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.39691523132968&lng=126.24401505753629&bearing=214&label="
+  },
+  "33.49615,126.45531": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "도리로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 321,
+    "경유": [
+      "route-이호테우-DISTANCE.json",
+      "route-이호테우-TIME.json",
+      "route-이호테우-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.49614853503168&lng=126.45530736060988&bearing=321&label="
+  },
+  "33.50809,126.70769": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "동백로",
+    "guidance": "덕천 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 53,
+    "경유": [
+      "route-비자림-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.50809013053495&lng=126.70768821413267&bearing=53&label="
+  },
+  "33.49470,126.80614": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "비자림로",
+    "guidance": "평대 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 84,
+    "경유": [
+      "route-비자림-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.49469726193755&lng=126.8061353876839&bearing=84&label="
+  },
+  "33.49753,126.49694": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "신제주입구",
+    "guidance": "시청 성산 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 68,
+    "경유": [
+      "route-비자림-TIME.json",
+      "route-함덕-RECOMMEND.json",
+      "route-비자림-RECOMMEND.json",
+      "route-만장굴-RECOMMEND.json",
+      "route-만장굴-TIME.json",
+      "route-월정리-RECOMMEND.json",
+      "route-월정리-TIME.json",
+      "route-표선-RECOMMEND.json",
+      "route-표선-TIME.json",
+      "route-쇠소깍-RECOMMEND.json",
+      "route-제주민속촌-RECOMMEND.json",
+      "route-제주민속촌-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.49752609116359&lng=126.49693823220089&bearing=68&label=%EC%8B%A0%EC%A0%9C%EC%A3%BC%EC%9E%85%EA%B5%AC"
+  },
+  "33.43580,126.73614": {
+    "verdict": "보호",
+    "shotAt": "2026-03-19",
+    "label": "대천교차로",
+    "guidance": "평대 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 56,
+    "경유": [
+      "route-비자림-TIME.json",
+      "route-비자림-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.43579520858515&lng=126.7361398532347&bearing=56&label=%EB%8C%80%EC%B2%9C%EA%B5%90%EC%B0%A8%EB%A1%9C"
+  },
+  "33.27379,126.30396": {
+    "verdict": "비보호",
+    "shotAt": "2024-05-27",
+    "label": "덕수1교차로",
+    "guidance": "덕수 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 170,
+    "경유": [
+      "route-용머리-DISTANCE.json",
+      "route-용머리-TIME.json",
+      "route-용머리-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.27379411164411&lng=126.30395888982868&bearing=170&label=%EB%8D%95%EC%88%981%EA%B5%90%EC%B0%A8%EB%A1%9C"
+  },
+  "33.23479,126.30820": {
+    "verdict": "무신호",
+    "shotAt": "2026-03-19",
+    "label": "사계리삼거리",
+    "guidance": "해안도로 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 169,
+    "경유": [
+      "route-용머리-DISTANCE.json",
+      "route-용머리-TIME.json",
+      "route-용머리-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.234786934466385&lng=126.30819914779829&bearing=169&label=%EC%82%AC%EA%B3%84%EB%A6%AC%EC%82%BC%EA%B1%B0%EB%A6%AC"
+  },
+  "33.23243,126.30875": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "사계남로216번길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 40,
+    "경유": [
+      "route-용머리-DISTANCE.json",
+      "route-용머리-TIME.json",
+      "route-용머리-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.23243229184912&lng=126.308748709604&bearing=40&label="
+  },
+  "33.35204,126.35938": {
+    "verdict": "판단불가",
+    "shotAt": "2026-03-11",
+    "label": "봉성교차로",
+    "guidance": "화전마을 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 118,
+    "경유": [
+      "route-카멜리아힐-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.352036906628925&lng=126.35937876582297&bearing=118&label=%EB%B4%89%EC%84%B1%EA%B5%90%EC%B0%A8%EB%A1%9C"
+  },
+  "33.29000,126.36763": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 35,
+    "경유": [
+      "route-카멜리아힐-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.29000036538663&lng=126.36762604301654&bearing=35&label="
+  },
+  "33.27654,126.36110": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "병악로",
+    "guidance": "광평리 상천리 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 359,
+    "경유": [
+      "route-카멜리아힐-TIME.json",
+      "route-카멜리아힐-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.27653515949164&lng=126.36110393429813&bearing=359&label="
+  },
+  "33.50305,126.56604": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "연북로",
+    "guidance": "조천 성산 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 58,
+    "경유": [
+      "route-함덕-RECOMMEND.json",
+      "route-만장굴-RECOMMEND.json",
+      "route-만장굴-TIME.json",
+      "route-월정리-RECOMMEND.json",
+      "route-월정리-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.503051397119435&lng=126.56604022334778&bearing=58&label="
+  },
+  "33.53455,126.64196": {
+    "verdict": "보호",
+    "shotAt": "2026-03-08",
+    "label": "조천사거리",
+    "guidance": "조천 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 335,
+    "경유": [
+      "route-함덕-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.53455183163599&lng=126.64195679975724&bearing=335&label=%EC%A1%B0%EC%B2%9C%EC%82%AC%EA%B1%B0%EB%A6%AC"
+  },
+  "33.54216,126.66464": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "조함해안로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 32,
+    "경유": [
+      "route-함덕-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.54215550068101&lng=126.6646418181194&bearing=32&label="
+  },
+  "33.24482,126.56441": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "솔동산로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 189,
+    "경유": [
+      "route-천지연폭포-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.24481537607592&lng=126.56441334772413&bearing=189&label="
+  },
+  "33.25849,126.42692": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "중문입구",
+    "guidance": "시청 성산 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 115,
+    "경유": [
+      "route-천지연폭포-RECOMMEND.json",
+      "route-천지연폭포-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.25848829955646&lng=126.42692330889585&bearing=115&label=%EC%A4%91%EB%AC%B8%EC%9E%85%EA%B5%AC"
+  },
+  "33.24031,126.55886": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "남성중로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 28,
+    "경유": [
+      "route-천지연폭포-RECOMMEND.json",
+      "route-천지연폭포-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.24030624918524&lng=126.55886485869573&bearing=28&label="
+  },
+  "33.24332,126.56047": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "남성중로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 312,
+    "경유": [
+      "route-천지연폭포-RECOMMEND.json",
+      "route-천지연폭포-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.24331817058791&lng=126.56046781348432&bearing=312&label="
+  },
+  "33.26498,126.37160": {
+    "verdict": "보호",
+    "shotAt": "2026-03-17",
+    "label": "창천삼거리",
+    "guidance": "중문 서귀포 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 73,
+    "경유": [
+      "route-중문색달-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.264979660394985&lng=126.37160109328083&bearing=73&label=%EC%B0%BD%EC%B2%9C%EC%82%BC%EA%B1%B0%EB%A6%AC"
+  },
+  "33.25030,126.41063": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "중문관광로72번길",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 147,
+    "경유": [
+      "route-중문색달-DISTANCE.json",
+      "route-중문색달-RECOMMEND.json",
+      "route-중문색달-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.25030205548763&lng=126.41063115247202&bearing=147&label="
+  },
+  "33.26425,126.39264": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "일주서로",
+    "guidance": "중문 서귀포 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 106,
+    "경유": [
+      "route-중문색달-RECOMMEND.json",
+      "route-중문색달-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.26425268484611&lng=126.392638493662&bearing=106&label="
+  },
+  "33.29459,126.33026": {
+    "verdict": "비보호",
+    "shotAt": "2026-03-23",
+    "label": "서광2교차로",
+    "guidance": "서광동 화순 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 165,
+    "경유": [
+      "route-산방산-DISTANCE.json",
+      "route-산방산-RECOMMEND.json",
+      "route-산방산-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.29458870683599&lng=126.33025582895041&bearing=165&label=%EC%84%9C%EA%B4%912%EA%B5%90%EC%B0%A8%EB%A1%9C"
+  },
+  "33.25155,126.33364": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "화순리",
+    "guidance": "화순금모래해변 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 141,
+    "경유": [
+      "route-산방산-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.251548065972536&lng=126.33363955833818&bearing=141&label=%ED%99%94%EC%88%9C%EB%A6%AC"
+  },
+  "33.25025,126.32007": {
+    "verdict": "보호",
+    "shotAt": "2026-03-17",
+    "label": "덕수삼거리",
+    "guidance": "산방산 화순금모래해변 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 139,
+    "경유": [
+      "route-산방산-RECOMMEND.json",
+      "route-산방산-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.25024751411886&lng=126.32006917717476&bearing=139&label=%EB%8D%95%EC%88%98%EC%82%BC%EA%B1%B0%EB%A6%AC"
+  },
+  "33.55178,126.79112": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "월정리",
+    "guidance": "해안도로 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 39,
+    "경유": [
+      "route-월정리-DISTANCE.json",
+      "route-월정리-RECOMMEND.json",
+      "route-월정리-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.55177670391879&lng=126.79111532965861&bearing=39&label=%EC%9B%94%EC%A0%95%EB%A6%AC"
+  },
+  "33.36217,126.36423": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 214,
+    "경유": [
+      "route-새별오름-DISTANCE.json",
+      "route-새별오름-RECOMMEND.json",
+      "route-새별오름-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.362171364638186&lng=126.36422748191308&bearing=214&label="
+  },
+  "33.31790,126.59846": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "서성로입구",
+    "guidance": "수망 국가태풍센터 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 102,
+    "경유": [
+      "route-쇠소깍-DISTANCE.json",
+      "route-쇠소깍-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.3179009085103&lng=126.59846147620011&bearing=102&label=%EC%84%9C%EC%84%B1%EB%A1%9C%EC%9E%85%EA%B5%AC"
+  },
+  "33.30143,126.61396": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "하례로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 157,
+    "경유": [
+      "route-쇠소깍-DISTANCE.json",
+      "route-쇠소깍-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.30143103146107&lng=126.6139607211412&bearing=157&label="
+  },
+  "33.28493,126.61988": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "하례입구",
+    "guidance": "의귀 성읍 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 116,
+    "경유": [
+      "route-쇠소깍-DISTANCE.json",
+      "route-쇠소깍-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.284925204287276&lng=126.61987903414767&bearing=116&label=%ED%95%98%EB%A1%80%EC%9E%85%EA%B5%AC"
+  },
+  "33.26330,126.62226": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "효돈입구",
+    "guidance": "유턴",
+    "kind": "uTurn",
+    "bearing": 81,
+    "경유": [
+      "route-쇠소깍-DISTANCE.json",
+      "route-쇠소깍-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.26330373015319&lng=126.62225833789685&bearing=81&label=%ED%9A%A8%EB%8F%88%EC%9E%85%EA%B5%AC"
+  },
+  "33.25840,126.62351": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 89,
+    "경유": [
+      "route-쇠소깍-DISTANCE.json",
+      "route-쇠소깍-TIME.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.258403704401104&lng=126.62350502110529&bearing=89&label="
+  },
+  "33.26351,126.62909": {
+    "verdict": "보호",
+    "shotAt": "2026-03-19",
+    "label": "하례교차로",
+    "guidance": "쇠소깍 방면으로 좌회전",
+    "kind": "left",
+    "bearing": 162,
+    "경유": [
+      "route-쇠소깍-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.26350549125104&lng=126.62909167440061&bearing=162&label=%ED%95%98%EB%A1%80%EA%B5%90%EC%B0%A8%EB%A1%9C"
+  },
+  "33.25839,126.62421": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "하례로",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 184,
+    "경유": [
+      "route-쇠소깍-RECOMMEND.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.25839351281505&lng=126.62421347427994&bearing=184&label="
+  },
+  "33.32248,126.84476": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 16,
+    "경유": [
+      "route-제주민속촌-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.322482157552194&lng=126.84475771735693&bearing=16&label="
+  },
+  "33.32278,126.84435": {
+    "verdict": null,
+    "shotAt": null,
+    "label": "(이름없음)",
+    "guidance": "좌회전",
+    "kind": "left",
+    "bearing": 298,
+    "경유": [
+      "route-제주민속촌-DISTANCE.json"
+    ],
+    "tag": "/roadview-tag.html?lat=33.32278488313635&lng=126.84434560405818&bearing=298&label="
   }
 }

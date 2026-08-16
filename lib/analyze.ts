@@ -159,6 +159,11 @@ export type Analysis = {
     /** 회전교차로 (곳) */
     roundabout: number;
   };
+  /**
+   * 좌회전·유턴 지점의 좌표. 그 지점이 비보호인지 물어보려면 좌표가 있어야 한다
+   * (lib/unprotected.ts). 회전교차로는 넣지 않는다 — 비보호라는 말이 성립하지 않는다.
+   */
+  turnPoints: LatLng[];
   lanesKm: Record<string, number>;
   speedKm: Record<string, number>;
   /**
@@ -188,12 +193,18 @@ export type Analysis = {
  * "왼쪽 방향"(분기)은 좌회전으로 안 센다. 맞은편 흐름을 끊고 들어가는 동작이 아니라
  * 갈림길에서 왼쪽을 고르는 것뿐이고, 초보가 무서워하는 건 앞쪽이다.
  */
-function countGuides(sections: { guides?: { guidance?: string }[] }[]): Analysis["guides"] {
-  const out = { left: 0, uTurn: 0, roundabout: 0 };
+function countGuides(
+  sections: { guides?: { guidance?: string; x?: number; y?: number }[] }[],
+): Analysis["guides"] & { turnPoints: LatLng[] } {
+  const out = { left: 0, uTurn: 0, roundabout: 0, turnPoints: [] as LatLng[] };
   for (const s of sections)
     for (const g of s.guides ?? []) {
       const kind = guideKind(g.guidance ?? "");
-      if (kind) out[kind]++;
+      if (!kind) continue;
+      out[kind]++;
+      // 좌표가 없는 응답(굳혀둔 폴백 데이터 등)에서는 좌표 없이 횟수만 센다
+      if (kind !== "roundabout" && typeof g.x === "number" && typeof g.y === "number")
+        out.turnPoints.push([g.y, g.x]);
     }
   return out;
 }
@@ -216,7 +227,10 @@ export function guideKind(guidance: string): keyof Analysis["guides"] | null {
 export function analyze(
   route: {
     summary: { distance: number; duration: number };
-    sections: { roads: { vertexes: number[] }[]; guides?: { guidance?: string }[] }[];
+    sections: {
+      roads: { vertexes: number[] }[];
+      guides?: { guidance?: string; x?: number; y?: number }[];
+    }[];
   },
   index: LinkIndex,
 ): Analysis {
@@ -232,6 +246,7 @@ export function analyze(
   const winding = sharpCurves(path, spd, 50, WINDING_GAP);
   const windingM = winding.reduce((s, c) => s + c.lengthM, 0);
   const cluster = densestCluster(curves);
+  const 안내 = countGuides(route.sections);
 
   const curveByRoad: Record<string, number> = {};
   for (const c of curves) {
@@ -303,7 +318,8 @@ export function analyze(
       byRoad: byRoad(fast),
       at: midOf(fast),
     },
-    guides: countGuides(route.sections),
+    guides: { left: 안내.left, uTurn: 안내.uTurn, roundabout: 안내.roundabout },
+    turnPoints: 안내.turnPoints,
     lanesKm: Object.fromEntries(Object.entries(byLanes).map(([k, v]) => [k, round1(v)])),
     speedKm: Object.fromEntries(Object.entries(bySpd).map(([k, v]) => [k, round1(v)])),
     roadKm: byRoad(all),
