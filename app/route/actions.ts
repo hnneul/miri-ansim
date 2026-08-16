@@ -15,6 +15,7 @@
 import { routesFor, type LiveRoute } from "@/lib/route";
 import { scoreRoutes, type DriverProfile, type ScoreResult } from "@/lib/score";
 import { radioScript, verdict } from "@/lib/briefing";
+import { 붙인칸 } from "@/lib/sign";
 import { aiSentences, factsOf, type ArrivalFacts, type Facts } from "@/lib/ai";
 import { meters, parkingKind, walkMinutes, type Lot } from "@/lib/parking";
 import type { Link } from "@/lib/analyze";
@@ -102,10 +103,14 @@ export async function compareRoutes(
   const arrival = arrivalOf(destination, dest);
 
   // 규칙 대본. 계산뿐이라 즉시 나오고, 여기가 비는 경우가 없어야 재생 버튼이 늘 뜬다.
+  // 나가기 전에 칸마다 서명을 붙인다 — /api/tts 가 서버가 만든 대본만 읽게 하려는 것이다
+  // (lib/sign.ts). 화면은 이 값을 그리지 않고 RouteRadio 로 넘기기만 한다.
   const radio = Object.fromEntries(
     live.routes.map((r) => [
       r.id,
-      radioScript(profile, score, r, live.routes.find((x) => x.id !== r.id) ?? null, arrival),
+      radioScript(profile, score, r, live.routes.find((x) => x.id !== r.id) ?? null, arrival).map(
+        붙인칸,
+      ),
     ]),
   );
 
@@ -150,5 +155,6 @@ const AI_대본 = false;
 export async function aiRadio(facts: Facts): Promise<string[][] | null> {
   if (!AI_대본) return null;
   if (facts.경로.length < 2) return null;
-  return (await aiSentences(facts))?.radio ?? null;
+  // 규칙 대본과 같은 이유로 여기도 서명을 붙인다 — 화면이 어느 쪽을 쓰든 주소 모양이 같아야 한다
+  return (await aiSentences(facts))?.radio?.map((대본) => 대본.map(붙인칸)) ?? null;
 }
