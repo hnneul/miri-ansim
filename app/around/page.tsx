@@ -638,7 +638,7 @@ const PIN = pin(
      <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
        <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
      </filter>
-     <rect x="6" y="6" width="44" height="28" rx="14" fill="#ff9a66" filter="url(#s)"/>
+     <rect x="6" y="6" width="44" height="28" rx="14" fill="#ffbf9a" filter="url(#s)"/>
    </svg>`,
 );
 
