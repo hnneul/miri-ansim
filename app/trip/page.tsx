@@ -33,7 +33,6 @@ import {
   companionLabel,
   driveLabel,
   isReady,
-  keywordLine,
   mustLabel,
   periodLabel,
   toTripQuery,
@@ -228,8 +227,6 @@ function TasteView({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const keywords = keywordLine(plan);
-
   return (
     <Shell
       label="일정·동행 입력하기"
@@ -239,22 +236,19 @@ function TasteView({
     >
       <Back onClick={onBack} />
 
-      <div className="flex shrink-0 items-start justify-between gap-4 px-6">
-        <div className="min-w-0">
-          {/* 렌더를 픽셀로 재서 맞춘 값 — 제목 두 줄이 82~135(줄 간격 28), 부제 잉크가 145 에서 시작한다 */}
-          <h2 className="text-[25px] leading-[28px] font-bold text-[#262626]">
-            어떤 제주 여행을
-            <br />
-            원하시나요?
-          </h2>
-          <p className="mt-[10px] text-[11px] leading-[18px] text-[#7d7d7d]">여행 분위기와 관심 장소를 함께 골라주세요.</p>
-        </div>
-        <img src="/character/trip-taste.png" alt="" className="size-[62px] shrink-0 object-contain" />
+      <div className="shrink-0 px-6">
+        {/* 제목 두 줄 간격 28 — 렌더를 픽셀로 재서 맞춘 값이다 */}
+        <h2 className="text-[25px] leading-[28px] font-bold text-[#262626]">
+          어떤 제주 여행을
+          <br />
+          원하시나요?
+        </h2>
+        <p className="mt-[19px] text-[11px] leading-[18px] text-[#7d7d7d]">여행 분위기와 관심 장소를 함께 골라주세요.</p>
       </div>
 
       <SectionLabel n={1} title="좋아하는 여행 분위기" hint="복수 선택 가능" />
       {/* 164x64 두 칸, 칸 사이 14 / 줄 사이 12 (피그마 left 24·202, top 222·298) */}
-      <div className="mt-2.5 grid shrink-0 grid-cols-2 gap-x-[14px] gap-y-3 px-6">
+      <div className="mt-5 grid shrink-0 grid-cols-2 gap-x-[14px] gap-y-3 px-6">
         {MOODS.map((m, i) => {
           const on = plan.moods.includes(i);
           return (
@@ -285,7 +279,7 @@ function TasteView({
         104x58 세 칸. 피그마는 left 24·137·250 이라 오른쪽 여백만 36 으로 남는데(왼쪽은 24),
         좌우 여백을 24 로 맞추고 칸 너비를 108 로 늘린다 — 한쪽만 뜬 여백은 옮길 값이 아니라 흘린 값이다.
       */}
-      <div className="mt-2.5 grid shrink-0 grid-cols-3 gap-x-[9px] gap-y-3 px-6">
+      <div className="mt-[21px] grid shrink-0 grid-cols-3 gap-x-[9px] gap-y-3 px-6">
         {INTERESTS.map((it, i) => {
           const on = plan.interests.includes(i);
           return (
@@ -308,20 +302,7 @@ function TasteView({
         })}
       </div>
 
-      {/* 고른 것을 한 줄로 되읽어 준다. "수정"은 갈 데가 따로 없어(같은 화면이다) 첫 선택지로 올려보낸다 */}
-      <div className="mt-7 mx-6 flex h-[74px] shrink-0 items-start rounded-2xl bg-[#f6f4f1] px-4 pt-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] leading-[18px] font-bold text-[#7d7d7d]">선택한 여행 키워드</p>
-          <p className="mt-1 truncate text-[13px] leading-[20px] font-bold text-[#262626]">
-            {keywords ?? "아직 고른 게 없어요"}
-          </p>
-        </div>
-        <a href="#taste-top" className="mt-[19px] shrink-0 text-[10px] leading-[18px] font-medium text-[#ff7d32]">
-          수정 ›
-        </a>
-      </div>
-
-      <div className="mt-3.5 mx-6 flex h-[42px] shrink-0 items-start gap-1.5 rounded-[14px] bg-[#fff0e6] px-3.5 pt-2.5">
+      <div className="mt-14 mx-6 flex h-[42px] shrink-0 items-start gap-1.5 rounded-[14px] bg-[#fff0e6] px-3.5 pt-3.5">
         <span className="text-[13px] leading-[20px] font-bold text-[#ff7d32]">✦</span>
         <span className="text-[10px] leading-[18px] font-medium text-[#7d7d7d]">
           선택한 취향을 바탕으로 제주 코스를 추천해요.
@@ -333,13 +314,12 @@ function TasteView({
 
 /**
  * "1. 좋아하는 여행 분위기" + 오른쪽 끝 "복수 선택 가능" (14px Bold / 9px Medium).
- * 위 여백이 둘이 다르다 — 1번은 부제 아래 28, 2번은 카드 아래 30 (피그마 190·392 좌표 그대로).
+ * 위 여백이 둘이 다르다 — 1번은 부제 아래 29, 2번은 카드 아래 40 (피그마 200·422 좌표 그대로).
  */
 function SectionLabel({ n, title, hint }: { n: number; title: string; hint: string }) {
   return (
     <div
-      id={n === 1 ? "taste-top" : undefined}
-      className={`flex shrink-0 items-baseline justify-between px-6 ${n === 1 ? "mt-7" : "mt-[30px]"}`}
+      className={`flex shrink-0 items-baseline justify-between px-6 ${n === 1 ? "mt-[29px]" : "mt-10"}`}
     >
       <h3 className="text-[14px] leading-[22px] font-bold text-[#262626]">
         {n}. {title}
