@@ -248,7 +248,6 @@ function Destination() {
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
-            <span aria-hidden className="size-3 shrink-0 rounded-full bg-[#fc7f35]" />
             <input
               ref={input}
               value={text}
