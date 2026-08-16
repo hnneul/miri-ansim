@@ -6,10 +6,10 @@
 // 화면이 하는 일: 카카오가 준 두 갈래를 지도에 겹쳐 그리고, 각각의 **부담점수**를 카드로 보여준다.
 // 부담점수는 lib/score.ts 가 매긴다 — 운전 경력·빈도·차종·시간대(프로필)에 따라 같은 길도 값이 다르다.
 //
-// 근거 화면(HOME-03 | 안심 길 근거, Figma 2153:1986)도 여기 있다 — 라우트가 아니라 상태다.
-// 카드 오른쪽 › 로 들어간다 (아래 view 주석에 왜 한 파일인지 적어뒀다).
+// 근거 화면(수정 HOME-03 | 안심 길 근거 1, Figma 2153:1986)도 여기 있다 — 라우트가 아니라 상태다.
+// "이 길로 갈게요"를 누르면 여기로 온다 (카드 오른쪽 › 도 같은 문이다).
 //
-// 마지막 "이 길로 갈게요"는 카카오맵을 연다. 턴바이턴 안내를 우리가 만들 이유가 없어서다.
+// 카카오맵은 **근거 화면의 버튼**이 연다. 턴바이턴 안내를 우리가 만들 이유가 없어서다.
 // 출발지·경유지·도착지를 함께 넘기므로 **여기서 고른 길로 안내된다** (lib/parking.ts navigateTo).
 
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -339,9 +339,26 @@ function Route() {
                   <RouteRadio script={대본} routeId={chosen.id} />
                 </div>
               )}
+              {/*
+                두 화면이 같은 글씨의 버튼을 쓰지만 **하는 일이 다르다.**
+                비교(HOME-02)의 검정 버튼은 근거 화면으로 넘기고, 근거(HOME-03)의 주황 버튼이
+                실제로 카카오맵을 연다. 와이어프레임이 색을 갈라 둔 게 그 뜻이다
+                (2153:1730 검정 → 2153:2036 주황).
+
+                고른 길을 확인만 하고 떠나는 게 아니라 **왜 이 길인지 한 번은 보고 떠나게** 하는
+                흐름이다. 카드 오른쪽 › 로도 같은 화면에 들어가지만, 그건 안 눌러도 되는 문이라
+                대부분 안 누른 채로 나갔다.
+              */}
               <button
-                onClick={go}
-                className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-[#1f1f1f] text-[16px] font-bold text-white transition active:scale-[0.99]"
+                onClick={() => {
+                  if (view === "why") return go();
+                  if (!chosen) return;
+                  setPicked(chosen.id);
+                  setView("why");
+                }}
+                className={`flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] text-[16px] font-bold text-white transition active:scale-[0.99] ${
+                  view === "why" ? "bg-[#fc7f35]" : "bg-[#1f1f1f]"
+                }`}
               >
                 <span aria-hidden className="text-[15px]">
                   ➤
