@@ -22,6 +22,8 @@ import { COMFORT_THRESHOLD } from "@/lib/score";
 import { tradeoff } from "@/lib/briefing";
 import { viaPoint, type LiveRoute } from "@/lib/route";
 import RouteRadio from "./RouteRadio";
+import PlaceSearch from "./PlaceSearch";
+import type { Place } from "@/lib/geocode";
 import { aiRadio, compareRoutes, type Compared } from "./actions";
 
 /**
@@ -75,6 +77,8 @@ function Route() {
    * (목적지 화면이 세 상태를 한 파일에 둔 것과 같은 이유다.)
    */
   const [view, setView] = useState<"compare" | "why">("compare");
+  /** 지금 고쳐 잡는 중인 칸. null 이면 검색 패널이 닫혀 있다 (아래 PlaceSearch). */
+  const [editing, setEditing] = useState<"from" | "to" | null>(null);
   /*
    * AI 대본. 못 받으면 null 이고 화면은 규칙 대본(result.radio)을 그대로 쓴다 —
    * 재생 버튼이 이것 때문에 늦게 뜨거나 사라지는 일은 없다 (actions.ts aiRadio 주석).
@@ -142,6 +146,35 @@ function Route() {
     };
   }, [result]);
 
+  /**
+   * 검색 패널에서 고른 곳을 그 칸에 앉힌다.
+   *
+   * 쿼리를 고쳐 쓰기만 하면 된다 — load 가 쿼리를 보고 있어서(deps 의 searchParams) 길이 저절로
+   * 다시 계산된다. replace 라 히스토리는 안 늘어난다: 고친 건 이 화면이지 다음 화면이 아니다.
+   *
+   * 도착지를 고치면 **주차장을 거쳐 온 흐름이 아니게 된다.** 그래서 원래 목적지 좌표(destLat/destLng)를
+   * 지운다 — 안 지우면 대본 ④칸이 "새 도착지에서 옛 관광지까지" 걸어가는 시간을 말하게 된다.
+   */
+  function pick(place: Place) {
+    const next = new URLSearchParams(searchParams);
+    if (editing === "from") {
+      next.set("originLat", String(place.coord[0]));
+      next.set("originLng", String(place.coord[1]));
+      next.set("originName", place.label);
+      setOrigin(place.coord);
+    } else {
+      next.set("to", place.label);
+      next.set("toLat", String(place.coord[0]));
+      next.set("toLng", String(place.coord[1]));
+      next.delete("destLat");
+      next.delete("destLng");
+    }
+    setEditing(null);
+    // 고친 구간의 근거는 아직 안 본 상태다 — 비교 화면으로 되돌린다
+    setView("compare");
+    router.replace(`/route?${next}`);
+  }
+
   const routes = result && !("error" in result) ? result.routes : [];
   const chosen = routes.find((r) => r.id === picked) ?? routes[0] ?? null;
   const sheetH = SHEET_H[view];
@@ -171,7 +204,7 @@ function Route() {
       { name: to, at: dest },
       origin
         ? {
-            from: { name: "출발지", at: origin },
+            from: { name: query.originName ?? "출발지", at: origin },
             via: { name: chosen.name, at: viaPoint(chosen.path, other?.path) },
           }
         : {},
@@ -195,23 +228,34 @@ function Route() {
         </div>
       ) : (
         /*
-          route-editor — 출발/도착을 보여주기만 한다. 고치는 건 아직 갈 화면이 없다.
-          ponytail: "목적지 → 출발 선택"(Figma 2173:1932)을 만들면 이 카드를 누를 수 있게 한다.
+          route-editor — 두 칸 다 눌러서 고쳐 잡을 수 있다 (PlaceSearch 가 열린다).
+          검색 화면을 따로 두지 않는 이유: 고치고 나서 봐야 하는 건 이 화면의 지도와 카드라,
+          라우트를 나누면 고칠 때마다 여기를 나갔다 들어오게 된다.
         */
         <div className="mt-[9px] flex shrink-0 items-start gap-[21px] px-[21px]">
           <div className="min-w-0 flex-1 overflow-hidden rounded-[10px] border border-[#d6d6d6] bg-white">
             <Field
               dot="#fc7f35"
               label="출발지"
-              value={
-                fromQuery ? "현재 위치" : origin ? "현재 위치" : "확인 중…"
-              }
+              /* 고쳐 잡았으면 그 이름, 아니면 잡아온 현위치다 */
+              value={query.originName ?? (origin ? "현재 위치" : "확인 중…")}
+              onClick={() => setEditing("from")}
             />
             <div className="mx-[10px] border-t border-[#e6e6e6]" />
-            <Field dot="#1f1f1f" label="도착지" value={to} />
+            <Field
+              dot="#1f1f1f"
+              label="도착지"
+              value={to}
+              onClick={() => setEditing("to")}
+            />
           </div>
+          {/*
+            닫기는 메인화면으로 나간다. router.back() 이었는데 그건 주차장 화면으로 되돌아가는 거라
+            "닫기"가 아니라 "뒤로"였다 — 길 고르기를 접고 나가는 문이다.
+            쿼리를 그대로 실어야 /home 이 프로필을 되읽는다 (/destination 의 ← 와 같은 방식).
+          */}
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="닫기"
             className="mt-[32px] grid size-[44px] shrink-0 place-items-center rounded-[10px] border border-[#d6d6d6] bg-white active:bg-black/5"
           >
@@ -392,6 +436,15 @@ function Route() {
           </>
         )}
       </div>
+
+      {/* 검색 패널. 화면을 통째로 덮으므로 시트(z-20)보다 위다 */}
+      {editing && (
+        <PlaceSearch
+          label={editing === "from" ? "출발지" : "도착지"}
+          onPick={pick}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
@@ -409,13 +462,20 @@ function Field({
   dot,
   label,
   value,
+  onClick,
 }: {
   dot: string;
   label: string;
   value: string;
+  onClick: () => void;
 }) {
   return (
-    <div className="flex h-[51px] items-center gap-[12px] px-[12px]">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`${label} 고치기`}
+      className="flex h-[51px] w-full items-center gap-[12px] px-[12px] text-left transition active:bg-black/5"
+    >
       <span
         aria-hidden
         className="size-[10px] shrink-0 rounded-full"
@@ -429,7 +489,7 @@ function Field({
           {value}
         </span>
       </span>
-    </div>
+    </button>
   );
 }
 

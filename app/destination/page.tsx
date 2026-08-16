@@ -154,23 +154,72 @@ function Destination() {
 
     이미 우리 항목이면 다시 안 민다 — 개발 모드(StrictMode)에서 이 효과가 두 번 도는데,
     그때 항목이 두 개 쌓이면 뒤로가기를 두 번 눌러야 나간다.
-  */
-  useEffect(() => {
-    if (!searching) return;
 
-    if (history.state?.search !== true) history.pushState({ search: true }, "");
+    **"출발"로 열린 패널은 항목을 안 민다** (borrowed). 거기서는 setStart 가 이미 항목을 하나
+    밀었고, 여기서 또 밀면 뒤로가기를 두 번 눌러야 출발 누르기 전으로 돌아간다 —
+    한 번은 패널만 닫혀 출발지와 목적지가 같은 곳으로 떠 있는 화면이 나온다.
+  */
+  const borrowed = useRef(false);
+  useEffect(() => {
+    // 닫히면 빌린 항목도 같이 사라진다 — 다음에 열 때는 다시 제 항목을 민다
+    if (!searching) {
+      borrowed.current = false;
+      return;
+    }
+
+    if (!borrowed.current && history.state?.search !== true)
+      history.pushState({ search: true }, "");
     const close = () => setSearching(false);
     addEventListener("popstate", close);
     return () => removeEventListener("popstate", close);
   }, [searching]);
 
-  // ?dest= 를 물고 들어온 경우 한 번만 자동으로 찾는다. 이후 검색은 사용자가 시킨다.
-  const auto = useRef(false);
+  /*
+    ?dest= 가 가리키는 곳으로 화면을 맞춘다. 메인화면에서 검색어를 물고 들어온 첫 진입이 이걸 타고,
+    **뒤로가기도 여기로 돌아온다.**
+
+    한 번만 돌게 두면(예전의 auto ref) URL 과 화면이 어긋난다 — "출발"로 dest 를 비운 뒤 뒤로가기하면
+    URL 은 목적지가 있는 앞 항목으로 돌아오는데 화면은 아무것도 안 골라진 빈 지도에 남았다.
+    URL 이 이 화면의 상태를 쥐고 있으니, 그게 바뀌면 화면도 따라가는 게 맞다.
+
+    **보고 있는 place 가 아니라 URL 값만 본다.** 화면 상태로 판단하면("고른 곳과 다르면 찾는다")
+    "출발"이 place 를 비우는 순간 아직 안 지워진 dest 로 다시 검색이 돌아, 방금 고친 URL 을
+    되돌려 놓는다. 여기가 하는 일은 URL 을 화면에 옮기는 것 하나다.
+  */
+  const synced = useRef<string | null>(null);
   useEffect(() => {
-    if (auto.current || !query.dest) return;
-    auto.current = true;
+    if (!query.dest) {
+      // 목적지가 비었다 — 나중에 같은 곳으로 되돌아와도 다시 맞출 수 있게 기억을 지운다
+      synced.current = null;
+      return;
+    }
+    if (synced.current === query.dest) return;
+    synced.current = query.dest;
     search(query.dest);
   }, [query.dest, search]);
+
+  /**
+   * 고른 출발지. 목적지를 아직 안 골랐을 때 지도가 이걸 대신 보여준다 —
+   * "출발"을 누르면 목적지 자리가 비면서 시트가 사라지는데, 그때 지도까지 제주 전체를 비추면
+   * 방금 정한 출발지가 화면 어디에도 안 남아 아무 일도 안 일어난 것처럼 보인다.
+   *
+   * **현재 위치는 안 찍는다** (originName 이 없다) — 여기서 고른 값이 아니라 앞 화면이 실어 보낸
+   * 값이고, 목적지 찾기 전의 빈 지도는 원래 설계된 첫 상태다 (HOME-01).
+   */
+  const start = query.originName && origin ? { coord: origin, label: query.originName } : null;
+  /** 지도가 지금 보고 있어야 할 곳. 목적지가 먼저고, 없으면 출발지다. */
+  const focus = place ?? start;
+
+  /**
+   * 화면에 처음 실려 온 출발지 = 메인화면이 잡아 넘긴 현재 위치. 칩의 ✕ 가 여기로 되돌린다.
+   * 여기서 고른 출발지(originName)를 물고 들어왔으면 되돌릴 현재 위치가 애초에 없다.
+   * useRef 라 첫 렌더 값만 남는다 — 그 뒤 URL 이 어떻게 바뀌든 "처음 값"이 흔들리지 않아야 한다.
+   */
+  const fromHome = useRef<[string, string] | null>(
+    !query.originName && query.originLat && query.originLng
+      ? [query.originLat, query.originLng]
+      : null,
+  );
 
   function openSearch() {
     setSearching(true);
@@ -178,6 +227,47 @@ function Destination() {
     // 다시 검색하려고 눌렀으니 이전 값은 지운다 — 지우고 시작하는 게 커서를 끝으로 옮기는 것보다 빠르다
     setText("");
     requestAnimationFrame(() => input.current?.focus());
+  }
+
+  /**
+   * 찾은 곳을 **출발지**로 앉힌다 (시트의 "출발").
+   *
+   * 이 화면은 목적지를 찾는 자리라, 출발지를 고른 다음에는 다시 목적지를 찾아야 한다 —
+   * 그래서 시트를 접고 검색 패널을 곧장 열어준다. 고른 출발지는 위 칩에 남아 있다.
+   *
+   * 좌표와 이름을 함께 URL 에 싣는다. 좌표만 있으면 다음 화면들이 "현재 위치"라고 적게 되는데,
+   * 손으로 고른 곳이라 그건 사실이 아니다 (길 비교 화면이 originName 을 그대로 읽는다).
+   * null 을 주면 다시 현재 위치로 되돌린다 — 그건 고쳐 쓰기라 항목을 안 남긴다(replace).
+   *
+   * **고를 때는 push 다.** 뒤로가기 한 번이 출발 누르기 전 지도로 돌아가야 하는데, replace 로
+   * 고쳐 쓰면 되돌릴 지점이 없어 목적지가 사라진 화면에 그대로 남는다. 항목을 하나 밀어두면
+   * 그 뒤로가기가 URL 을 통째로 되돌리고, 위 동기화 효과가 그 URL 대로 목적지를 다시 세운다.
+   * 이어서 열리는 검색 패널은 이 항목을 빌려 쓴다 (borrowed) — 제 것을 또 밀면 두 번 눌러야 한다.
+   */
+  function setStart(from: Place | null) {
+    const next = new URLSearchParams(searchParams);
+    if (from) {
+      next.set("originLat", String(from.coord[0]));
+      next.set("originLng", String(from.coord[1]));
+      next.set("originName", from.label);
+      // 이 곳은 이제 출발지다 — 목적지 자리에 남겨두면 출발지와 도착지가 같은 곳이 된다
+      next.delete("dest");
+    } else if (fromHome.current) {
+      // 손으로 고른 출발지만 걷어내고 현재 위치를 도로 앉힌다 — 사용자가 지운 건 그 둘 중 앞엣것이다
+      next.set("originLat", fromHome.current[0]);
+      next.set("originLng", fromHome.current[1]);
+      next.delete("originName");
+    } else {
+      for (const k of ["originLat", "originLng", "originName"]) next.delete(k);
+    }
+    if (from) {
+      router.push(`/destination?${next}`);
+      borrowed.current = true;
+      setPlace(null);
+      openSearch();
+    } else {
+      router.replace(`/destination?${next}`);
+    }
   }
 
   return (
@@ -200,10 +290,17 @@ function Destination() {
         <div className="absolute inset-0 z-0">
           <RouteMap
             className=""
-            center={place?.coord ?? JEJU_CENTER}
-            level={place ? 5 : 10}
+            center={focus?.coord ?? JEJU_CENTER}
+            level={focus ? 5 : 10}
             routes={[]}
-            markers={place ? [{ coord: place.coord, label: place.label, icon: MASCOT }] : []}
+            /* 캐릭터 핀은 목적지 것이다 — 출발지는 기본 마커로 찍어 둘이 안 헷갈리게 한다 */
+            markers={
+              place
+                ? [{ coord: place.coord, label: place.label, icon: MASCOT }]
+                : start
+                  ? [{ coord: start.coord, label: `${start.label} (출발)` }]
+                  : []
+            }
             padBottom={sheetH}
           />
         </div>
@@ -287,6 +384,27 @@ function Destination() {
             <img src="/character/avatar-my.png" alt="" className="size-full rounded-full object-cover" />
           </button>
         </div>
+
+          {/*
+            고른 출발지. **검색 패널이 떠 있는 동안에도 남는다** — 출발지를 고르고 나면 곧장
+            목적지를 적게 되는데, 그때 화면에 아무 흔적이 없으면 "출발"이 아무 일도 안 한 것처럼 보인다.
+            ✕ 가 유일한 되돌리는 길이다 (지우면 다시 현재 위치가 출발지다).
+          */}
+          {query.originName && (
+            <div className="pointer-events-auto mt-2 ml-5 flex h-[30px] shrink-0 items-center gap-[6px] self-start rounded-full border border-[#e5e5e5] bg-white pr-[8px] pl-[11px] shadow-[0_1px_4px_0_rgba(0,0,0,0.08)]">
+              <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-[#fc7f35]" />
+              <span className="max-w-[220px] truncate text-[12px] leading-none text-[#1f1f1f]">
+                {query.originName}에서 출발
+              </span>
+              <button
+                onClick={() => setStart(null)}
+                aria-label="출발지 지우기"
+                className="shrink-0 px-[3px] text-[13px] leading-none text-[#9e9e9e]"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {(pending || error) && (
             <p
@@ -380,6 +498,7 @@ function Destination() {
                   next.set("destLng", String(place.coord[1]));
                   router.push(`/parking?${next}`);
                 }}
+                onStart={() => setStart(place)}
               />
             </div>
           )}
@@ -398,13 +517,14 @@ function PlaceSheet({
   origin,
   onClose,
   onParking,
+  onStart,
 }: {
   place: Place;
   origin: LatLng | null;
   onClose: () => void;
   onParking: () => void;
+  onStart: () => void;
 }) {
-  const [notice, setNotice] = useState<string | null>(null);
   /** 주소 카드를 펼쳤나 (Figma "목적지 주소 펼쳤을때" 2606:847). */
   const [openAddress, setOpenAddress] = useState(false);
   /**
@@ -518,14 +638,15 @@ function PlaceSheet({
       </div>
 
       {/*
-        출발은 갈 화면이 아직 없다 —
-        ponytail: "목적지 -> 출발 선택"(Figma 2173:1932)을 만들면 여기 onClick 을 router.push 로 바꾼다.
+        출발 — 지금 보고 있는 곳을 출발지로 삼는다. 화면을 따로 두지 않는다:
+        출발지를 고르는 일은 목적지를 고르는 일과 같은 장소 검색이라, 같은 화면이 칸만 바꿔 받는다
+        (원래 계획은 "목적지 → 출발 선택" 별도 화면이었다 — Figma 2173:1932).
         근처 주차장 보기는 /parking 이 받는다 (Figma 2153:1771 "수정 PARK-01 | 목적지 주변 주차장").
       */}
       <div className="mt-[11px] flex gap-1 px-4">
         <button
-          onClick={() => setNotice("출발 선택 화면은 아직 준비 중입니다")}
-          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-medium text-[#1f1f1f]"
+          onClick={onStart}
+          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition active:scale-[0.98]"
         >
           출발
         </button>
@@ -539,8 +660,6 @@ function PlaceSheet({
           근처 주차장 보기
         </button>
       </div>
-
-      {notice && <p className="mt-3 px-6 text-[12px] leading-[18px] text-[#525252]">{notice}</p>}
 
       {/*
         와이어프레임은 여기에 "길의 부담 설명 카드" 두 장(175x132)을 두는데 안이 비어 있다 —
