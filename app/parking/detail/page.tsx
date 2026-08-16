@@ -84,8 +84,8 @@ export default async function ParkingDetailPage({ searchParams }: PageProps<"/pa
       <Steps kind={kind} />
 
       {/*
-        목적지를 물고 왔을 때만 붙인다. 목적지가 없는 흐름은 /parking 시트의
-        "이 주차장으로 바로 안내"가 이미 같은 일을 해서 여기 또 두면 버튼만 두 벌이 된다.
+        목적지를 물고 왔을 때만 붙인다. 정상 흐름이면 늘 물고 온다(/parking 이 목적지를 전제한다) —
+        없는 건 URL 로 이 화면만 직접 연 경우고, 그때는 길을 만들 도착지가 없다.
       */}
       {at && walkM !== null && <GoButton name={name} at={at} />}
 

@@ -1,6 +1,6 @@
 "use client";
 
-// PARK-02 아래쪽 "이 주차장으로 갈게요" — 길 비교 화면(/route, Figma HOME-02)으로 넘긴다.
+// PARK-02 아래쪽 "이 주차장까지 경로보기" — 길 비교 화면(/route, Figma HOME-02)으로 넘긴다.
 //
 // 예전에는 여기서 곧장 카카오맵을 열었다. 그 자리를 길 비교가 가져간다 — 초보에게 "어느 길로
 // 가느냐"는 "어디에 대느냐"만큼 큰 결정이고, 그걸 답해주는 게 이 앱이 하려는 일이다.
@@ -20,9 +20,9 @@ export default function GoButton({ name, at }: { name: string; at: [number, numb
   const searchParams = useSearchParams();
 
   /*
-   * 시트(app/parking/page.tsx)의 "여기로 갈게요"와 **같은 곳으로 간다** — 상세를 거쳤든 안 거쳤든
-   * 다음 화면은 길 비교다. 쿼리 만드는 규칙은 거기 routeQuery 주석에 있다.
-   * 출발지(originLat/originLng)는 메인화면이 잡아 넘긴 값이 쿼리에 이미 실려 있다.
+   * 다음 화면은 길 비교(/route)다. 목적지 쿼리(dest*)는 그대로 두고 to* 를 얹는다 —
+   * 길의 도착지는 관광지가 아니라 **차를 대는 자리**여야 소요시간이 실제로 운전하는 시간이 된다.
+   * 출발지(originLat/originLng)는 앞 화면들이 실어 보낸 값이 쿼리에 이미 있다.
    */
   function go() {
     const q = new URLSearchParams(searchParams);
@@ -36,9 +36,9 @@ export default function GoButton({ name, at }: { name: string; at: [number, numb
     <div className="mx-4 mt-6 shrink-0">
       <button
         onClick={go}
-        className="h-[52px] w-full rounded-xl bg-[#ff6114] text-[15px] font-bold text-white transition active:scale-[0.98]"
+        className="h-[52px] w-full rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.98]"
       >
-        이 주차장으로 갈게요
+        이 주차장까지 경로보기
       </button>
     </div>
   );
