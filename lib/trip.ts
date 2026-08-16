@@ -8,12 +8,16 @@
 
 import type { LatLng } from "@/app/RouteMap";
 
-/** TRIP-02 | 여행 취향 — 여러 개 고를 수 있다 */
+/**
+ * TRIP-02 | 여행 취향 — 여러 개 고를 수 있다.
+ * short 는 화면 아래 "선택한 여행 키워드" 줄에 쓴다 ("한적함 · 자연 · 바다 · 카페") —
+ * 네 개를 고르면 label 로는 한 줄에 안 들어간다. CONCERNS(lib/profile.ts)의 short 와 같은 쓰임이다.
+ */
 export const MOODS = [
-  { emoji: "🌀", label: "조용하고 한적한 곳", desc: "사람이 적고 여유로운 여행" },
-  { emoji: "✨", label: "활기차고 인기 많은 곳", desc: "제주의 대표 명소 중심" },
-  { emoji: "🌿", label: "자연과 풍경을 보는 여행", desc: "바다·오름·숲길 중심" },
-  { emoji: "🍊", label: "맛집과 시장을 즐기는 여행", desc: "로컬 음식과 전통시장" },
+  { emoji: "🌀", label: "조용하고 한적한 곳", desc: "여유로운 여행", short: "한적함" },
+  { emoji: "✨", label: "활기찬 명소", desc: "대표 명소 중심", short: "활기참" },
+  { emoji: "🌿", label: "자연과 풍경", desc: "바다·오름·숲", short: "자연" },
+  { emoji: "🍊", label: "맛집과 시장", desc: "제주 로컬 음식", short: "맛집" },
 ];
 
 /**
@@ -29,14 +33,14 @@ export const MOODS = [
  *   · kinds 없이        : 카페에 공항 프랜차이즈가 앞자리를 다 먹는다 (끝 분류가 브랜드명이다)
  */
 export const INTERESTS = [
-  { emoji: "🌊", label: "바다·해변", desc: "파도와 노을", query: "해수욕장", code: "AT4", kinds: ["해수욕장", "해변"] },
-  { emoji: "🌿", label: "오름·숲", desc: "가벼운 산책", query: "오름", code: "AT4", kinds: ["오름", "수목원", "식물원", "휴양림"] },
-  { emoji: "🏛️", label: "전시·박물관", desc: "비 오는 날도 좋아요", query: "박물관", code: "CT1", kinds: ["박물관", "미술관", "전시"] },
+  { emoji: "🌊", label: "바다·해변", short: "바다", query: "해수욕장", code: "AT4", kinds: ["해수욕장", "해변"] },
+  { emoji: "🌿", label: "오름·숲", short: "오름", query: "오름", code: "AT4", kinds: ["오름", "수목원", "식물원", "휴양림"] },
+  { emoji: "🏛️", label: "전시·박물관", short: "전시", query: "박물관", code: "CT1", kinds: ["박물관", "미술관", "전시"] },
   // 시장은 AT4 로 조회하면 0건이라 코드를 안 건다 — 카카오가 시장을 관광명소로 안 묶는다
-  { emoji: "🍜", label: "시장·맛집", desc: "제주 로컬 음식", query: "전통시장", code: "", kinds: ["시장"] },
+  { emoji: "🍜", label: "시장·맛집", short: "시장", query: "전통시장", code: "", kinds: ["시장"] },
   // "카페"로 찾으면 공항 상업시설이 먼저 온다. 여행에서 찾는 건 그 카페가 아니다
-  { emoji: "📷", label: "카페·포토스팟", desc: "사진 남기기", query: "오션뷰 카페", code: "CE7", kinds: ["카페", "커피전문점"] },
-  { emoji: "🐴", label: "아이와 함께", desc: "체험과 동물", query: "테마파크", code: "AT4", kinds: ["테마파크", "동물원", "체험"] },
+  { emoji: "📷", label: "카페·사진", short: "카페", query: "오션뷰 카페", code: "CE7", kinds: ["카페", "커피전문점"] },
+  { emoji: "🐴", label: "체험·동물", short: "체험", query: "테마파크", code: "AT4", kinds: ["테마파크", "동물원", "체험"] },
 ];
 
 /** TRIP-04-B | 동행 선택 */
@@ -150,6 +154,12 @@ export function companionLabel(plan: TripPlan): string {
 
 export const driveLabel = (plan: TripPlan) =>
   DRIVE_HOURS.find((d) => d.hours === plan.driveHours)?.label ?? DRIVE_HOURS[1].label;
+
+/** 고른 취향·관심 장소를 한 줄로 — "한적함 · 자연 · 바다 · 카페". 아무것도 안 골랐으면 null */
+export function keywordLine(plan: TripPlan): string | null {
+  const words = [...plan.moods.map((i) => MOODS[i].short), ...plan.interests.map((i) => INTERESTS[i].short)];
+  return words.length ? words.join(" · ") : null;
+}
 
 /** "성산일출봉" · "성산일출봉 외 1곳". 안 골랐으면 null */
 export function mustLabel(plan: TripPlan): string | null {

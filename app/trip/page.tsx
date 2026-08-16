@@ -1,15 +1,18 @@
 "use client";
 
-// AI 여행 코스 — 와이어프레임 "메인화면 → 여행 코스" 섹션의 입력부 (TRIP-01~04, 04-A~E).
+// AI 여행 코스 — 와이어프레임 "메인화면 → 여행 코스" 섹션의 입력부 (TRIP-01·02·04, 04-A~E).
 //
-// 아홉 장이지만 화면은 하나다. 전부 같은 TripPlan 한 덩이를 고쳐 쓰고, 다 고른 값을 마지막에
-// 한 번 URL 로 넘기기 때문에 — 페이지를 아홉 개로 나누면 그 덩이를 라우트마다 다시 실어 날라야 한다.
+// 여덟 장이지만 화면은 하나다. 전부 같은 TripPlan 한 덩이를 고쳐 쓰고, 다 고른 값을 마지막에
+// 한 번 URL 로 넘기기 때문에 — 페이지를 여덟 개로 나누면 그 덩이를 라우트마다 다시 실어 날라야 한다.
 // 온보딩(/onboarding)이 네 단계를 한 파일에 둔 것과 같은 이유다.
 //
 // 04-A~E 는 "적용하기"를 눌러야 반영된다. 그래서 각자 초안(draft)을 들고 있다가 그때 한 번
 // 올려 보낸다 — 뒤로 나가면 고치던 값이 없던 일이 되는 게 와이어프레임의 동작이다.
 //
-// 색은 이 플로우 전용 토큰이다 (피그마 NEW AI Travel — accent #ff7d32, 나머지 화면의 #fc7f35 와 다르다).
+// **색이 두 가지다.** 취향·관심 장소가 한 화면으로 합쳐지면서(TRIP-02) 그 화면만 다시 그려졌고,
+// 그때 accent 가 #ff7d32 → #ff5914 로, 본문이 #262626 → #1f1f1f 로 바뀌었다. 디자인 파일이
+// 지금 그 상태라 그대로 옮겼다 — 플로우 전체를 새 톤으로 옮길지는 아직 정해지지 않았다.
+//
 // 좌표는 390x844 를 옮기되 절대배치는 쓰지 않는다 — .phone 이 노트북에서 844 보다 낮아질 수 있어서
 // 가운데(flex-1)부터 줄어야 하단 버튼이 안 잘린다 (app/onboarding/page.tsx 와 같은 이유).
 
@@ -32,6 +35,7 @@ import {
   companionLabel,
   driveLabel,
   isReady,
+  keywordLine,
   mustLabel,
   periodLabel,
   toTripQuery,
@@ -52,7 +56,7 @@ const SUGGESTED = [
   { emoji: "🍊", name: "동문시장", where: "제주시 · 로컬 맛집" },
 ];
 
-type View = "intro" | "mood" | "interest" | "fields" | "period" | "companion" | "origin" | "drive" | "must";
+type View = "intro" | "taste" | "fields" | "period" | "companion" | "origin" | "drive" | "must";
 
 /** 04 목록으로 되돌아가는 상세 화면들 — 뒤로가기 목적지가 같다 */
 const DETAILS: View[] = ["period", "companion", "origin", "drive", "must"];
@@ -77,9 +81,8 @@ function Trip() {
 
   function back() {
     if (DETAILS.includes(view)) return setView("fields");
-    if (view === "fields") return setView("interest");
-    if (view === "interest") return setView("mood");
-    if (view === "mood") return setView("intro");
+    if (view === "fields") return setView("taste");
+    if (view === "taste") return setView("intro");
     router.push(`/home${carry ? `?${carry}` : ""}`);
   }
 
@@ -90,73 +93,26 @@ function Trip() {
     router.push(`/trip/course?${q}`);
   }
 
-  if (view === "intro") return <Intro onStart={() => setView("mood")} onBack={back} />;
+  if (view === "intro") return <Intro onStart={() => setView("taste")} onBack={back} />;
 
-  if (view === "mood")
-    return (
-      <Wizard
-        step={1}
-        title={["어떤 분위기의 여행을", "좋아하시나요?"]}
-        subtitle="여러 개 선택할 수 있어요."
-        onBack={back}
-        onNext={() => setView("interest")}
-        disabled={plan.moods.length === 0}
-      >
-        <div className="flex flex-col gap-3 px-[23px]">
-          {MOODS.map((m, i) => (
-            <Row
-              key={m.label}
-              {...m}
-              on={plan.moods.includes(i)}
-              onClick={() => setPlan({ ...plan, moods: toggle(plan.moods, i) })}
-            />
-          ))}
-        </div>
-      </Wizard>
-    );
-
-  if (view === "interest")
-    return (
-      <Wizard
-        step={2}
-        title={["이번 여행에서", "무엇을 보고 싶나요?"]}
-        subtitle="관심 있는 장소를 모두 골라주세요."
-        onBack={back}
-        onNext={() => setView("fields")}
-        disabled={plan.interests.length === 0}
-      >
-        <div className="grid grid-cols-2 gap-3.5 px-[23px]">
-          {INTERESTS.map((it, i) => (
-            <Tile
-              key={it.label}
-              {...it}
-              on={plan.interests.includes(i)}
-              onClick={() => setPlan({ ...plan, interests: toggle(plan.interests, i) })}
-            />
-          ))}
-        </div>
-      </Wizard>
-    );
+  if (view === "taste")
+    return <TasteView plan={plan} setPlan={setPlan} onBack={back} onNext={() => setView("fields")} />;
 
   if (view === "fields")
     return (
-      <Wizard
-        step={3}
-        title={["여행의 기본 정보를", "알려주세요"]}
-        subtitle="이동 시간과 쉬는 간격까지 계산할게요."
-        onBack={back}
-        onNext={makeCourse}
-        nextLabel="AI 코스 만들기"
-        disabled={!isReady(plan)}
-      >
-        <div className="flex flex-col gap-4 px-[23px]">
+      <Shell label="AI 코스 만들기" onNext={makeCourse} disabled={!isReady(plan)}>
+        <Back onClick={back} />
+        <div className="mt-2 shrink-0">
+          <Title lines={["여행의 기본 정보를", "알려주세요"]} subtitle="이동 시간과 쉬는 간격까지 계산할게요." />
+        </div>
+        <div className="mt-6 flex flex-col gap-4 px-[23px]">
           <Field icon="📅" name="여행 기간" value={periodLabel(plan)} empty="날짜를 골라주세요" go={() => setView("period")} />
           <Field icon="👥" name="누구와 가나요?" value={companionLabel(plan)} go={() => setView("companion")} />
           <Field icon="✈️" name="출발 위치" value={plan.origin || null} empty="위치를 골라주세요" go={() => setView("origin")} />
           <Field icon="🚗" name="하루 운전" value={driveLabel(plan)} go={() => setView("drive")} />
           <Field icon="📍" name="꼭 가고 싶은 곳" value={mustLabel(plan)} empty="선택 안 함" go={() => setView("must")} />
         </div>
-      </Wizard>
+      </Shell>
     );
 
   const commit = (patch: Partial<TripPlan>) => {
@@ -187,11 +143,17 @@ function Shell({
   label,
   onNext,
   disabled,
+  accent = "#ff7d32",
+  note,
 }: {
   children: React.ReactNode;
   label: string;
   onNext: () => void;
   disabled?: boolean;
+  /** 통합 화면(TRIP-02)만 다른 주황을 쓴다 — TasteView 주석 참고 */
+  accent?: string;
+  /** 버튼 아래 작은 안내. 없으면 그 자리는 여백이다 */
+  note?: string;
 }) {
   return (
     // min-h-0 이 있어야 아래 스크롤 영역이 .phone 높이 안에 갇힌다 — flex 자식의 기본 min-height 는
@@ -202,11 +164,18 @@ function Shell({
       <button
         onClick={onNext}
         disabled={disabled}
-        className="mx-[23px] mt-2 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition active:scale-[0.98] disabled:opacity-40"
+        style={{ backgroundColor: accent }}
+        className={`mx-6 mt-2 h-12 shrink-0 text-white transition active:scale-[0.98] disabled:opacity-40 ${
+          note ? "rounded-3xl text-[14px] font-bold" : "rounded-2xl text-[16px] font-medium"
+        }`}
       >
         {label}
       </button>
-      <div className="h-[67px] shrink-0" />
+      {note ? (
+        <p className="mt-3 shrink-0 pb-8 text-center text-[9px] text-[#6e6e6e]">{note}</p>
+      ) : (
+        <div className="h-[67px] shrink-0" />
+      )}
     </div>
   );
 }
@@ -241,42 +210,127 @@ function Title({ lines, subtitle }: { lines: [string] | [string, string]; subtit
   );
 }
 
-/** TRIP-02~04 의 공통 머리 — "N / 3" 과 진행 막대가 붙는다 */
-function Wizard({
-  step,
-  title,
-  subtitle,
-  children,
+/**
+ * TRIP-02 | 여행 취향 · 관심 장소 (통합).
+ *
+ * 원래 두 화면이었는데 와이어프레임에서 하나로 합쳐졌다 ("TRIP-02 + TRIP-03 통합 제안").
+ * 진행 표시("1 / 3"과 막대)도 같이 없어졌다 — 단계가 둘뿐이면 셀 것도 없다.
+ *
+ * 색이 나머지 화면과 다르다. 이 화면만 다시 그려지면서 accent 가 #ff7d32 → #ff5914 로,
+ * 본문이 #262626 → #1f1f1f 로 바뀌었다. 디자인 파일 그대로 옮겼고, 플로우 전체를 이 톤으로
+ * 옮길지는 확인이 필요하다 (지금은 TRIP-01·04·04-A~E 가 예전 톤이다).
+ */
+function TasteView({
+  plan,
+  setPlan,
   onBack,
   onNext,
-  nextLabel = "다음",
-  disabled,
 }: {
-  step: number;
-  title: [string, string];
-  subtitle: string;
-  children: React.ReactNode;
+  plan: TripPlan;
+  setPlan: (p: TripPlan) => void;
   onBack: () => void;
   onNext: () => void;
-  nextLabel?: string;
-  disabled?: boolean;
 }) {
+  const keywords = keywordLine(plan);
+
   return (
-    <Shell label={nextLabel} onNext={onNext} disabled={disabled}>
+    <Shell
+      label="일정·동행 입력하기"
+      onNext={onNext}
+      disabled={plan.moods.length === 0 || plan.interests.length === 0}
+      accent="#ff5914"
+      note="선택 내용은 언제든 다시 바꿀 수 있어요."
+    >
       <Back onClick={onBack} />
-      <div className="shrink-0 px-[23px]">
-        <p className="text-[12px] leading-[18px] text-[#7d7d7d]">{step} / 3</p>
-        <div className="mt-1.5 flex gap-1.5">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className={`h-[5px] flex-1 rounded-[3px] ${i <= step ? "bg-[#ff7d32]" : "bg-[#eae7e2]"}`} />
-          ))}
+
+      <div className="flex shrink-0 items-start justify-between gap-4 px-6">
+        <div className="min-w-0">
+          <h2 className="text-[25px] leading-tight font-bold text-[#1f1f1f]">
+            어떤 제주 여행을
+            <br />
+            원하시나요?
+          </h2>
+          <p className="mt-3 text-[11px] leading-[18px] text-[#6e6e6e]">여행 분위기와 관심 장소를 함께 골라주세요.</p>
         </div>
+        <img src="/character/home-hero.png" alt="" className="size-[62px] shrink-0 rounded-[31px] object-cover" />
       </div>
-      <div className="mt-5 shrink-0">
-        <Title lines={title} subtitle={subtitle} />
+
+      <SectionLabel n={1} title="좋아하는 여행 분위기" hint="복수 선택 가능" />
+      <div className="mt-2 grid grid-cols-2 gap-3 px-6">
+        {MOODS.map((m, i) => {
+          const on = plan.moods.includes(i);
+          return (
+            <button
+              key={m.label}
+              onClick={() => setPlan({ ...plan, moods: toggle(plan.moods, i) })}
+              aria-pressed={on}
+              className={`flex h-16 items-center gap-2 rounded-2xl border px-3 text-left transition ${
+                on ? "border-[#ff5914] bg-[#fff7f0]" : "border-[#e5ded6] bg-white"
+              }`}
+            >
+              <span className="w-7 shrink-0 text-[20px]">{m.emoji}</span>
+              <span className="min-w-0 flex-1">
+                <span className={`block truncate text-[12px] font-bold ${on ? "text-[#ff5914]" : "text-[#1f1f1f]"}`}>
+                  {m.label}
+                </span>
+                <span className="block truncate text-[9px] text-[#6e6e6e]">{m.desc}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <div className="mt-7">{children}</div>
+
+      <SectionLabel n={2} title="관심 있는 장소" hint="여러 개 선택" />
+      <div className="mt-2 grid grid-cols-3 gap-[9px] px-6">
+        {INTERESTS.map((it, i) => {
+          const on = plan.interests.includes(i);
+          return (
+            <button
+              key={it.label}
+              onClick={() => setPlan({ ...plan, interests: toggle(plan.interests, i) })}
+              aria-pressed={on}
+              className={`flex h-[58px] flex-col items-center justify-center gap-0.5 rounded-[14px] border transition ${
+                on ? "border-[#ff5914] bg-[#fff7f0]" : "border-[#e5ded6] bg-white"
+              }`}
+            >
+              <span className="text-[18px] leading-none">{it.emoji}</span>
+              <span
+                className={`max-w-full truncate px-1 text-[10px] ${on ? "font-bold text-[#ff5914]" : "font-medium text-[#6e6e6e]"}`}
+              >
+                {it.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 고른 것을 한 줄로 되읽어 준다. "수정"은 갈 데가 따로 없어(같은 화면이다) 첫 선택지로 올려보낸다 */}
+      <div className="mt-6 flex h-[74px] shrink-0 items-center gap-3 rounded-2xl bg-[#f6f6f6] px-4 mx-6">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold text-[#6e6e6e]">선택한 여행 키워드</p>
+          <p className="mt-1 truncate text-[13px] font-bold text-[#1f1f1f]">{keywords ?? "아직 고른 게 없어요"}</p>
+        </div>
+        <a href="#taste-top" className="shrink-0 text-[10px] font-medium text-[#ff5914]">
+          수정 ›
+        </a>
+      </div>
+
+      <div className="mt-3 flex h-[42px] shrink-0 items-center gap-2.5 rounded-[14px] bg-[#fff7f0] px-3.5 mx-6">
+        <span className="text-[13px] font-bold text-[#ff5914]">✦</span>
+        <span className="text-[10px] font-medium text-[#6e6e6e]">선택한 취향을 바탕으로 제주 코스를 추천해요.</span>
+      </div>
     </Shell>
+  );
+}
+
+function SectionLabel({ n, title, hint }: { n: number; title: string; hint: string }) {
+  return (
+    <div id={n === 1 ? "taste-top" : undefined} className="mt-6 flex shrink-0 items-baseline justify-between px-6">
+      <h3 className="text-[14px] font-bold text-[#1f1f1f]">
+        {n}. {title}
+      </h3>
+      <span className="text-[9px] font-medium text-[#ff5914]">{hint}</span>
+    </div>
   );
 }
 
