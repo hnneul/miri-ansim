@@ -8,35 +8,58 @@
 
 import type { LatLng } from "@/app/RouteMap";
 
-/** TRIP-02 | 여행 취향 — 여러 개 고를 수 있다 */
-export const MOODS = [
-  { emoji: "🌀", label: "조용하고 한적한 곳", desc: "여유로운 여행" },
-  { emoji: "✨", label: "활기찬 명소", desc: "대표 명소 중심" },
-  { emoji: "🌿", label: "자연과 풍경", desc: "바다·오름·숲" },
-  { emoji: "🍊", label: "맛집과 시장", desc: "제주 로컬 음식" },
-];
-
 /**
- * TRIP-03 | 관심 장소 — 여러 개 고를 수 있다.
+ * TRIP-02 | 여행 테마 — **하나만** 고른다.
  *
- * 뒤 세 칸(query·code·kinds)은 코스 후보를 모을 때 카카오 로컬에 보내는 검색 조건이다
- * (lib/poi.ts searchSpotsNear). 화면과 한 표에 두는 이유는 CONCERNS 와 같다 —
- * 목록이 둘로 갈리면 관심사를 하나 늘렸을 때 한쪽만 고치고 지나간다.
+ * 원래 "분위기 4개(복수) + 관심 장소 6개(복수)" 두 묶음이었는데 와이어프레임에서 테마 넷으로
+ * 합쳐졌다 ("4개로 통합"). 고르는 게 하나라 코스가 무엇을 중심으로 짜였는지도 한 마디로 말해진다.
  *
- * **셋 다 필요하다.** 실제 응답을 찍어보고 정한 값이라 하나라도 빼면 목록이 망가진다:
+ * recipes 는 후보를 모을 때 카카오 로컬에 보내는 검색 조건이다 (lib/poi.ts searchSpotsNear).
+ * 한 테마가 여러 갈래를 묶으므로 목록이다 — "먹거리"는 시장과 맛집이 서로 다른 검색이고,
+ * "감성 명소"는 카페와 전시가 그렇다. 갈래가 둘이면 코스 두 개를 갈래별로 나눠 짤 수도 있다
+ * (lib/course.ts buildCourses).
+ *
+ * **query·code·kinds 셋 다 필요하다.** 실제 응답을 찍어보고 정한 값이라 하나라도 빼면 목록이 망가진다:
  *   · code 없이 키워드만 : "오름"에 세탁소·네일샵·빌라가 섞인다 (총 294건 중 대부분)
  *   · code 만           : 해수욕장·오름·테마파크가 전부 AT4 한 칸이라 서로 못 가른다
  *   · kinds 없이        : 카페에 공항 프랜차이즈가 앞자리를 다 먹는다 (끝 분류가 브랜드명이다)
  */
-export const INTERESTS = [
-  { emoji: "🌊", label: "바다·해변", query: "해수욕장", code: "AT4", kinds: ["해수욕장", "해변"] },
-  { emoji: "🌿", label: "오름·숲", query: "오름", code: "AT4", kinds: ["오름", "수목원", "식물원", "휴양림"] },
-  { emoji: "🏛️", label: "전시·박물관", query: "박물관", code: "CT1", kinds: ["박물관", "미술관", "전시"] },
-  // 시장은 AT4 로 조회하면 0건이라 코드를 안 건다 — 카카오가 시장을 관광명소로 안 묶는다
-  { emoji: "🍜", label: "시장·맛집", query: "전통시장", code: "", kinds: ["시장"] },
-  // "카페"로 찾으면 공항 상업시설이 먼저 온다. 여행에서 찾는 건 그 카페가 아니다
-  { emoji: "📷", label: "카페·사진", query: "오션뷰 카페", code: "CE7", kinds: ["카페", "커피전문점"] },
-  { emoji: "🐴", label: "체험·동물", query: "테마파크", code: "AT4", kinds: ["테마파크", "동물원", "체험"] },
+export const THEMES = [
+  {
+    emoji: "🌊",
+    label: "조용한 바다 여행",
+    desc: "한적한 해변 · 노을",
+    recipes: [{ label: "해변", query: "해수욕장", code: "AT4", kinds: ["해수욕장", "해변"] }],
+  },
+  {
+    emoji: "🌿",
+    label: "자연 속 산책 여행",
+    desc: "오름 · 숲길",
+    recipes: [
+      { label: "오름", query: "오름", code: "AT4", kinds: ["오름"] },
+      { label: "숲길", query: "휴양림", code: "AT4", kinds: ["휴양림", "수목원", "식물원"] },
+    ],
+  },
+  {
+    emoji: "🍊",
+    label: "제주 먹거리 여행",
+    desc: "시장 · 로컬 맛집",
+    recipes: [
+      // 시장은 AT4 로 조회하면 0건이라 코드를 안 건다 — 카카오가 시장을 관광명소로 안 묶는다
+      { label: "시장", query: "전통시장", code: "", kinds: ["시장"] },
+      { label: "로컬 맛집", query: "제주 향토음식", code: "FD6", kinds: ["한식", "해물", "향토", "국수", "흑돼지"] },
+    ],
+  },
+  {
+    emoji: "📷",
+    label: "감성 명소 여행",
+    desc: "카페 · 전시 · 사진",
+    recipes: [
+      // "카페"로 찾으면 공항 상업시설이 먼저 온다. 여행에서 찾는 건 그 카페가 아니다
+      { label: "카페", query: "오션뷰 카페", code: "CE7", kinds: ["카페", "커피전문점"] },
+      { label: "전시", query: "박물관", code: "CT1", kinds: ["박물관", "미술관", "전시"] },
+    ],
+  },
 ];
 
 /** TRIP-04-B | 동행 선택 */
@@ -82,10 +105,8 @@ export const DRIVE_HOURS = [
 export const MAX_MUSTS = 10;
 
 export type TripPlan = {
-  /** MOODS 인덱스 */
-  moods: number[];
-  /** INTERESTS 인덱스 */
-  interests: number[];
+  /** THEMES 인덱스. 하나만 고른다 — 아직 안 골랐으면 null */
+  theme: number | null;
   /** YYYY-MM-DD. 빈 문자열이면 아직 안 골랐다 (start·end 는 늘 같이 차거나 같이 빈다) */
   start: string;
   end: string;
@@ -112,8 +133,7 @@ export type TripPlan = {
  * 비어 보이고, 04-B 를 열었을 때 카운터가 시작할 자리로만 쓰인다.
  */
 export const DEFAULT_TRIP: TripPlan = {
-  moods: [],
-  interests: [],
+  theme: null,
   start: "",
   end: "",
   companion: null,
@@ -139,6 +159,39 @@ export function nightsOf(start: string, end: string): { nights: number; days: nu
   const nights = Math.round(ms / 86_400_000);
   return { nights, days: nights + 1 };
 }
+
+/**
+ * 한 달치 달력 칸. 앞뒤로 옆 달 날짜를 채워 7칸씩 딱 떨어지게 만든다 (TRIP-04-A).
+ *
+ * UTC 로 센다 — nightsOf 와 같은 이유이자, 같은 기준이어야 한다. 로컬 시간대로 만들면
+ * 서머타임이 있는 지역에서 하루가 밀려 격자와 기간 계산이 서로 다른 날을 가리킨다.
+ *
+ * @param month "2026-08"
+ */
+export function monthGrid(month: string): { date: string; inMonth: boolean }[] {
+  const [y, m] = month.split("-").map(Number);
+  const first = Date.UTC(y, m - 1, 1);
+  // 그 주 일요일까지 되감는다. 6주(42칸)면 어느 달이든 덮는다 —
+  // 최악은 31일 달이 토요일에 시작하는 경우로 6주가 필요하다
+  const from = first - new Date(first).getUTCDay() * 86_400_000;
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(from + i * 86_400_000);
+    return { date: d.toISOString().slice(0, 10), inMonth: d.getUTCMonth() === m - 1 };
+  });
+}
+
+/** "2026-08" 에서 n 달 뒤/앞. 12월 다음이 이듬해 1월이 되게 한다. */
+export function shiftMonth(month: string, n: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const t = (y * 12 + (m - 1)) + n;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`;
+}
+
+/** "2026-08-14" → "8월 14일" */
+export const dayLabel = (date: string) => {
+  const [, m, d] = date.split("-").map(Number);
+  return `${m}월 ${d}일`;
+};
 
 /** "2박 3일" · "당일치기". 아직 안 골랐으면 null — 화면이 자리를 채울 문구를 정한다. */
 export function periodLabel(plan: TripPlan): string | null {
@@ -170,8 +223,7 @@ export function mustLabel(plan: TripPlan): string | null {
  * 날짜·출발 위치·하루 운전은 전부 이동시간 계산의 입력이고, 안 고른 값을 대신 지어내면
  * 묻지도 않은 조건으로 코스가 짜인다. 꼭 가고 싶은 곳은 없어도 코스가 나온다.
  *
- * 취향·관심 장소도 막지 않는다: 후보를 좁히는 값이지 없다고 못 만드는 값이 아니다
- * (통합 화면에서 이미 하나씩은 고르게 되어 있다).
+ * 테마는 여기서 안 본다 — TRIP-02 가 자기 화면에서 이미 막고 있고, 여기까지 왔다면 골라져 있다.
  */
 export const isReady = (plan: TripPlan) =>
   nightsOf(plan.start, plan.end) !== null &&
@@ -187,21 +239,6 @@ const oneOf = (sp: Record<string, string | string[] | undefined>, k: string) =>
 const allOf = (sp: Record<string, string | string[] | undefined>, k: string): string[] => {
   const v = sp[k];
   return v === undefined ? [] : Array.isArray(v) ? v : [v];
-};
-
-/**
- * "0,2" → [0, 2]. 목록 밖·정수 아님·중복은 버리고 화면 순서로 정렬한다.
- * parseConcerns(lib/profile.ts)와 같은 이유로 숫자만 남기고 나서 Number 를 태운다 —
- * Number("") 도 Number(" ") 도 0 이라 꼬리 쉼표가 인덱스 0 으로 샌다.
- */
-const parseIndexes = (raw: string | undefined, max: number): number[] => {
-  if (!raw) return [];
-  const picked = raw
-    .split(",")
-    .filter((s) => /^\d+$/.test(s))
-    .map(Number)
-    .filter((i) => i < max);
-  return [...new Set(picked)].sort((a, b) => a - b);
 };
 
 /** 0 이상 MAX_PER_PEOPLE 이하의 정수로 자른다. 음수 인원이 총원을 깎으면 안 된다. */
@@ -226,9 +263,12 @@ export function parseTrip(sp: Record<string, string | string[] | undefined>): Tr
 
   const driveRaw = Number(oneOf(sp, "drive"));
 
+  // 숫자만 남기고 나서 Number 를 태운다 — Number("") 도 Number(" ") 도 0 이라
+  // 그냥 태우면 빈 값이 테마 0("조용한 바다")으로 샌다. 목록 밖이어도 null 이다.
+  const themeRaw = oneOf(sp, "theme");
+
   return {
-    moods: parseIndexes(oneOf(sp, "mood"), MOODS.length),
-    interests: parseIndexes(oneOf(sp, "int"), INTERESTS.length),
+    theme: themeRaw && /^\d+$/.test(themeRaw) && Number(themeRaw) < THEMES.length ? Number(themeRaw) : null,
     ...period,
     companion,
     people: {
@@ -253,8 +293,7 @@ export function parseTrip(sp: Record<string, string | string[] | undefined>): Tr
  */
 export function toTripQuery(plan: TripPlan): string {
   const params = new URLSearchParams();
-  if (plan.moods.length) params.set("mood", plan.moods.join(","));
-  if (plan.interests.length) params.set("int", plan.interests.join(","));
+  if (plan.theme !== null) params.set("theme", String(plan.theme));
   if (plan.start && plan.end) {
     params.set("from", plan.start);
     params.set("to", plan.end);

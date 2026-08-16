@@ -6,10 +6,12 @@ import {
   COMPANIONS,
   DEFAULT_TRIP,
   DRIVE_HOURS,
-  INTERESTS,
   MAX_MUSTS,
+  THEMES,
+  dayLabel,
+  monthGrid,
+  shiftMonth,
   MAX_PER_PEOPLE,
-  MOODS,
   companionLabel,
   isReady,
   driveLabel,
@@ -38,8 +40,7 @@ assert.deepEqual(roundTrip(toTripQuery(DEFAULT_TRIP)), DEFAULT_TRIP);
 
 // 다 채운 계획도 왕복을 견딘다 — 한 값이라도 새면 그 조건이 코스에서 빠진다
 const full: TripPlan = {
-  moods: [0, 3],
-  interests: [1, 2, 5],
+  theme: 1,
   start: "2026-08-14",
   end: "2026-08-16",
   companion: "family",
@@ -51,12 +52,13 @@ const full: TripPlan = {
 };
 assert.deepEqual(roundTrip(toTripQuery(full)), full);
 
-// 동행·운전시간의 모든 선택지가 왕복을 견딘다
+// 동행·운전시간·테마의 모든 선택지가 왕복을 견딘다
 for (const c of COMPANIONS)
-  for (const d of DRIVE_HOURS) {
-    const plan = { ...full, companion: c.id, driveHours: d.hours };
-    assert.deepEqual(roundTrip(toTripQuery(plan)), plan);
-  }
+  for (const d of DRIVE_HOURS)
+    for (let t = 0; t < THEMES.length; t++) {
+      const plan = { ...full, companion: c.id, driveHours: d.hours, theme: t };
+      assert.deepEqual(roundTrip(toTripQuery(plan)), plan);
+    }
 
 // 장소 이름에 쉼표·앰퍼샌드가 들어가도 쪼개지지 않는다 (반복 키로 싣는 이유)
 const comma = { ...full, musts: ["카페 A&B", "제주, 그 바다"] };
@@ -66,13 +68,15 @@ assert.deepEqual(roundTrip(toTripQuery(comma)).musts, comma.musts);
 // 빈 쿼리는 기본 계획
 assert.deepEqual(parseTrip({}), DEFAULT_TRIP);
 
-// 목록 밖 인덱스·정수 아닌 값·중복은 버린다
-assert.deepEqual(parseTrip({ mood: String(MOODS.length) }).moods, []);
-assert.deepEqual(parseTrip({ int: String(INTERESTS.length + 7) }).interests, []);
-assert.deepEqual(parseTrip({ mood: "2,0,2" }).moods, [0, 2]);
-// 꼬리 쉼표가 인덱스 0 으로 새면 안 된다 — 고른 적 없는 취향이 화면에 켜진다
-assert.deepEqual(parseTrip({ mood: "1," }).moods, [1]);
-assert.deepEqual(parseTrip({ mood: " " }).moods, []);
+// 테마는 하나만 고른다. 목록 밖·정수 아님은 null — 고른 적 없는 테마로 코스를 짜지 않는다
+for (let i = 0; i < THEMES.length; i++) assert.equal(parseTrip({ theme: String(i) }).theme, i);
+assert.equal(parseTrip({ theme: String(THEMES.length) }).theme, null);
+assert.equal(parseTrip({ theme: "-1" }).theme, null);
+assert.equal(parseTrip({ theme: "1.5" }).theme, null);
+assert.equal(parseTrip({ theme: "바다" }).theme, null);
+assert.equal(parseTrip({ theme: "" }).theme, null);
+// 빈 문자열이 0 으로 새면 안 된다 — Number("") 는 0 이다
+assert.equal(parseTrip({}).theme, null);
 
 // 없는 날짜는 안 받는다
 assert.equal(parseTrip({ from: "2026-02-31", to: "2026-03-02" }).start, "");
@@ -136,7 +140,46 @@ assert.equal(isReady({ ...full, start: "", end: "" }), false);
 assert.equal(isReady({ ...full, companion: null }), false);
 assert.equal(isReady({ ...full, driveHours: null }), false);
 assert.equal(isReady({ ...full, musts: [] }), true, "꼭 가고 싶은 곳은 없어도 코스가 나온다");
-// 취향·관심 장소는 비어도 막지 않는다 — 후보를 좁히는 값이지 필수 입력이 아니다
-assert.equal(isReady({ ...full, moods: [], interests: [] }), true);
+// 테마는 여기서 안 본다 — TRIP-02 가 자기 화면에서 이미 막는다
+assert.equal(isReady({ ...full, theme: null }), true);
+
+// --- 달력 격자 (TRIP-04-A) ---
+// 월말·윤년에서 조용히 틀리는 자리라 눈으로 안 보고 여기서 잡는다
+{
+  const aug = monthGrid("2026-08");
+  assert.equal(aug.length, 42, "6주 × 7칸");
+  // 첫 칸은 늘 일요일이고, 마지막 칸까지 하루씩 이어진다
+  assert.equal(new Date(`${aug[0].date}T00:00:00Z`).getUTCDay(), 0);
+  for (let i = 1; i < aug.length; i++)
+    assert.equal(
+      Date.parse(`${aug[i].date}T00:00:00Z`) - Date.parse(`${aug[i - 1].date}T00:00:00Z`),
+      86_400_000,
+      `${aug[i - 1].date} 다음이 ${aug[i].date} 가 아니다`,
+    );
+  // 그 달 날짜는 빠짐없이 들어 있다
+  assert.equal(aug.filter((c) => c.inMonth).length, 31);
+  assert.equal(aug.find((c) => c.inMonth)!.date, "2026-08-01");
+
+  // 윤년 2월은 29일 — 2024 는 윤년, 2026 은 아니다
+  assert.equal(monthGrid("2024-02").filter((c) => c.inMonth).length, 29);
+  assert.equal(monthGrid("2026-02").filter((c) => c.inMonth).length, 28);
+
+  // 어느 달이든 42칸에 다 담긴다 (31일 달이 토요일에 시작하는 최악의 경우 포함)
+  for (let y = 2024; y <= 2030; y++)
+    for (let m = 1; m <= 12; m++) {
+      const key = `${y}-${String(m).padStart(2, "0")}`;
+      const cells = monthGrid(key);
+      assert.equal(cells.filter((c) => c.inMonth).length, new Date(Date.UTC(y, m, 0)).getUTCDate(), `${key} 가 안 담긴다`);
+    }
+
+  // 달 넘기기 — 연말·연초를 넘어간다
+  assert.equal(shiftMonth("2026-08", 1), "2026-09");
+  assert.equal(shiftMonth("2026-12", 1), "2027-01");
+  assert.equal(shiftMonth("2026-01", -1), "2025-12");
+  assert.equal(shiftMonth("2026-08", 0), "2026-08");
+
+  assert.equal(dayLabel("2026-08-14"), "8월 14일");
+  assert.equal(dayLabel("2026-12-01"), "12월 1일");
+}
 
 console.log("lib/trip.ts OK");

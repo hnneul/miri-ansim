@@ -25,16 +25,18 @@ import {
   COMPANIONS,
   DEFAULT_TRIP,
   DRIVE_HOURS,
-  INTERESTS,
   MAX_MUSTS,
   MAX_PER_PEOPLE,
-  MOODS,
   PEOPLE,
+  THEMES,
   companionLabel,
+  dayLabel,
   driveLabel,
   isReady,
+  monthGrid,
   mustLabel,
   periodLabel,
+  shiftMonth,
   toTripQuery,
   type Companion,
   type TripPlan,
@@ -93,7 +95,7 @@ function Trip() {
   if (view === "intro") return <Intro onStart={() => setView("taste")} onBack={back} />;
 
   if (view === "taste")
-    return <TasteView plan={plan} setPlan={setPlan} onBack={back} onNext={() => setView("fields")} />;
+    return <ThemeView plan={plan} setPlan={setPlan} onBack={back} onNext={() => setView("fields")} />;
 
   if (view === "fields")
     return (
@@ -123,10 +125,6 @@ function Trip() {
   if (view === "drive") return <DriveView plan={plan} onBack={back} onApply={commit} />;
   return <MustView plan={plan} onBack={back} onApply={commit} />;
 }
-
-/** 골라 있으면 빼고 없으면 넣는다. 화면 순서로 정렬해 두면 URL 도 같은 순서가 된다. */
-const toggle = (picked: number[], i: number) =>
-  picked.includes(i) ? picked.filter((p) => p !== i) : [...picked, i].sort((a, b) => a - b);
 
 /* ─────────────────────────────── 공통 뼈대 ─────────────────────────────── */
 
@@ -203,128 +201,6 @@ function Title({ lines, subtitle }: { lines: [string] | [string, string]; subtit
         )}
       </h2>
       <p className="mt-2.5 text-[14px] leading-[21px] text-[#7d7d7d]">{subtitle}</p>
-    </div>
-  );
-}
-
-/**
- * TRIP-02 | 여행 취향 · 관심 장소 (통합).
- *
- * 원래 두 화면이었는데 와이어프레임에서 하나로 합쳐졌다 ("TRIP-02 + TRIP-03 통합 제안").
- * 진행 표시("1 / 3"과 막대)도 같이 없어졌다 — 단계가 둘뿐이면 셀 것도 없다.
- *
- * 배치·문구는 새로 그린 화면을 따르되 색은 플로우의 기존 값을 쓴다. 디자인 파일에서는 이 화면만
- * 다른 주황(#ff5914)으로 다시 그려졌는데, 한 플로우 안에서 주황이 두 개로 갈리는 쪽이 더 나쁘다.
- */
-function TasteView({
-  plan,
-  setPlan,
-  onBack,
-  onNext,
-}: {
-  plan: TripPlan;
-  setPlan: (p: TripPlan) => void;
-  onBack: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <Shell
-      label="일정·동행 입력하기"
-      onNext={onNext}
-      disabled={plan.moods.length === 0 || plan.interests.length === 0}
-      note="선택 내용은 언제든 다시 바꿀 수 있어요."
-    >
-      <Back onClick={onBack} />
-
-      <div className="shrink-0 px-6">
-        {/* 제목 두 줄 간격 28 — 렌더를 픽셀로 재서 맞춘 값이다 */}
-        <h2 className="text-[25px] leading-[28px] font-bold text-[#262626]">
-          어떤 제주 여행을
-          <br />
-          원하시나요?
-        </h2>
-        <p className="mt-[19px] text-[11px] leading-[18px] text-[#7d7d7d]">여행 분위기와 관심 장소를 함께 골라주세요.</p>
-      </div>
-
-      <SectionLabel n={1} title="좋아하는 여행 분위기" hint="복수 선택 가능" />
-      {/* 164x64 두 칸, 칸 사이 14 / 줄 사이 12 (피그마 left 24·202, top 222·298) */}
-      <div className="mt-5 grid shrink-0 grid-cols-2 gap-x-[14px] gap-y-3 px-6">
-        {MOODS.map((m, i) => {
-          const on = plan.moods.includes(i);
-          return (
-            <button
-              key={m.label}
-              onClick={() => setPlan({ ...plan, moods: toggle(plan.moods, i) })}
-              aria-pressed={on}
-              className={`flex h-16 gap-1.5 rounded-2xl border px-[13px] pt-[11px] text-left transition ${
-                on ? "border-[#ff7d32] bg-[#fff0e6]" : "border-[#eae7e2] bg-white"
-              }`}
-            >
-              <span className="w-7 shrink-0 text-[20px] leading-[31px]">{m.emoji}</span>
-              <span className="min-w-0 flex-1">
-                <span
-                  className={`block truncate text-[12px] leading-[19px] font-bold ${on ? "text-[#ff7d32]" : "text-[#262626]"}`}
-                >
-                  {m.label}
-                </span>
-                <span className="mt-[3px] block truncate text-[9px] leading-[18px] text-[#7d7d7d]">{m.desc}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <SectionLabel n={2} title="관심 있는 장소" hint="여러 개 선택" />
-      {/*
-        104x58 세 칸. 피그마는 left 24·137·250 이라 오른쪽 여백만 36 으로 남는데(왼쪽은 24),
-        좌우 여백을 24 로 맞추고 칸 너비를 108 로 늘린다 — 한쪽만 뜬 여백은 옮길 값이 아니라 흘린 값이다.
-      */}
-      <div className="mt-[21px] grid shrink-0 grid-cols-3 gap-x-[9px] gap-y-3 px-6">
-        {INTERESTS.map((it, i) => {
-          const on = plan.interests.includes(i);
-          return (
-            <button
-              key={it.label}
-              onClick={() => setPlan({ ...plan, interests: toggle(plan.interests, i) })}
-              aria-pressed={on}
-              className={`h-[58px] rounded-[14px] border pt-[7px] text-center transition ${
-                on ? "border-[#ff7d32] bg-[#fff0e6]" : "border-[#eae7e2] bg-white"
-              }`}
-            >
-              <span className="block text-[18px] leading-[26px]">{it.emoji}</span>
-              <span
-                className={`block truncate px-1 text-[10px] leading-[18px] ${on ? "font-bold text-[#ff7d32]" : "font-medium text-[#7d7d7d]"}`}
-              >
-                {it.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-14 mx-6 flex h-[42px] shrink-0 items-start gap-1.5 rounded-[14px] bg-[#fff0e6] px-3.5 pt-3.5">
-        <span className="text-[13px] leading-[20px] font-bold text-[#ff7d32]">✦</span>
-        <span className="text-[10px] leading-[18px] font-medium text-[#7d7d7d]">
-          선택한 취향을 바탕으로 제주 코스를 추천해요.
-        </span>
-      </div>
-    </Shell>
-  );
-}
-
-/**
- * "1. 좋아하는 여행 분위기" + 오른쪽 끝 "복수 선택 가능" (14px Bold / 9px Medium).
- * 위 여백이 둘이 다르다 — 1번은 부제 아래 29, 2번은 카드 아래 40 (피그마 200·422 좌표 그대로).
- */
-function SectionLabel({ n, title, hint }: { n: number; title: string; hint: string }) {
-  return (
-    <div
-      className={`flex shrink-0 items-baseline justify-between px-6 ${n === 1 ? "mt-[29px]" : "mt-10"}`}
-    >
-      <h3 className="text-[14px] leading-[22px] font-bold text-[#262626]">
-        {n}. {title}
-      </h3>
-      <span className="text-[9px] leading-[18px] font-medium text-[#ff7d32]">{hint}</span>
     </div>
   );
 }
@@ -462,6 +338,80 @@ function Field({
   );
 }
 
+/**
+ * TRIP-02 | 여행 테마 선택.
+ *
+ * 원래 "분위기 4개(복수) + 관심 장소 6개(복수)" 두 묶음이었는데 와이어프레임에서 테마 넷으로
+ * 합쳐지고 **하나만 고르는** 방식이 됐다 ("4개로 통합").
+ *
+ * 뒤로 화살표는 와이어프레임에서 빠졌지만 남겨 뒀다 — 없으면 TRIP-01 로 되돌아갈 길이 사라진다.
+ * 그만큼(44) 아래로 밀리므로 이 화면만 피그마 세로 좌표와 그 폭이 더 벌어진다.
+ */
+function ThemeView({
+  plan,
+  setPlan,
+  onBack,
+  onNext,
+}: {
+  plan: TripPlan;
+  setPlan: (p: TripPlan) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <Shell label="다음" onNext={onNext} disabled={plan.theme === null}>
+      <Back onClick={onBack} />
+
+      <div className="shrink-0 px-6">
+        <h2 className="text-[25px] leading-[31px] font-bold text-[#262626]">
+          어떤 제주 여행을
+          <br />
+          원하시나요?
+        </h2>
+        <p className="mt-[18px] text-[11px] leading-5 text-[#7d7d7d]">가장 끌리는 여행 테마 하나를 골라주세요.</p>
+      </div>
+
+      <div className="mt-[29px] flex shrink-0 items-baseline justify-between px-[27px]">
+        <h3 className="text-[15px] leading-6 font-bold text-[#262626]">여행 테마</h3>
+        <span className="text-[10px] leading-[18px] font-medium text-[#ff7d32]">한 가지만 선택</span>
+      </div>
+
+      {/* 164x108 두 칸씩 · 사이 14 (피그마 left 24·202, top 268·390) */}
+      <div className="mt-[19px] grid shrink-0 grid-cols-2 gap-[14px] px-6">
+        {THEMES.map((t, i) => {
+          const on = plan.theme === i;
+          return (
+            <button
+              key={t.label}
+              onClick={() => setPlan({ ...plan, theme: i })}
+              aria-pressed={on}
+              className={`relative h-[108px] rounded-2xl px-[13px] pt-[11px] text-left transition ${
+                on ? "border-[1.5px] border-[#ff7d32] bg-[#fff0e6]" : "border border-[#eae7e2] bg-white"
+              }`}
+            >
+              <span className="block text-[24px] leading-8">{t.emoji}</span>
+              <span className={`mt-[5px] block truncate text-[14px] leading-[22px] font-bold ${on ? "text-[#ff7d32]" : "text-[#262626]"}`}>
+                {t.label}
+              </span>
+              <span className="mt-0.5 block truncate text-[10px] leading-[18px] text-[#7d7d7d]">{t.desc}</span>
+              {on && (
+                <span className="absolute top-[11px] right-[13px] flex size-5 items-center justify-center rounded-full bg-[#ff7d32] text-[10px] font-bold text-white">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-[122px] mx-6 flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-[#fff0e6] px-3.5">
+        <span className="text-[13px] font-bold text-[#ff7d32]">✦</span>
+        <span className="text-[11px] leading-[18px] font-medium text-[#7d7d7d]">선택한 테마를 중심으로 코스를 추천해요.</span>
+      </div>
+    </Shell>
+  );
+}
+
 /* ─────────────────────────────── TRIP-01 ─────────────────────────────── */
 
 function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void }) {
@@ -509,7 +459,23 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
 function PeriodView({ plan, onBack, onApply }: DetailProps) {
   const [start, setStart] = useState(plan.start);
   const [end, setEnd] = useState(plan.end);
+  // 고쳐 열면 그 달부터 보여준다. 처음이면 이번 달 — 여행은 대개 가까운 날짜다
+  const [month, setMonth] = useState(() => (plan.start || new Date().toISOString()).slice(0, 7));
   const label = periodLabel({ ...plan, start, end });
+
+  /*
+    한 번 누르면 출발, 다시 누르면 도착. 둘 다 찬 뒤에 누르면 출발부터 다시 잡는다 —
+    "고치려면 뭘 지워야 하나"를 묻지 않는 방식이고, 와이어프레임의 "차례로 선택해 주세요"가 이 뜻이다.
+    출발보다 앞선 날을 누르면 그 날이 새 출발이 된다 (거꾸로 된 기간을 만들 방법이 없다).
+  */
+  function pick(date: string) {
+    if (!start || end || date < start) {
+      setStart(date);
+      setEnd("");
+    } else {
+      setEnd(date);
+    }
+  }
 
   return (
     <Detail
@@ -521,42 +487,80 @@ function PeriodView({ plan, onBack, onApply }: DetailProps) {
       onApply={() => onApply({ start, end })}
       disabled={!label}
     >
-      <div className="px-[23px]">
-        <div className="flex items-center gap-3 rounded-2xl bg-[#fff0e6] px-5 py-4">
-          <DateBox name="출발" value={start} onChange={setStart} />
-          <span className="shrink-0 text-[16px] text-[#7d7d7d]">→</span>
-          <DateBox name="도착" value={end} min={start} onChange={setEnd} />
+      <div className="px-6">
+        <div className="flex h-[76px] items-center rounded-2xl bg-[#fff0e6] px-[18px]">
+          <span className="flex-1">
+            <span className="block text-[12px] leading-[18px] text-[#7d7d7d]">출발</span>
+            <span className={`block text-[16px] leading-6 font-medium ${start ? "text-[#262626]" : "text-[#b8b2aa]"}`}>
+              {start ? dayLabel(start) : "날짜 선택"}
+            </span>
+          </span>
+          <span className="shrink-0 px-2 text-[16px] text-[#7d7d7d]">→</span>
+          <span className="flex-1 text-right">
+            <span className="block text-[12px] leading-[18px] text-[#7d7d7d]">도착</span>
+            <span className={`block text-[16px] leading-6 font-medium ${end ? "text-[#262626]" : "text-[#b8b2aa]"}`}>
+              {end ? dayLabel(end) : "날짜 선택"}
+            </span>
+          </span>
         </div>
-        <p className="mt-6 rounded-2xl bg-[#f6f4f1] px-5 py-4 text-[14px] leading-[21px] text-[#7d7d7d]">
+
+        <div className="mt-9 flex items-center justify-between">
+          <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="지난 달" className="size-11 text-[18px] text-[#7d7d7d]">
+            ‹
+          </button>
+          <span className="text-[16px] leading-6 font-medium text-[#262626]">
+            {month.split("-")[0]}년 {Number(month.split("-")[1])}월
+          </span>
+          <button onClick={() => setMonth(shiftMonth(month, 1))} aria-label="다음 달" className="size-11 text-[18px] text-[#7d7d7d]">
+            ›
+          </button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-7 text-center text-[12px] leading-[18px] text-[#7d7d7d]">
+          {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
+            <span key={d}>{d}</span>
+          ))}
+        </div>
+
+        <div className="mt-2 grid grid-cols-7">
+          {monthGrid(month).map(({ date, inMonth }) => {
+            const isStart = date === start;
+            const isEnd = date === end;
+            const between = !!start && !!end && date > start && date < end;
+            const day = Number(date.slice(8));
+            return (
+              <button
+                key={date}
+                onClick={() => inMonth && pick(date)}
+                disabled={!inMonth}
+                aria-pressed={isStart || isEnd}
+                aria-label={dayLabel(date)}
+                /* 사이 날짜의 옅은 띠가 칸 사이 틈으로 끊기지 않게, 배경은 칸 전체에 깔고 원만 안에 올린다 */
+                className={`flex h-12 items-center justify-center ${between ? "bg-[#fff0e6]" : ""} ${
+                  isStart ? "rounded-l-full bg-[#fff0e6]" : ""
+                } ${isEnd ? "rounded-r-full bg-[#fff0e6]" : ""}`}
+              >
+                <span
+                  className={`flex size-[38px] items-center justify-center rounded-full text-[14px] leading-5 ${
+                    isStart || isEnd
+                      ? "bg-[#ff7d32] font-bold text-white"
+                      : inMonth
+                        ? "text-[#262626]"
+                        : "text-[#d6d0c9]"
+                  }`}
+                >
+                  {day}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="mt-6 flex h-[58px] items-center rounded-2xl bg-[#f6f4f1] px-[18px] text-[14px] leading-[21px] text-[#7d7d7d]">
           {label ? `선택한 여행 기간 · ${label}` : "두 날짜를 모두 고르면 기간이 나와요"}
         </p>
       </div>
     </Detail>
-  );
-}
-
-function DateBox({
-  name,
-  value,
-  min,
-  onChange,
-}: {
-  name: string;
-  value: string;
-  min?: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="min-w-0 flex-1">
-      <span className="block text-[12px] leading-[18px] text-[#7d7d7d]">{name}</span>
-      <input
-        type="date"
-        value={value}
-        min={min}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-0.5 w-full bg-transparent text-[16px] leading-6 font-medium text-[#262626] outline-none"
-      />
-    </label>
   );
 }
 
