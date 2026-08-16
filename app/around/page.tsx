@@ -616,12 +616,12 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  * 기호보다 훨씬 시끄럽다. 어차피 40개가 다 같은 캐시백 가맹점이라 하나하나가 무엇인지 말할 게 없고,
  * 지도가 할 일은 "이 동네에 이만큼 깔려 있다"다. 로고는 고른 하나에만 붙어 그게 어디인지 말한다.
  *
- * **모양도 크기도 갈린다.** 안 고른 것은 꼬리도 테두리도 없는 22px 동그라미, 고른 것은 50x70
- * 물방울이다. 40개가 다 물방울이면 크기 차이(32 vs 50)만으로는 어느 게 골라진 건지 안 읽혔다 —
- * 모양이 아예 다르고 넓이가 8배쯤 나야 눈이 하나를 집어낸다.
+ * **모양도 크기도 갈린다.** 안 고른 것은 38x31 말풍선(꼬리 달린 타원), 고른 것은 50x70
+ * 물방울이다. 40개가 다 물방울이면 크기 차이만으로는 어느 게 골라진 건지 안 읽혔다 —
+ * 모양이 아예 달라야 눈이 하나를 집어낸다.
  *
- * 동그라미는 지도 위 점이니 **한가운데**가 그 가게 자리고, 물방울은 뾰족한 끝이 자리다.
- * 그래서 아래 기준점이 둘이 다르다.
+ * 둘 다 **꼬리 끝**이 그 가게 자리다. 그래서 고르는 순간 표시가 제자리에서 커지기만 한다
+ * (한쪽만 한가운데를 기준으로 두면 고를 때 핀이 위로 뛴다 — /parking 이 겪은 것과 같다).
  *
  * off 는 인라인 data: URI 다 (/parking 과 같은 방식). 로고가 빠지면서 path 하나 182바이트가 돼
  * 파일로 둘 이유가 없어졌고, **파일로 두면 고칠 때마다 브라우저 이미지 캐시에 걸린다** —
@@ -632,12 +632,20 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  */
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
+/*
+  안 고른 핀 — 꼬리 달린 타원(말풍선). 카카오 지도가 제 마커에 쓰는 모양이다.
+
+  양끝이 반원인 스타디움(높이 28 = rx 28/2)이라 좌우 캡 중심은 (20,17)·(36,17) 이고,
+  꼬리는 아래 모서리에서 (22,40) 으로 빠진다. 그 끝이 그 가게 자리다.
+*/
 const PIN = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 46">
      <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
        <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
      </filter>
-     <circle cx="28" cy="26" r="21" fill="#ff6114" filter="url(#s)"/>
+     <path d="M20 3H36A14 14 0 0 1 36 31H30L22 40L20 31A14 14 0 0 1 20 3Z"
+           fill="#fff3ec" stroke="#ff6114" stroke-width="1.6" stroke-linejoin="round"
+           filter="url(#s)"/>
    </svg>`,
 );
 
@@ -648,9 +656,9 @@ const PIN_ON = "/tamna-pin-on.svg";
  *
  * 그림자가 번질 자리를 만드느라 캔버스가 그림보다 커서, 카카오 기본값("이미지 아래 가운데")을
  * 그대로 두면 핀이 몇 px 떠서 엉뚱한 건물을 가리킨다. 그려진 자리를 직접 넘겨 막는다.
- * 동그라미는 원 중심 (28,26), 물방울은 끝점 (28,69) — 각각 그린 크기로 환산한 값이다.
+ * 말풍선은 꼬리 끝 (22,40), 물방울은 뾰족한 끝 (28,69) — 각각 그린 크기로 환산한 값이다.
  */
-const PIN_SIZE = [22, 22, 11, 10] as const;
+const PIN_SIZE = [38, 31, 15, 27] as const;
 const PIN_ON_SIZE = [50, 70, 25, 62] as const;
 
 /**
