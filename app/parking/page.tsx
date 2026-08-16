@@ -28,6 +28,7 @@ import {
   mergeSpots,
   walkMinutes,
   parkingKind,
+  isEasyParking,
   REACH_M,
   type Lot,
   type ParkingSpot,
@@ -45,11 +46,27 @@ const SOURCE = `출처: ${PARKING.source} · 요금은 그 뒤로 바뀌었을 �
 /** 목적지 없이 URL 로 들어왔을 때 지도가 볼 곳 — 제주시청. 그때는 목록 대신 안내만 뜬다. */
 const START: LatLng = [33.4996, 126.5312];
 
-/** 축척. 섬 전체가 아니라 동네가 보여야 핀이 뭉치지 않는다. */
-const START_LEVEL = 5;
+/**
+ * 처음 축척 (카카오는 낮을수록 가깝다: 4=100m, 5=250m).
+ *
+ * 4 로 당겼다. 지도가 화면을 꽉 채우던 시절에는 5 가 맞았는데 지금은 364px 띠라, 같은 축척이면
+ * 목적지 주변이 그 안에서 자잘하게 뭉친다. 목적지에서 걸어갈 자리를 고르는 화면이니
+ * 도보 몇 분 거리가 화면에 담기면 된다 — 더 넓게 보고 싶으면 핀치·더블탭으로 물러날 수 있다.
+ */
+const START_LEVEL = 4;
 
 /** 카카오에서 받은 것 중 지도에 얹을 최대 개수. 받아오는 건 한 페이지(15곳)뿐이다. */
 const POI_CAP = 15;
+
+/** 지도 띠 높이 (와이어프레임 PARK-01 의 Map/Placeholder 364). 목록을 내리면 그만큼 늘어난다. */
+const MAP_H = 364;
+
+/**
+ * 목록을 내렸을 때 남겨두는 높이. 손잡이(18) + 칩 줄(약 60) + 카드 한 장(79)이다 —
+ * 손잡이만 남기면 되돌릴 수는 있어도 무엇을 내린 건지 안 보이고, 칩까지 가려지면
+ * 필터를 바꾸려고 매번 다시 올려야 한다.
+ */
+const PEEK = 160;
 
 /** 같은 주차장인가. 이름이 겹치는 곳("금능리 1428" 류)이 있어 좌표까지 본다. */
 const same = (a: ParkingSpot | null, b: ParkingSpot) =>
@@ -129,8 +146,15 @@ function Parking() {
   const [publicOnly, setPublicOnly] = useState(false);
   /** 지도에서 고른 한 곳. 카드가 이걸로 물들고, 핀도 이것만 커진다. */
   const [selected, setSelected] = useState<ParkingSpot | null>(null);
-  /** 목록이 지도를 덮고 있는가 ("목록 보기"). 지도는 뒤에 그대로 살아 있다. */
-  const [listOpen, setListOpen] = useState(false);
+  /**
+   * 목록을 아래로 내려 지도를 크게 보고 있는가.
+   *
+   * 기본 자리(지도 364px)가 와이어프레임이고, 손잡이는 거기서 **내려가는 쪽**으로만 움직인다.
+   * 목록을 지도 위로 끌어올리게도 만들어 봤는데, 손잡이를 눌렀을 때 목록이 올라오는 건
+   * 시트를 아는 사람의 예상과 반대였다 — 손잡이가 붙은 시트는 내리는 물건으로 읽힌다.
+   * 목록을 더 보고 싶으면 목록 안에서 스크롤한다.
+   */
+  const [mapBig, setMapBig] = useState(false);
 
   // 카카오에서 받아온 주변 주차장. 굳혀두지 않고 화면에서만 들고 있는다 (lib/poi.ts 첫 주석).
   // 기준점이 목적지에 못 박혀 있어 한 번만 부르면 된다.
@@ -142,33 +166,81 @@ function Parking() {
     findParkingNear(dest).then((r) => !("error" in r) && setPois(r.spots));
   }, [dest]);
 
-  // 두 출처를 같은 기준(목적지)으로 잰다 — 카카오 쪽 거리도 여기서 다시 계산된다.
-  // mergeSpots 가 돌려주는 건 이미 가까운 순이라, 거리 정렬은 따로 할 일이 없다.
-  const spots = useMemo(() => {
-    if (!dest) return [];
-    const merged = mergeSpots(
+  /**
+   * 목록과 추천 한 곳.
+   *
+   * 두 출처를 같은 기준(목적지)으로 잰다 — 카카오 쪽 거리도 여기서 다시 계산된다.
+   * mergeSpots 가 돌려주는 건 이미 가까운 순이라, 거리 정렬은 따로 할 일이 없다.
+   *
+   * **추천은 늘 거리 순에서 고른다.** 화면 정렬을 "칸 많은 순"으로 바꿨다고 "가장 가까운
+   * 직각주차"가 달라지면 안 된다 — 정렬은 보는 순서지 추천의 기준이 아니다.
+   *
+   * 고른 뒤에는 맨 위로 올린다. 45곳을 늘어놓고 고르라는 건 정보는 맞지만 결정을 통째로
+   * 초보에게 떠넘긴다. 여기가 답하려는 질문은 "어디 대면 돼?"고, 대부분에게 그 답은
+   * "칸에 맞춰 대는 곳 중 제일 가까운 데"다. 답을 주되 나머지 목록으로 막지는 않는다.
+   */
+  const { spots, recommended } = useMemo(() => {
+    if (!dest) return { spots: [] as ParkingSpot[], recommended: null };
+    const near = mergeSpots(
       spotsAround(dest, LOTS, { free }),
       publicOnly ? [] : spotsAround(dest, pois, { free }, POI_CAP),
     );
-    return sort === "spaces"
-      ? [...merged].sort((a, b) => (b.spaces ?? -1) - (a.spaces ?? -1))
-      : merged;
+    /*
+     * 직각주차로 판정된 곳이 하나도 없으면 **추천을 접는다.** 예전에는 그냥 가장 가까운 곳으로
+     * 떨어뜨렸는데, 그러면 "추천"이 늘 붙어 있어 아무 뜻이 없어진다 — 카카오에서 온 곳만 있는
+     * 동네(유형을 아예 모른다)나 전부 평행주차 추정인 동네가 실제로 있다.
+     * 추천이 뜬다는 건 곧 이유가 있다는 뜻이어야 한다.
+     */
+    const rec = near.find(isEasyParking) ?? null;
+    const rest = rec ? near.filter((s) => s !== rec) : near;
+    const ordered =
+      sort === "spaces"
+        ? [...rest].sort((a, b) => (b.spaces ?? -1) - (a.spaces ?? -1))
+        : rest;
+    return { spots: rec ? [rec, ...ordered] : ordered, recommended: rec };
   }, [dest, free, publicOnly, pois, sort]);
 
   /*
    * 지도 핀을 눌렀다. 여기서 화면을 넘기지 않는다 — 핀 하나 눌렀을 뿐인데 다른 화면으로 튀면
    * 옆 주차장과 비교하려던 사람은 그 비교를 못 한다. 고른 곳을 목록에서 짚어주고, 갈지 말지는
    * 그 카드에서 정한다 (/around 와 같은 규칙).
+   *
+   * 지도는 안 옮긴다 — 눈에 보이는 핀을 눌렀는데 화면이 움직이면 방금 뭘 눌렀는지 놓친다.
+   *
+   * 대신 **목록을 기본 자리로 되올린다.** 지도를 크게 본 상태에서는 목록이 카드 한 장만 남기고
+   * 내려가 있어서, 핀을 골라봐야 그 카드가 화면 밖이다 — 고른 결과를 볼 수 없으면 고른 게 아니다.
+   * 올라온 뒤에는 아래 효과가 그 카드를 목록 안에서 끌어온다.
    */
   function highlight(spot: ParkingSpot) {
     setSelected(spot);
-    setListOpen(false);
+    setMapBig(false);
   }
 
-  /** 카드를 눌렀다 — 상세(PARK-02)로. 와이어프레임이 카드에 매어둔 동선이다. */
+  /*
+   * 카드를 눌렀다 — **지도를 그 자리로 옮긴다.**
+   *
+   * 이름이 "이도이동 1053" 같은 번지인 곳이 공공데이터의 91%라, 카드만 봐서는 어딘지 알 수 없다.
+   * 여기서 상세로 곧장 넘기면 "어딘지"를 확인할 기회가 아예 없어진다 — 지도에서 짚어주고,
+   * 갈지 말지는 그 카드에 펼쳐지는 버튼으로 정한다.
+   */
+  const move = useRef<((at: LatLng) => void) | null>(null);
+  function focus(spot: ParkingSpot) {
+    // 고르는 규칙은 highlight 하나로 모은다 — 목록을 되올리는 일을 두 군데서 따로 하면 어긋난다
+    highlight(spot);
+    move.current?.(spot.at);
+  }
+
+  /** 상세(PARK-02)로. 고른 카드에 펼쳐지는 버튼만 이 문을 연다. */
   function open(spot: ParkingSpot) {
     router.push(`/parking/detail?${detailQuery(spot, searchParams)}`);
   }
+
+  /**
+   * 시트가 시작하는 높이 = 지도 띠의 높이. 한 값을 둘이 나눠 써야 사이에 틈이 안 생긴다.
+   * 프레임이 낮은 노트북에서는 100%-PEEK 가 MAP_H 보다 작아질 수 있어 max() 로 막는다 —
+   * 안 막으면 "내리기"가 목록을 되레 위로 올린다.
+   */
+  const sheetTop = mapBig ? `max(${MAP_H}px, calc(100% - ${PEEK}px))` : `${MAP_H}px`;
 
   /*
    * 고른 카드를 목록에 보이게 끌어온다. 지도 아래 남는 자리가 카드 서너 장이라, 안 끌어오면
@@ -220,13 +292,23 @@ function Parking() {
         (/destination 이 같은 이유로 지도를 z-0 에 가둬 뒀다).
       */}
       <div className="relative min-h-0 flex-1">
-        {/* z-0 이 지도 몫의 쌓임 맥락을 만든다 — 안쪽 알약의 z-10 이 여기 갇혀야 목록이 덮을 수 있다 */}
-        <div className="absolute inset-x-0 top-0 z-0 h-[364px] bg-[#f7f7f7]">
+        {/*
+          지도 띠. **시트가 내려간 만큼 같이 늘어난다** — 높이를 364 로 못 박아 두면 시트만
+          내려가고 그 사이가 흰 띠로 남는다 ("지도 크게"인데 지도가 안 커진다).
+          늘어난 뒤 축척은 Map 안의 ResizeObserver 가 relayout 으로 다시 잡는다.
+
+          z-0 이 지도 몫의 쌓임 맥락을 만든다 — 안쪽 알약의 z-10 이 여기 갇혀야 시트가 덮을 수 있다.
+        */}
+        <div
+          style={{ height: sheetTop }}
+          className="absolute inset-x-0 top-0 z-0 bg-[#f7f7f7] transition-[height] duration-200"
+        >
           <Map
             pins={spots}
             selected={selected}
             onPick={highlight}
             onBlank={() => setSelected(null)}
+            move={move}
             start={dest ?? START}
             dest={dest}
           />
@@ -238,15 +320,32 @@ function Parking() {
         </div>
 
         {/*
-          칩과 목록. 평소에는 지도(364) 밑에서 시작하고, "목록 보기"를 누르면 top 이 0 으로 올라가
-          **지도를 덮는다.** 지도를 접거나 지우지 않는 이유 — display:none 으로 감추면 카카오 지도가
-          0 크기로 접혔다가 다시 펴지면서 축척을 다시 잡는다. 뒤에 그대로 살려두면 그럴 일이 없다.
+          칩과 목록. 기본은 지도(364) 밑이고, 손잡이를 누르면 아래로 내려가 지도가 커진다.
+          내려가도 손잡이·칩·카드 한 장은 남긴다(PEEK) — 통째로 사라지면 되돌릴 손잡이도 같이 없어진다.
+
+          top 을 style 로 주는 이유 — max()·calc() 를 Tailwind 임의값에 우겨넣으면 밑줄투성이가
+          되어 읽히지 않는다. 값은 위 sheetTop 하나이고 지도 띠가 같은 값을 높이로 쓴다.
         */}
         <div
-          className={`absolute inset-x-0 bottom-0 z-10 flex flex-col bg-white transition-[top] duration-200 ${
-            listOpen ? "top-0" : "top-[364px]"
-          }`}
+          style={{ top: sheetTop }}
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.12)] transition-[top] duration-200"
         >
+          {/*
+            손잡이 (/destination·/route 시트와 같은 모양). 눌러서 목록을 내리고 다시 올린다 —
+            실제로 끌리지는 않는다. 끌기까지 만들 값어치는 없고, 눌러서 되는 걸로 충분하다.
+
+            보이는 막대는 4px 지만 누르는 자리는 18px 이다. 4px 짜리를 그대로 노리게 하면
+            여는 방법을 못 찾는다 (지워진 SpotList 가 머리글을 두 번째 문으로 뒀던 이유와 같다).
+          */}
+          <button
+            onClick={() => setMapBig((v) => !v)}
+            aria-label={mapBig ? "목록 올리기" : "목록 내리고 지도 크게 보기"}
+            aria-expanded={!mapBig}
+            className="flex h-[18px] w-full shrink-0 items-center justify-center pt-2.5"
+          >
+            <span aria-hidden className="h-1 w-12 rounded-full bg-[#d6d6d6]" />
+          </button>
+
           {/*
             칩 (와이어프레임 ChipRow 2153:1782) + 목록 보기.
 
@@ -257,7 +356,7 @@ function Parking() {
             #e6e6e6 / #e5e5e5 로 달라 눈으로는 구분되지 않는데, 켜고 끄는 칩이 그러면 안 된다.
             같은 화면의 배지와 같은 주황을 쓴다.
           */}
-          <div className="flex shrink-0 items-center gap-2 px-[15px] pt-[11px] pb-1">
+          <div className="flex shrink-0 items-center gap-2 px-[15px] pt-[9px] pb-1">
             <Chip
               on
               onClick={() => setSort((s) => (s === "distance" ? "spaces" : "distance"))}
@@ -270,17 +369,6 @@ function Parking() {
             <Chip on={publicOnly} onClick={() => setPublicOnly((v) => !v)}>
               공영
             </Chip>
-            {/*
-              지도 아래 남는 자리가 카드 서너 장이라, 많이 보려면 목록이 지도를 덮어야 한다.
-              칩 줄 오른쪽 끝에 둔다 — 목록 위에 따로 띠를 만들면 보이는 카드가 한 장 더 줄어든다.
-            */}
-            <button
-              onClick={() => setListOpen((v) => !v)}
-              aria-expanded={listOpen}
-              className="ml-auto shrink-0 px-1 text-[13px] leading-[22px] font-medium text-[#525252]"
-            >
-              {listOpen ? "지도 보기" : "목록 보기"}
-            </button>
           </div>
 
           <div ref={listBox} className="min-h-0 flex-1 overflow-y-auto">
@@ -320,7 +408,9 @@ function Parking() {
                     key={i}
                     spot={s}
                     picked={same(selected, s)}
-                    onClick={() => open(s)}
+                    recommended={s === recommended}
+                    onSelect={() => focus(s)}
+                    onOpen={() => open(s)}
                   />
                 ))}
               </div>
@@ -363,31 +453,53 @@ function Chip({ on, onClick, children }: { on: boolean; onClick?: () => void; ch
  *
  * 요금·구획수는 안 적는다. 와이어프레임이 이 카드에 안 뒀고, 다음 화면(PARK-02)이 그걸
  * 통째로 펴 보인다 — 목록에서 같은 걸 또 늘어놓으면 카드가 두 줄에서 네 줄이 된다.
+ *
+ * 바깥이 div 인 이유 — 고른 카드에 상세 버튼이 하나 더 붙는데, 카드째 button 이면 버튼 안에
+ * 버튼이 들어간다 (HTML 이 허용하지 않고, 안쪽 클릭이 바깥으로 샌다). 누르는 자리 둘을
+ * 나란한 형제로 두면 클릭을 끊어줄 일도 없다.
  */
 function SpotCard({
   spot,
   picked,
-  onClick,
+  recommended,
+  onSelect,
+  onOpen,
 }: {
   spot: ParkingSpot;
   /** 지도에서 고른 그 곳인가. 테두리 굵기는 그대로 두고 색만 바꾼다 — 굵어지면 목록이 덜컹인다. */
   picked: boolean;
-  onClick: () => void;
+  /** 우리가 골라 맨 위에 올린 곳인가. 배지와 이유 줄이 그때만 붙는다. */
+  recommended: boolean;
+  /** 카드 몸통 — 지도에서 그 자리를 보여준다. */
+  onSelect: () => void;
+  /** 고른 카드에만 펼쳐지는 버튼 — 상세로 간다. */
+  onOpen: () => void;
 }) {
   const type = typeBadge(spot);
   const kakao = spot.source === "카카오";
 
   return (
-    <button
-      onClick={onClick}
+    <div
       data-picked={picked}
-      className={`block w-full rounded-[12px] border px-[15px] pt-[11px] pb-[14px] text-left transition active:bg-black/[0.03] ${
+      className={`overflow-hidden rounded-[12px] border transition ${
         picked ? "border-[#fc7f35] bg-[#fff6f0]" : "border-[#e6e6e6] bg-white"
       }`}
     >
+      <button
+        onClick={onSelect}
+        className="block w-full px-[15px] pt-[11px] pb-[14px] text-left transition active:bg-black/[0.03]"
+      >
       <span className="flex h-[26px] items-center justify-between gap-3">
-        <span className="min-w-0 truncate text-[14px] leading-[22px] font-medium text-[#1f1f1f]">
-          {spot.name}
+        {/* 추천 배지는 이름 앞이다 — 길 비교 카드(app/route)가 같은 자리에 같은 모양으로 둔다 */}
+        <span className="flex min-w-0 items-center gap-1.5">
+          {recommended && (
+            <span className="shrink-0 rounded-[5px] bg-[#fc7f35] px-[6px] py-[3px] text-[11px] leading-none font-bold text-white">
+              추천
+            </span>
+          )}
+          <span className="min-w-0 truncate text-[14px] leading-[22px] font-medium text-[#1f1f1f]">
+            {spot.name}
+          </span>
         </span>
         <span className="shrink-0 text-[14px] leading-[22px] font-medium tabular-nums text-[#525252]">
           도보 {walkMinutes(spot.walkM)}분
@@ -403,7 +515,30 @@ function SpotCard({
         */}
         {kakao && <Badge muted>카카오맵</Badge>}
       </span>
-    </button>
+      {/*
+        왜 이게 맨 위에 떴는지 밝힌다. 안 밝히면 추천이 근거 없는 지목으로 보이고, 초보는 그걸
+        못 따진다. 직각주차인 곳이 없으면 애초에 추천을 안 하므로(위 useMemo) 할 말이 늘 있다.
+      */}
+      {recommended && (
+        <span className="mt-[6px] block text-[12px] leading-[18px] text-[#9e9e9e]">
+          칸에 맞춰 대는 곳 중 목적지에서 가장 가까워요.
+        </span>
+      )}
+      </button>
+
+      {/*
+        고른 카드에만 펼쳐지는 다음 화면 문. 늘 붙여두면 45장에 같은 버튼이 45개라 목록이 아니라
+        버튼 벽이 되고, 카드를 누르는 일(지도에서 짚기)과 자리를 다투게 된다.
+      */}
+      {picked && (
+        <button
+          onClick={onOpen}
+          className="mx-[15px] mb-[12px] flex h-[44px] w-[calc(100%-30px)] items-center justify-center rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.99]"
+        >
+          이 주차장 자세히
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -437,39 +572,49 @@ function Badge({ children, muted }: { children: string; muted?: boolean }) {
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 /*
- * 안 고른 주차장은 작은 점, 고른 한 곳만 크게 (/around 의 탐나는전 핀과 같은 규칙).
+ * 안 고른 주차장은 작고 흐리게, 고른 한 곳만 크고 진하게 (/around 의 탐나는전 핀과 같은 규칙).
  *
  * 전에는 40곳이 전부 44×34 흰 말풍선이라 서귀포 도심에서 스무 개가 서로를 가려 지도가 안 읽혔다.
- * 점으로 줄이면 어디에 몰려 있는지가 먼저 보이고, 어느 하나를 짚었을 때만 그게 도드라진다.
+ * 흐린 점으로 두면 어디에 몰려 있는지가 먼저 보이고, 짚은 하나만 앞으로 나온다.
  *
- * 둘 다 **가운데를 좌표에 앉힌다**(anchor). 하나는 가운데, 하나는 아래끝으로 두면 고르는 순간
- * 핀이 위로 뛴다 — 같은 자리에서 커지기만 해야 같은 곳을 가리키는 걸로 읽힌다.
+ * 연하게는 **투명도가 아니라 색으로** 낸다. opacity 를 먹였더니 지도 무늬가 비쳐서 핀이 아예
+ * 안 보였다 — 배경이 흰 종이가 아니라 도로·건물이 깔린 지도라 옅어진 만큼 그게 올라온다.
+ * 옅은 주황으로 칠하고 테두리와 글자만 진하게 남기면, 색은 물러나면서 형태는 또렷하다.
+ * 그림자도 뺐다 — 뒤로 물러난 것이 진한 그림자를 드리우면 그만큼 다시 앞으로 나온다.
+ *
+ * 고른 것만 **물방울 핀**이다 (/around 의 탐나는전 핀과 같은 모양·같은 이유). 동그라미는 어디를
+ * 가리키는지 스스로 말하지 못해서, 여러 개가 깔린 지도에서는 "이 근처에 뭔가 있다"까지만 읽힌다.
+ * 뾰족한 끝이 있어야 "바로 여기"가 된다.
+ *
+ * 그래서 **앵커가 서로 다르다**: 동그라미는 가운데(13,13), 물방울은 끝점(20,52)이 좌표에 앉는다.
+ * 고르는 순간 핀이 위로 서는 것처럼 보이는데, 그게 맞다 — 둘 다 같은 점을 가리키고 있다.
  */
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
-     <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
-       <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#000" flood-opacity="0.28"/>
-     </filter>
-     <circle cx="13" cy="13" r="9.5" fill="#fc7f35" filter="url(#s)"/>
+     <circle cx="13" cy="13" r="9" fill="#ffe0cb" stroke="#fc7f35" stroke-width="1.5"/>
      <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
-           fill="#fff" text-anchor="middle">P</text>
+           fill="#fc7f35" text-anchor="middle">P</text>
    </svg>`,
 );
 
 const PIN_ON = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+  `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52" viewBox="0 0 40 52">
      <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
-       <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.32"/>
+       <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.35"/>
      </filter>
-     <circle cx="22" cy="22" r="16.5" fill="#fc7f35" stroke="#fff" stroke-width="3" filter="url(#s)"/>
-     <text x="22" y="28.5" font-family="system-ui,sans-serif" font-size="18" font-weight="700"
+     <path d="M20 2 C10.6 2 3 9.6 3 19 c0 12.4 17 30 17 30 s17-17.6 17-30 C37 9.6 29.4 2 20 2 z"
+           fill="#fc7f35" stroke="#fff" stroke-width="2.5" filter="url(#s)"/>
+     <text x="20" y="26" font-family="system-ui,sans-serif" font-size="19" font-weight="700"
            fill="#fff" text-anchor="middle">P</text>
    </svg>`,
 );
 
-/** [폭, 높이] — 앵커는 그 절반(가운데)이다. */
-const PIN_SIZE = [26, 26] as const;
-const PIN_ON_SIZE = [44, 44] as const;
+/**
+ * [폭, 높이, 앵커 x, 앵커 y] — 그림에서 **좌표에 앉을 점**을 직접 넘긴다.
+ * 카카오 기본값("이미지 아래 가운데")에 맡기면 동그라미가 좌표 위로 반쯤 떠서 엉뚱한 데를 가리킨다.
+ */
+const PIN_SIZE = [26, 26, 13, 13] as const;
+const PIN_ON_SIZE = [40, 52, 20, 50] as const;
 
 /** 목적지 핀 — 주차장 P 핀과 안 헷갈리게 파란 점으로 둔다 (와이어프레임 지도의 destination 색). */
 const DEST_PIN = pin(
@@ -486,6 +631,8 @@ type MapProps = {
   onPick: (s: ParkingSpot) => void;
   /** 핀이 아닌 빈 지도를 눌렀을 때. 골라둔 주차장을 푼다. */
   onBlank: () => void;
+  /** 지도를 밖에서 옮기는 손잡이. 목록 카드를 누르면 그 자리로 민다. */
+  move: React.RefObject<((at: LatLng) => void) | null>;
   /** 처음 보고 있을 곳. 목적지를 물고 오면 거기서 연다. */
   start: LatLng;
   /** 목적지 핀. 없으면 안 찍는다 — 주차장만 있으면 어디 옆인지 알 수 없다. */
@@ -497,7 +644,7 @@ type MapProps = {
  * 다시 건다. 여기서는 핀이 목적지 주변 40곳이라 그 규칙이면 축척이 데이터에 끌려다닌다.
  * 공통인 건 SDK 로더뿐이라 그것만 가져다 쓴다.
  */
-function Map({ pins, selected, onPick, onBlank, start, dest }: MapProps) {
+function Map({ pins, selected, onPick, onBlank, move, start, dest }: MapProps) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const drawn = useRef<any[]>([]);
@@ -536,11 +683,13 @@ function Map({ pins, selected, onPick, onBlank, start, dest }: MapProps) {
       blank.current();
     });
 
+    move.current = (at) => m.panTo(new kakao.maps.LatLng(at[0], at[1]));
+
     // 컨테이너가 0폭인 동안 만들어지면 축척이 터진다 (RouteMap 과 같은 이유)
     const ro = new ResizeObserver(() => m.relayout());
     ro.observe(box.current);
     return () => ro.disconnect();
-  }, [sdk, start]);
+  }, [sdk, start, move]);
 
   useEffect(() => {
     if (sdk !== "ready" || !map.current) return;
@@ -548,13 +697,13 @@ function Map({ pins, selected, onPick, onBlank, start, dest }: MapProps) {
     drawn.current.forEach((mk) => mk.setMap(null));
     drawn.current = pins.map((s) => {
       const on = same(selected, s);
-      const [w, h] = on ? PIN_ON_SIZE : PIN_SIZE;
+      const [w, h, ax, ay] = on ? PIN_ON_SIZE : PIN_SIZE;
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(s.at[0], s.at[1]),
         title: s.name,
         zIndex: on ? 2 : 1,
         image: new kakao.maps.MarkerImage(on ? PIN_ON : PIN, new kakao.maps.Size(w, h), {
-          offset: new kakao.maps.Point(w / 2, h / 2),
+          offset: new kakao.maps.Point(ax, ay),
         }),
       });
       kakao.maps.event.addListener(marker, "click", () => {
