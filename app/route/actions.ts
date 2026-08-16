@@ -80,7 +80,7 @@ export async function compareRoutes(
   destination: LatLng,
   profile: DriverProfile,
   /** 도착지 주차장. 없으면 대본이 ④칸(도착해서 차를 댈 곳)을 쓰지 않는다 */
-  dest?: { name: string; place: LatLng | null },
+  dest?: { name: string; place: LatLng | null; placeName?: string },
 ): Promise<Compared> {
   // 프로필을 넘긴다 — 후보 셋 중 어느 것이 "안심 길" 자리에 앉을지가 프로필을 탄다 (routesFor 주석)
   const live = await routesFor(origin, destination, LINKS as Link[], profile);
@@ -108,9 +108,16 @@ export async function compareRoutes(
   const radio = Object.fromEntries(
     live.routes.map((r) => [
       r.id,
-      radioScript(profile, score, r, live.routes.find((x) => x.id !== r.id) ?? null, arrival).map(
-        붙인칸,
-      ),
+      // 목적지 이름은 주차장 이름이 아니라 원래 고른 곳이다 — 대본 ①이 "오늘은 성산일출봉
+      // 가시고" 로 연다. 주차장 이름(dest.name)은 ④칸이 따로 쓴다.
+      radioScript(
+        profile,
+        score,
+        r,
+        live.routes.find((x) => x.id !== r.id) ?? null,
+        arrival,
+        dest?.placeName,
+      ).map(붙인칸),
     ]),
   );
 

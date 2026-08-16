@@ -112,7 +112,15 @@ function Route() {
        * query.to 가 없으면 주차장을 거쳐 온 흐름이 아니다. 그때는 넘기지 않는다 —
        * 이름을 "도착지"로 지어내면 대본이 "차는 도착지에 대시면 됩니다"라고 말하게 된다.
        */
-      query.to ? { name: query.to, place: coord(query.destLat, query.destLng) } : undefined,
+      query.to
+        ? {
+            name: query.to,
+            place: coord(query.destLat, query.destLng),
+            // 대본 ①칸이 부를 이름 — 주차장이 아니라 **원래 고른 목적지**다 ("성산일출봉").
+            // 목적지 화면이 실어 보낸 값이 여기까지 그대로 온다 (app/destination/page.tsx).
+            placeName: query.dest,
+          }
+        : undefined,
     );
     setResult(found);
     // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다
@@ -152,8 +160,9 @@ function Route() {
    * 쿼리를 고쳐 쓰기만 하면 된다 — load 가 쿼리를 보고 있어서(deps 의 searchParams) 길이 저절로
    * 다시 계산된다. replace 라 히스토리는 안 늘어난다: 고친 건 이 화면이지 다음 화면이 아니다.
    *
-   * 도착지를 고치면 **주차장을 거쳐 온 흐름이 아니게 된다.** 그래서 원래 목적지 좌표(destLat/destLng)를
-   * 지운다 — 안 지우면 대본 ④칸이 "새 도착지에서 옛 관광지까지" 걸어가는 시간을 말하게 된다.
+   * 도착지를 고치면 **주차장을 거쳐 온 흐름이 아니게 된다.** 그래서 원래 목적지(dest·destLat·destLng)를
+   * 지운다 — 안 지우면 대본 ④칸이 "새 도착지에서 옛 관광지까지" 걸어가는 시간을 말하고,
+   * ①칸은 "오늘은 (옛 목적지) 가시고" 로 엉뚱한 곳을 부른다.
    */
   function pick(place: Place) {
     const next = new URLSearchParams(searchParams);
@@ -166,6 +175,7 @@ function Route() {
       next.set("to", place.label);
       next.set("toLat", String(place.coord[0]));
       next.set("toLng", String(place.coord[1]));
+      next.delete("dest");
       next.delete("destLat");
       next.delete("destLng");
     }
