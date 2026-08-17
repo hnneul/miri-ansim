@@ -27,48 +27,21 @@ import type { RiskFactor, ScoreResult, DriverProfile } from "./score.ts";
 import { COMFORT_THRESHOLD, activeWeights } from "./score.ts";
 
 /**
- * 후보는 **세 제공자**다 (askModel 이 순서대로 시도한다). OpenAI 팀 크레딧을 먼저 쓰고,
- * Groq/Gemini 무료 한도는 예비로 남긴다 — 한 곳만 박아두면 남은 예산을 두고 규칙 문장만 나간다.
- * 대신 답한 쪽이 바뀌면 같은 입력에 문장이 달라진다. 문장을 아예 못 내보내는 것보다는 낫다.
+ * 후보는 **OpenAI 하나**다. 한때 Groq·Gemini 를 예비로 세워뒀는데 그건 무료 한도를 아끼려던
+ * 것이고, 팀 크레딧이 붙은 지금은 아낄 대상이 없다. 오히려 값을 치렀다 — 1순위가
+ * TIMEOUT_MS 에 잘리고 2순위가 받으면 두 시간이 더해져 화면이 10초를 기다렸다
+ * (실측 10,012ms, app/route/actions.ts 주석). 후보를 하나로 두면 6초에서 끊긴다.
  *
  * 별칭이 아니라 버전이 박힌 이름을 쓴다 — 별칭은 모델이 조용히 올라가 문장이 바뀐다.
  *
- * ① OpenAI / gpt-5.6-luna — 팀 크레딧으로 쓰는 1순위. 이 화면은 사실을 자연어로 옮기는
- *    일이므로 고가 모델보다 낮은 비용의 Luna 가 맞다. 출력은 아래 verify() 가 다시 거른다.
+ * gpt-5.6-luna — 이 화면은 사실을 자연어로 옮기는 일이므로 고가 모델보다 낮은 비용의
+ * Luna 가 맞다. 출력은 아래 verify() 가 다시 거른다.
  *
- * ② Groq / gpt-oss-120b — 예비 무료 한도.
- *    분당 8,000토큰 · **모델당 하루 200,000토큰(TPD)**. 먼저 닿는 건 TPD 다
- *    (429 본문: "on tokens per day (TPD): Limit 200000, Used 198869"). 호출당 약 4,000토큰이라
- *    **하루 50번쯤**이고, 시연 리허설 스무 번이면 그날 예산의 절반이 사라진다.
- *    같은 키의 다른 Groq 모델은 후보가 못 된다: 구조화 출력을 지원하는 건 gpt-oss 계열뿐인데
- *    (llama-3.3-70b · llama-3.1-8b · qwen3.6-27b · compound-mini 는 400 "does not support
- *    response format json_schema"), 20b 는 briefing 을 배열이 아니라 문자열로 써서
- *    400 "expected array, but got string" 이 온다. 스키마를 못 지키는 모델은 넣을 수 없다.
- *
- * ③ Gemini — 지갑이 다르다. 같은 프롬프트·같은 스키마로 2~3초에 답하고 verify() 를 그대로
- *    통과한다. 무료 쿼터가 Groq 보다 빡빡하고(모델당 20회) 모델별로 갈려서 후보를 둘 둔다
- *    (아래 GEMINI_MODELS 의 실측표).
- *
- * 세 후보가 다 실패하면 캐시(aiSentences)도 규칙 폴백(lib/briefing.ts)도 정상 동작 경로다 —
- * 장식이 아니라 이 앱이 인터넷·한도 없이도 말을 하게 하는 장치다.
+ * 실패하면 캐시(aiSentences)도 규칙 폴백(lib/briefing.ts)도 정상 동작 경로다 —
+ * 장식이 아니라 이 앱이 인터넷 없이도 말을 하게 하는 장치다.
  */
 const OPENAI_MODEL = "gpt-5.6-luna";
 const OPENAI_ENDPOINT = "https://api.openai.com/v1/chat/completions";
-const GROQ_MODEL = "openai/gpt-oss-120b";
-const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-/**
- * Gemini 후보. 쿼터가 **모델별**이라 여러 개를 둔다
- * (429 본문: "limit: 20, model: gemini-2.5-flash").
- *
- * 실측(2026-07-28, 같은 프롬프트·같은 스키마):
- *   2.5-flash        2.9초 · 검증 통과 · 무료 20회
- *   3.1-flash-lite   1.9초 · 검증 통과(수치를 한 번 지어내 걸린 적 있음)
- *   3.5-flash        39초 — 통과하지만 TIMEOUT_MS(6초)를 넘어 화면에서 못 쓴다
- *   2.0-flash        429 "limit: 0" — 무료 쿼터가 없다
- *   3.6-flash        400 "invalid argument" — 이 설정으로는 안 받는다
- */
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-3.1-flash-lite"];
-const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /** 넘기면 규칙 기반 문장으로 간다. 브리핑이 늦게 뜨는 것보다 안 뜨는 게 낫진 않다. */
 const TIMEOUT_MS = 6000;
@@ -167,9 +140,9 @@ export type Facts = {
  * 계산 결과 → AI에게 줄 사실 묶음. 여기 없는 건 AI도 모른다.
  * 프롬프트 조립을 순수 함수로 떼어놔서 ai.check.ts 가 네트워크 없이 검증한다.
  *
- * 실시간 혼잡 문구는 일부러 넣지 않는다. 무료 한도가 하루 20회뿐인데(아래 MODEL 주석),
- * 캐시 키가 프롬프트다. 혼잡 문구는 "중앙로 3.6km 서행" → "중앙로 4km 서행" 처럼
- * 로드마다 바뀌어서 넣으면 캐시가 거의 안 맞고 새로고침 몇 번에 한도를 태운다.
+ * 실시간 혼잡 문구는 일부러 넣지 않는다. 캐시 키가 프롬프트인데, 혼잡 문구는
+ * "중앙로 3.6km 서행" → "중앙로 4km 서행" 처럼 로드마다 바뀌어서 넣으면 캐시가 거의
+ * 안 맞는다. 새로고침 몇 번이 그대로 호출 몇 번이 된다.
  * 소요시간은 추천 이유의 핵심이라 남긴다 — 몇 분 동안은 같은 값이라 캐시가 맞는다.
  * 혼잡은 경로 카드 배지가 이미 보여주므로 문장에서 잃는 게 없다.
  */
@@ -574,15 +547,10 @@ export function promptOf(facts: Facts): string {
  * 가장 잡기 어려운 고장이다.
  */
 export async function askModel(prompt: string): Promise<unknown | null> {
-  // 앞에서부터 시도한다. 한도에 걸린 후보는 0.2초에 429 로 떨어지므로 줄줄이 세워도 싸다.
-  for (const 부르기 of [() => openai(prompt), () => groq(prompt), ...GEMINI_MODELS.map((m) => () => gemini(prompt, m))]) {
-    const out = await 부르기();
-    if (out !== null) return out;
-  }
-  return null;
+  return openai(prompt);
 }
 
-/** OpenAI. 팀 크레딧이 붙은 1순위 후보 — 실패하면 기존 무료 후보로 넘어간다. */
+/** OpenAI. 실패(한도·타임아웃·파싱)는 전부 null 이고, 부르는 쪽이 규칙 문장으로 간다. */
 async function openai(prompt: string): Promise<unknown | null> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return null;
@@ -615,103 +583,9 @@ async function openai(prompt: string): Promise<unknown | null> {
   }
 }
 
-/** Groq. 실패(한도·타임아웃·파싱)는 전부 null 이고, 부르는 쪽이 다음 후보로 넘어간다. */
-async function groq(prompt: string): Promise<unknown | null> {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) return null;
-  try {
-    const res = await fetch(GROQ_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        // 같은 입력에 같은 문장이 나와야 한다 — 근거 카드의 재현성 조건이다
-        temperature: 0,
-        // 기본값이지만 명시한다 — 기본이 바뀌면 같은 입력에 다른 문장이 나온다.
-        // low 로 낮추면 토큰이 1352까지 줄지만(medium 2035) 문장에서 숫자가 빠진다
-        // ("부담점수 29.4" → "부담점수가 낮고"). 근거를 숫자로 말하는 게 이 화면의 요점이다.
-        reasoning_effort: "medium",
-        // 함부로 올리면 안 된다: Groq 는 이 숫자를 **요청 크기에 합산해서** 분당 토큰 한도와
-        // 견준다. 8192 로 뒀다가 413 "Request too large … TPM: Limit 8000, Requested 9708" 로
-        // **매번** 튕겼다 — 프롬프트가 작아도 상관없이 항상 실패한다. 4096 이면 프롬프트
-        // (약 1,500~1,800토큰)를 더해도 6,000 아래라 여유가 있고, 실측 완성 토큰이 1,700이라
-        // 잘리지도 않는다 (상한이 모자라면 400 "Failed to validate JSON" 으로 온다).
-        max_completion_tokens: 4096,
-        messages: [{ role: "user", content: prompt }],
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "sentences", strict: true, schema: SCHEMA },
-        },
-      }),
-    });
-    if (!res.ok) return null;
-
-    const text = (await res.json()).choices?.[0]?.message?.content;
-    if (typeof text !== "string") return null;
-    return JSON.parse(text);
-  } catch {
-    return null; // 네트워크·타임아웃·JSON 파싱 실패 모두 여기로 모인다
-  }
-}
-
-/**
- * Gemini. Groq 이 죽거나 예산이 마른 날 같은 프롬프트로 같은 모양을 받아온다 —
- * 검증기(verify)는 어느 쪽이 답했는지 모른 채 똑같이 거른다.
- *
- * responseSchema 는 additionalProperties 를 받지 않아서 그 키만 빼고 같은 스키마를 쓴다
- * (스키마를 두 벌로 두면 한쪽만 고치는 사고가 난다).
- *
- * thinkingBudget 0: 생각을 끄면 응답이 2.9초·2,170토큰이다. 이 프롬프트는 사실을 문장으로
- * 옮기는 일이라 생각을 켤 이유가 없고, 무료 한도가 빡빡해서 토큰이 곧 남은 횟수다.
- */
-async function gemini(prompt: string, model: string): Promise<unknown | null> {
-  const key = process.env.AI_API_KEY;
-  if (!key) return null;
-
-  try {
-    const res = await fetch(`${GEMINI_ENDPOINT}/${model}:generateContent?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseSchema: additionalProperties없이(SCHEMA),
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    });
-    if (!res.ok) return null;
-
-    const text = (await res.json()).candidates?.[0]?.content?.parts?.[0]?.text;
-    if (typeof text !== "string") return null;
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-/** Gemini 용 스키마 변환. OpenAI 쪽이 요구하는 additionalProperties 를 Gemini 는 거부한다. */
-function additionalProperties없이(v: unknown): unknown {
-  if (Array.isArray(v)) return v.map(additionalProperties없이);
-  if (v && typeof v === "object")
-    return Object.fromEntries(
-      Object.entries(v)
-        .filter(([k]) => k !== "additionalProperties")
-        .map(([k, x]) => [k, additionalProperties없이(x)]),
-    );
-  return v;
-}
-
 /**
  * 프롬프트 → 결과 캐시. temperature 0 이라 같은 프롬프트에 같은 답이 나오므로
- * 캐싱이 최적화가 아니라 원래 동작이다. 무료 한도가 하루 단위로 걸려 있어서
- * 같은 화면을 두 번 그리는 데 두 번 부를 이유가 없다.
+ * 캐싱이 최적화가 아니라 원래 동작이다. 같은 화면을 두 번 그리는 데 두 번 부를 이유가 없다.
  *
  * 프롬프트에 실시간 소요시간·혼잡이 들어가므로 교통이 바뀌면 자연히 다시 부른다 —
  * 낡은 문장을 붙들고 있지 않는다. 서버 메모리라 재시작하면 비는데 그래도 맞다.
