@@ -38,6 +38,18 @@ import PARKING from "@/data/parking-data.json";
 const LOTS = PARKING.spots as Lot[];
 
 /**
+ * "큰 주차장" 배지가 붙는 구획수.
+ *
+ * 공공데이터 1,572곳의 중앙값이 12칸이다 — 대부분은 골목에 붙은 열 칸 남짓짜리다.
+ * 50칸으로 끊으면 127곳(8%)만 남아 배지가 드물게 붙고, 그래야 붙었을 때 뜻이 있다.
+ *
+ * **"빈자리 있음"이 아니다.** spaces 는 총 구획수라 지금 비었는지는 아무도 모른다.
+ * 글자를 "큰 주차장"으로 둔 것도 그래서다 — 큰 곳은 옆 차와 간격을 둘 여지가 크다는
+ * 사실까지만 말하고, 자리가 있다는 약속은 하지 않는다.
+ */
+const SPACIOUS = 50;
+
+/**
  * 목록 밑에 붙는 출처. 날짜를 문자열로 박지 않고 데이터에서 꺼낸다 —
  * 데이터를 새로 받으면 화면 날짜도 같이 움직여야 한다.
  */
@@ -129,14 +141,6 @@ function Parking() {
     return Number.isFinite(la) && Number.isFinite(ln) && destLat && destLng ? [la, ln] : null;
   }, [destLat, destLng]);
 
-  /**
-   * 정렬. 거리 하나만 두면 칩이 눌린 채로 안 꺼져 고장처럼 보인다 — 누를 때마다 갈아탄다.
-   *
-   * "칸 많은 순"이 초보에게 값을 하는 이유: 칸이 많은 주차장은 빈자리를 만날 확률도, 옆 차와
-   * 간격을 둘 여지도 크다. 구획수를 모르는 곳(카카오)은 뒤로 밀린다 — 0으로 치면 "칸이 없다"가
-   * 되고, 앞으로 올리면 모르는 곳이 제일 좋은 곳 자리에 앉는다.
-   */
-  const [sort, setSort] = useState<"distance" | "spaces">("distance");
   /** 요금 무료만. 카카오 쪽은 요금을 몰라 통째로 빠진다 — 모르는 곳을 무료라고 보여줄 수는 없다. */
   const [free, setFree] = useState(false);
   /**
@@ -172,8 +176,10 @@ function Parking() {
    * 두 출처를 같은 기준(목적지)으로 잰다 — 카카오 쪽 거리도 여기서 다시 계산된다.
    * mergeSpots 가 돌려주는 건 이미 가까운 순이라, 거리 정렬은 따로 할 일이 없다.
    *
-   * **추천은 늘 거리 순에서 고른다.** 화면 정렬을 "칸 많은 순"으로 바꿨다고 "가장 가까운
-   * 직각주차"가 달라지면 안 된다 — 정렬은 보는 순서지 추천의 기준이 아니다.
+   * **순서는 늘 가까운 순 하나다.** 전에는 "칸 많은 순" 칩이 있었는데 정렬이 아니라 몰래 필터였다 —
+   * 카카오에서 온 곳은 spaces 가 null 이라(lib/poi.ts) 누르면 그쪽이 통째로 목록 바닥으로 가라앉았다.
+   * 게다가 spaces 는 총 구획수지 지금 빈자리가 아니라, 순서로 쓰면 없는 약속을 하게 된다.
+   * 칸이 넉넉하다는 정보는 순서를 흔들지 않고 카드 배지(SPACIOUS)로 준다.
    *
    * 고른 뒤에는 맨 위로 올린다. 45곳을 늘어놓고 고르라는 건 정보는 맞지만 결정을 통째로
    * 초보에게 떠넘긴다. 여기가 답하려는 질문은 "어디 대면 돼?"고, 대부분에게 그 답은
@@ -193,12 +199,8 @@ function Parking() {
      */
     const rec = near.find(isEasyParking) ?? null;
     const rest = rec ? near.filter((s) => s !== rec) : near;
-    const ordered =
-      sort === "spaces"
-        ? [...rest].sort((a, b) => (b.spaces ?? -1) - (a.spaces ?? -1))
-        : rest;
-    return { spots: rec ? [rec, ...ordered] : ordered, recommended: rec };
-  }, [dest, free, publicOnly, pois, sort]);
+    return { spots: rec ? [rec, ...rest] : rest, recommended: rec };
+  }, [dest, free, publicOnly, pois]);
 
   /*
    * 지도 핀을 눌렀다. 여기서 화면을 넘기지 않는다 — 핀 하나 눌렀을 뿐인데 다른 화면으로 튀면
@@ -349,20 +351,14 @@ function Parking() {
           {/*
             칩 (와이어프레임 ChipRow 2153:1782) + 목록 보기.
 
-            "가까운 순"은 누르면 "칸 많은 순"으로 갈아탄다. 정렬이 하나뿐일 때는 켜진 채 안 꺼지는
-            칩이었는데, 옆의 필터 칩과 똑같이 생겨서 고장 난 버튼으로 읽혔다.
+            정렬 칩은 없앴다 (위 useMemo 주석). 목록은 늘 가까운 순이고, 여기 남은 둘은 켜고 끄는
+            필터라 칩 모양과 뜻이 맞는다.
 
             켜짐 색은 주황이다. 와이어프레임의 Chip/Selected 와 Chip/Default 는 테두리 색만
             #e6e6e6 / #e5e5e5 로 달라 눈으로는 구분되지 않는데, 켜고 끄는 칩이 그러면 안 된다.
             같은 화면의 배지와 같은 주황을 쓴다.
           */}
           <div className="flex shrink-0 items-center gap-2 px-[15px] pt-[9px] pb-1">
-            <Chip
-              on
-              onClick={() => setSort((s) => (s === "distance" ? "spaces" : "distance"))}
-            >
-              {sort === "distance" ? "가까운 순" : "칸 많은 순"}
-            </Chip>
             <Chip on={free} onClick={() => setFree((v) => !v)}>
               무료
             </Chip>
@@ -436,8 +432,12 @@ function Parking() {
  * 와이어프레임 규격: h40 · 좌우 16 · 완전 둥근 모서리 · 14/22 medium.
  */
 function Chip({ on, onClick, children }: { on: boolean; onClick?: () => void; children: string }) {
+  /*
+    호버는 꺼진 칩에만 준다. 켜진 칩은 눌러도 지금 상태 그대로라 미리 보여줄 게 없고,
+    주황을 한 톤 낮추면 빨강으로 읽혀 경고처럼 보인다.
+  */
   const cls = `flex h-10 shrink-0 items-center justify-center rounded-full px-4 text-[14px] leading-[22px] font-medium transition ${
-    on ? "bg-[#fc7f35] text-white" : "border border-[#e5e5e5] bg-white text-[#1f1f1f]"
+    on ? "bg-[#fc7f35] text-white" : "border border-[#e5e5e5] bg-white text-[#1f1f1f] hover:bg-[#fff0e6]"
   }`;
   return onClick ? (
     <button onClick={onClick} aria-pressed={on} className={cls}>
@@ -507,6 +507,8 @@ function SpotCard({
       </span>
       <span className="mt-1 flex items-center gap-1.5">
         {type && <Badge>{type}</Badge>}
+        {/* 칸이 넉넉한 곳. 카카오는 spaces 를 모르니 애초에 안 붙는다 (SPACIOUS 주석) */}
+        {(spot.spaces ?? 0) >= SPACIOUS && <Badge>큰 주차장</Badge>}
         {/* 공공데이터는 1,657곳이 전부 공영이라 출처가 곧 이 배지다 */}
         {!kakao && <Badge>공영</Badge>}
         {/*
