@@ -257,7 +257,7 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
           type="button"
           onClick={onClose}
           aria-label="로드뷰 닫기"
-          className="-mt-1 -mr-1 shrink-0 rounded-full px-2 py-1 text-lg leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          className="-mt-1 -mr-1 shrink-0 rounded-full px-2 py-1 text-lg leading-none text-slate-400 hover:bg-[#fff0e6] hover:text-[#ff6114]"
         >
           x
         </button>

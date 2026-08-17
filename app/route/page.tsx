@@ -12,7 +12,7 @@
 // 카카오맵은 **근거 화면의 버튼**이 연다. 턴바이턴 안내를 우리가 만들 이유가 없어서다.
 // 출발지·경유지·도착지를 함께 넘기므로 **여기서 고른 길로 안내된다** (lib/parking.ts navigateTo).
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
@@ -24,6 +24,7 @@ import { viaPoint, type LiveRoute } from "@/lib/route";
 import RouteRadio from "./RouteRadio";
 import PlaceSearch from "./PlaceSearch";
 import type { Place } from "@/lib/geocode";
+import { addRecent, loadRecent } from "@/lib/recent";
 import { aiRadio, compareRoutes, type Compared } from "./actions";
 
 /**
@@ -61,9 +62,16 @@ function Route() {
   /**
    * 출발지. 정상 흐름이면 메인화면이 잡아 넘긴 현위치가 쿼리에 실려 온다(originLat/originLng).
    * URL 로 바로 들어오면 없으므로 그때만 브라우저에 다시 묻는다 — 있는 값을 두고 또 묻지 않는다.
+   *
+   * **쿼리가 먼저고, 상태는 브라우저에 물어 받은 값만 든다.** 예전에는 쿼리를 useState 의 초기값으로
+   * 한 번 베껴 두고 출발지를 고칠 때 setOrigin 과 router.replace 를 같이 불렀는데, 그러면 URL 쪽이
+   * 묻혔다 — 지도와 경로는 새 출발지로 바뀌는데 칸에는 계속 "현재 위치"가 적혀 있었다.
+   * (상태 갱신이 replace 의 트랜지션과 같은 틱에서 겹친다. 값이 두 곳에 있으면 언젠가 갈라진다.)
    */
   const fromQuery = coord(query.originLat, query.originLng);
-  const [origin, setOrigin] = useState<LatLng | null>(fromQuery);
+  /** 브라우저에 물어 받은 현위치. 쿼리에 출발지가 없을 때만 채워진다. */
+  const [geo, setGeo] = useState<LatLng | null>(null);
+  const origin = fromQuery ?? geo;
   const [result, setResult] = useState<Compared | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   /** 고른 경로. 처음에는 추천된 쪽이다 (아래 useEffect). */
@@ -77,8 +85,18 @@ function Route() {
    * (목적지 화면이 세 상태를 한 파일에 둔 것과 같은 이유다.)
    */
   const [view, setView] = useState<"compare" | "why">("compare");
-  /** 지금 고쳐 잡는 중인 칸. null 이면 검색 패널이 닫혀 있다 (아래 PlaceSearch). */
+  /** 지금 고쳐 잡는 중인 칸. null 이면 평소 화면(지도 + 시트)이다. */
   const [editing, setEditing] = useState<"from" | "to" | null>(null);
+  /** 그 칸에 적고 있는 글자. 카드 안의 input 과 아래 목록이 같이 본다. */
+  const [text, setText] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+
+  /** 칸을 눌러 고치기 시작한다. 적던 값은 지우고 연다 — 지우고 시작하는 게 커서를 끝으로 옮기는 것보다 빠르다. */
+  function edit(field: "from" | "to") {
+    setEditing(field);
+    setText("");
+    requestAnimationFrame(() => input.current?.focus());
+  }
   /*
    * AI 대본. 못 받으면 null 이고 화면은 규칙 대본(result.radio)을 그대로 쓴다 —
    * 재생 버튼이 이것 때문에 늦게 뜨거나 사라지는 일은 없다 (actions.ts aiRadio 주석).
@@ -88,7 +106,7 @@ function Route() {
   useEffect(() => {
     if (origin || !("geolocation" in navigator)) return;
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => setOrigin([coords.latitude, coords.longitude]),
+      ({ coords }) => setGeo([coords.latitude, coords.longitude]),
       () =>
         setGeoError(
           "현재 위치를 확인할 수 없어 길을 만들지 못했습니다. 위치 접근을 허용해주세요.",
@@ -170,7 +188,6 @@ function Route() {
       next.set("originLat", String(place.coord[0]));
       next.set("originLng", String(place.coord[1]));
       next.set("originName", place.label);
-      setOrigin(place.coord);
     } else {
       next.set("to", place.label);
       next.set("toLat", String(place.coord[0]));
@@ -179,6 +196,8 @@ function Route() {
       next.delete("destLat");
       next.delete("destLng");
     }
+    // 목적지 화면과 같은 목록에 쌓는다 — 여기서 찾은 곳이 거기서 안 보이면 기억이 두 벌이 된다
+    addRecent(loadRecent(), place.label);
     setEditing(null);
     // 고친 구간의 근거는 아직 안 본 상태다 — 비교 화면으로 되돌린다
     setView("compare");
@@ -238,9 +257,13 @@ function Route() {
         </div>
       ) : (
         /*
-          route-editor — 두 칸 다 눌러서 고쳐 잡을 수 있다 (PlaceSearch 가 열린다).
+          route-editor — 두 칸 다 눌러서 고쳐 잡을 수 있다.
           검색 화면을 따로 두지 않는 이유: 고치고 나서 봐야 하는 건 이 화면의 지도와 카드라,
           라우트를 나누면 고칠 때마다 여기를 나갔다 들어오게 된다.
+
+          **고치는 동안에도 이 카드는 제자리에 있다.** 전에는 검색창 하나짜리 화면이 통째로 덮었는데,
+          그러면 방금 누른 칸이 화면에서 사라져서 어느 쪽을 고치는 중인지가 다시 흐려졌다.
+          카드는 두고 아래(지도·시트)만 목록으로 바꾼다 (/destination 의 그 카드와 같은 규칙).
         */
         <div className="mt-[9px] flex shrink-0 items-start gap-[21px] px-[21px]">
           <div className="min-w-0 flex-1 overflow-hidden rounded-[10px] border border-[#d6d6d6] bg-white">
@@ -249,30 +272,44 @@ function Route() {
               label="출발지"
               /* 고쳐 잡았으면 그 이름, 아니면 잡아온 현위치다 */
               value={query.originName ?? (origin ? "현재 위치" : "확인 중…")}
-              onClick={() => setEditing("from")}
+              editing={editing === "from"}
+              text={text}
+              onText={setText}
+              inputRef={input}
+              onEdit={() => edit("from")}
             />
             <div className="mx-[10px] border-t border-[#e6e6e6]" />
             <Field
               dot="#1f1f1f"
               label="도착지"
               value={to}
-              onClick={() => setEditing("to")}
+              editing={editing === "to"}
+              text={text}
+              onText={setText}
+              inputRef={input}
+              onEdit={() => edit("to")}
             />
           </div>
           {/*
             닫기는 메인화면으로 나간다. router.back() 이었는데 그건 주차장 화면으로 되돌아가는 거라
             "닫기"가 아니라 "뒤로"였다 — 길 고르기를 접고 나가는 문이다.
             쿼리를 그대로 실어야 /home 이 프로필을 되읽는다 (/destination 의 ← 와 같은 방식).
+
+            칸을 고치는 중이면 그것부터 접는다. 한 번에 나가면 고치려다 만 사람이 화면 밖으로 밀려난다.
           */}
           <button
-            onClick={() => router.push(`/home?${searchParams}`)}
-            aria-label="닫기"
-            className="mt-[32px] grid size-[44px] shrink-0 place-items-center rounded-[10px] border border-[#d6d6d6] bg-white active:bg-black/5"
+            onClick={() => (editing ? setEditing(null) : router.push(`/home?${searchParams}`))}
+            aria-label={editing ? "고치기 그만두기" : "닫기"}
+            /* 호버는 목적지 화면의 같은 상자와 짝을 맞춘다 (거기 주석에 이유가 있다) */
+            className="mt-[32px] grid size-[44px] shrink-0 place-items-center rounded-[10px] border border-[#d6d6d6] bg-white transition hover:bg-[#fff0e6] active:bg-black/5"
           >
             <img src="/home/icon-close.svg" alt="" className="size-6" />
           </button>
         </div>
       )}
+
+      {/* 고치는 중이면 지도·시트 자리를 목록이 대신한다 (카드는 위에 그대로 남아 있다) */}
+      {editing && <PlaceSearch text={text} onPick={pick} />}
 
       {/*
         지도 — 두 경로를 겹쳐 그린다. 고른 쪽이 굵고 진하다.
@@ -282,7 +319,7 @@ function Route() {
         (실제로 그랬다 — 615px 짜리 상자 안에서 지도 높이가 0이었다). inset-0 이면 크기가 확정된다.
         /destination 이 같은 이유로 같은 모양이다.
       */}
-      <div className="relative mt-[24px] min-h-0 flex-1">
+      <div className={`relative mt-[24px] min-h-0 flex-1 ${editing ? "hidden" : ""}`}>
         <div className="absolute inset-0">
           <RouteMap
             className=""
@@ -327,7 +364,8 @@ function Route() {
             backgroundImage: "linear-gradient(180deg, #ffffff 55%, #d2eafe 100%)",
           }),
         }}
-        className="absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)]"
+        /* 지도와 함께 접힌다 — 칸을 고치는 동안 그 자리는 검색 목록 것이다 */
+        className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] ${editing ? "hidden" : ""}`}
       >
         <div
           aria-hidden
@@ -447,14 +485,6 @@ function Route() {
         )}
       </div>
 
-      {/* 검색 패널. 화면을 통째로 덮으므로 시트(z-20)보다 위다 */}
-      {editing && (
-        <PlaceSearch
-          label={editing === "from" ? "출발지" : "도착지"}
-          onPick={pick}
-          onClose={() => setEditing(null)}
-        />
-      )}
     </div>
   );
 }
@@ -468,36 +498,69 @@ function coord(lat?: string, lng?: string): LatLng | null {
     : null;
 }
 
+/**
+ * route-editor 의 한 줄. 평소에는 값을 보여주는 버튼이고, 고치는 중이면 **그 자리가 입력칸이 된다.**
+ * 값 자리와 적는 자리가 같아야 어느 칸을 고치는 중인지가 화면에서 안 흐려진다.
+ */
 function Field({
   dot,
   label,
   value,
-  onClick,
+  editing,
+  text,
+  onText,
+  inputRef,
+  onEdit,
 }: {
   dot: string;
   label: string;
   value: string;
-  onClick: () => void;
+  editing: boolean;
+  text: string;
+  onText: (v: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onEdit: () => void;
 }) {
+  const row = "flex h-[51px] w-full items-center gap-[12px] px-[12px] text-left";
+  const cap = "block text-[10px] leading-[14px] font-medium text-[#9e9e9e]";
+  const val = "block truncate text-[14px] leading-[20px] font-medium text-[#1f1f1f]";
+  const point = (
+    <span
+      aria-hidden
+      className="size-[10px] shrink-0 rounded-full"
+      style={{ backgroundColor: dot }}
+    />
+  );
+
+  if (editing)
+    return (
+      <label className={row}>
+        {point}
+        <span className="min-w-0 flex-1">
+          <span className={cap}>{label}</span>
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={(e) => onText(e.target.value)}
+            placeholder={`${label} 입력해 주세요`}
+            aria-label={label}
+            className={`${val} w-full bg-transparent outline-none placeholder:font-normal placeholder:text-[#9e9e9e]`}
+          />
+        </span>
+      </label>
+    );
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={onEdit}
       aria-label={`${label} 고치기`}
-      className="flex h-[51px] w-full items-center gap-[12px] px-[12px] text-left transition active:bg-black/5"
+      className={`${row} transition active:bg-black/5`}
     >
-      <span
-        aria-hidden
-        className="size-[10px] shrink-0 rounded-full"
-        style={{ backgroundColor: dot }}
-      />
+      {point}
       <span className="min-w-0">
-        <span className="block text-[10px] leading-[14px] font-medium text-[#9e9e9e]">
-          {label}
-        </span>
-        <span className="block truncate text-[14px] leading-[20px] font-medium text-[#1f1f1f]">
-          {value}
-        </span>
+        <span className={cap}>{label}</span>
+        <span className={val}>{value}</span>
       </span>
     </button>
   );

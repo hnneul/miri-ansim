@@ -15,6 +15,7 @@ import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
 import { meters } from "@/lib/parking";
 import type { Place } from "@/lib/geocode";
+import { addRecent, loadRecent, removeRecent } from "@/lib/recent";
 import { findPlace, findPostal, suggestPlaces } from "./actions";
 
 /** 목적지를 못 골랐을 때 지도가 보고 있을 곳 — 제주 한가운데(한라산)라 섬이 통째로 담긴다. */
@@ -33,10 +34,6 @@ const PIN = { src: "/icon-pin.png", size: [50, 56] as [number, number], anchor: 
 // 그림자 자리가 아래에 남아 있어 앵커 y 는 이미지 높이(106)가 아니라 꼬리 끝(97)이다.
 const MASCOT = { src: "/icon-pin-character.png", size: [80, 106] as [number, number], anchor: [40, 97] as [number, number] };
 void PIN; // 지금은 안 쓴다 — 위 주석의 되돌리기용이다
-
-/** 최근 검색어. 저장소가 없어 브라우저에 둔다 — 새로고침에 살아남으면 되고, 기기 간 동기화는 필요 없다. */
-const RECENT_KEY = "gilansim:recent";
-const RECENT_MAX = 5;
 
 /** 타이핑이 멎고 나서 후보를 부르기까지. 글자마다 부르면 카카오 호출이 입력 길이만큼 늘어난다. */
 const TYPING_MS = 250;
@@ -61,7 +58,13 @@ function Destination() {
 
   const [text, setText] = useState(query.dest ?? "");
   const [place, setPlace] = useState<Place | null>(null);
-  const [searching, setSearching] = useState(false); // 검색 패널(두 번째 상태)이 떠 있는가
+  /*
+    검색 패널(두 번째 상태)이 떠 있는가.
+
+    메인화면 검색바가 ?search=1 을 달고 보낸다 — 거기는 입력칸이 아니라 이 화면을 여는 문이라,
+    도착하자마자 적을 수 있어야 한다 (수정 HOME-01 a).
+  */
+  const [searching, setSearching] = useState(query.search === "1");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
@@ -80,35 +83,69 @@ function Destination() {
     return () => ro.disconnect(); // React 19 는 ref 콜백의 정리 함수를 받는다
   }, []);
 
+  // localStorage 는 서버에 없다 — 화면이 뜬 뒤에 읽는다 (lib/recent.ts 가 깨진 값까지 막는다)
+  useEffect(() => setRecent(loadRecent()), []);
+
+  /**
+   * 출발지를 손으로 정하고 **도착지를 찾는 중**인가 (시트의 "출발"을 누른 뒤).
+   *
+   * 상태를 따로 안 들고 URL 로 판단한다 — 출발지는 정해졌는데(originName) 도착지가 비어 있는
+   * 상태가 곧 그 뜻이라, 새로고침·뒤로가기에도 화면이 URL 을 그대로 따라간다.
+   */
+  const routing = !!query.originName && !query.dest;
+
+  /*
+   * 도착지 칸에 커서를 준다. openSearch 의 focus 로는 안 되는데, 그때는 아직 URL 이 안 바뀌어서
+   * 화면에 있는 게 도착지 칸이 아니라 예전 검색칸이다 (router.push 가 한 박자 뒤에 반영된다).
+   * 두 칸 카드가 실제로 그려진 뒤에 잡아야 커서가 도착지에 앉는다.
+   */
   useEffect(() => {
-    // localStorage 는 서버에 없다. 망가진 값이 들어 있어도 화면이 죽지는 않게 감싼다.
-    try {
-      const saved = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
-      if (Array.isArray(saved)) setRecent(saved.filter((s) => typeof s === "string").slice(0, RECENT_MAX));
-    } catch {
-      /* 값이 깨졌으면 빈 목록으로 시작한다 */
-    }
-  }, []);
+    if (routing) input.current?.focus();
+  }, [routing]);
+
+  /*
+   * 메인화면 검색바로 들어온 경우(?search=1)도 커서를 준다 — 거기서 누른 게 검색칸처럼 생긴
+   * 문이라, 도착해서 한 번 더 눌러야 적을 수 있으면 방금 누른 게 헛손질이 된다.
+   */
+  useEffect(() => {
+    if (query.search === "1") input.current?.focus();
+  }, [query.search]);
 
   /** 목적지를 확정한다. 목록에서 고르든 엔터로 찾든 여기로 모인다. */
   const choose = useCallback(
     (found: Place) => {
+      setRecent((prev) => addRecent(prev, found.label));
+
+      /*
+       * 출발지를 정해놓고 도착지를 찾던 길이면 **여기서 곧장 길 비교로 나간다.**
+       * 출발·도착이 둘 다 손으로 정해진 순간 이 화면이 더 물어볼 게 없다 — 주차장을 거치는 건
+       * "관광지에 갔다가 차를 어디 대나"를 푸는 흐름이고, 이 길은 두 지점 사이를 묻는 길이다.
+       *
+       * dest* 를 지운다. 그건 관광지 좌표 자리인데 여기서는 도착지가 곧 목적지라,
+       * 남겨두면 길 비교의 대본이 "차를 대고 옛 관광지까지 걸어간다"고 말하게 된다.
+       */
+      if (routing) {
+        const next = new URLSearchParams(searchParams);
+        next.set("to", found.label);
+        next.set("toLat", String(found.coord[0]));
+        next.set("toLng", String(found.coord[1]));
+        for (const k of ["dest", "destLat", "destLng"]) next.delete(k);
+        router.push(`/route?${next}`);
+        return;
+      }
+
       setPlace(found);
       setText(found.label);
       setSearching(false);
       setSuggest([]);
-      // 찾은 이름으로 저장한다 — 다시 눌렀을 때 같은 곳이 나오는 게 오타 그대로 남기는 것보다 낫다
-      setRecent((prev) => {
-        const next = [found.label, ...prev.filter((r) => r !== found.label)].slice(0, RECENT_MAX);
-        localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-        return next;
-      });
       // 새로고침해도 같은 목적지로 열리게 URL 을 맞춰둔다 (히스토리는 안 늘린다)
       const next = new URLSearchParams(searchParams);
       next.set("dest", found.label);
+      // 검색 패널은 이미 닫혔다 — 남겨두면 새로고침할 때 고른 곳 위로 패널이 다시 열린다
+      next.delete("search");
       router.replace(`/destination?${next}`);
     },
-    [router, searchParams],
+    [router, searchParams, routing],
   );
 
   const search = useCallback(
@@ -159,7 +196,11 @@ function Destination() {
     밀었고, 여기서 또 밀면 뒤로가기를 두 번 눌러야 출발 누르기 전으로 돌아간다 —
     한 번은 패널만 닫혀 출발지와 목적지가 같은 곳으로 떠 있는 화면이 나온다.
   */
-  const borrowed = useRef(false);
+  /*
+    ?search=1 로 열린 패널도 항목을 안 민다 — 메인화면에서 여기로 온 **그 이동**이 이미 항목이라,
+    여기서 또 밀면 뒤로가기를 두 번 눌러야 메인으로 돌아간다 (한 번은 빈 지도만 남는다).
+  */
+  const borrowed = useRef(query.search === "1");
   useEffect(() => {
     // 닫히면 빌린 항목도 같이 사라진다 — 다음에 열 때는 다시 제 항목을 민다
     if (!searching) {
@@ -229,14 +270,8 @@ function Destination() {
     requestAnimationFrame(() => input.current?.focus());
   }
 
-  /** 최근 검색어 한 개를 지운다 — 목록에서 빼고 저장소도 같은 값으로 맞춘다 (choose 의 저장과 짝이다). */
-  function removeRecent(term: string) {
-    setRecent((prev) => {
-      const next = prev.filter((r) => r !== term);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-      return next;
-    });
-  }
+  /** 최근 검색어 한 개를 지운다 — 목록에서 빼고 저장소도 같은 값으로 맞춘다 (lib/recent.ts). */
+  const forget = (term: string) => setRecent((prev) => removeRecent(prev, term));
 
   /**
    * 찾은 곳을 **출발지**로 앉힌다 (시트의 "출발").
@@ -323,7 +358,83 @@ function Destination() {
           실제로 눌러야 하는 것들만 pointer-events-auto 로 되살린다.
         */}
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-          {/* 검색바. 와이어프레임(2129:1793) 기준 높이 54, 좌우 여백 20 */}
+          {/*
+            route-editor — 와이어프레임 "목적지 → 출발 선택"(Figma 2212:2649 / 2153:3944)이 여기 자리다.
+            출발지를 정하고 도착지를 찾는 동안 검색바 대신 이 카드가 선다.
+
+            **길 비교 화면(app/route)의 route-editor 와 같은 물건이다** — 라벨 위·값 아래 두 줄, 앞에 점,
+            카드 바깥 오른쪽에 닫기 상자. 여기서 채운 두 줄을 다음 화면에서 그대로 다시 만나야
+            "내가 넣은 게 그거였구나"가 이어진다. 그래서 규격도 거기 것을 그대로 쓴다.
+
+            점은 속이 빈 링이다 (와이어프레임 그대로). 출발지는 주황, 아직 안 채운 도착지는 회색 —
+            채워지면 검정이 된다. 어느 칸이 비었는지를 색이 먼저 말한다.
+          */}
+          {routing ? (
+            <div className="pointer-events-auto mt-[9px] flex shrink-0 items-start gap-[21px] px-[21px]">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  search(text);
+                }}
+                className="min-w-0 flex-1 overflow-hidden rounded-[10px] border border-[#d6d6d6] bg-white"
+              >
+                <div className="flex h-[51px] items-center gap-[12px] px-[12px]">
+                  <Ring color="#fc7f35" />
+                  <span className="min-w-0">
+                    <span className="block text-[10px] leading-[14px] font-medium text-[#9e9e9e]">
+                      출발지
+                    </span>
+                    <span className="block truncate text-[14px] leading-[20px] font-medium text-[#1f1f1f]">
+                      {query.originName}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="mx-[10px] border-t border-[#e6e6e6]" />
+
+                <label className="flex h-[51px] items-center gap-[12px] px-[12px]">
+                  <Ring color={text ? "#1f1f1f" : "#c4c4c4"} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] leading-[14px] font-medium text-[#9e9e9e]">
+                      도착지
+                    </span>
+                    <input
+                      ref={input}
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      onFocus={() => setSearching(true)}
+                      placeholder="도착지 입력해 주세요"
+                      aria-label="도착지"
+                      className="block w-full bg-transparent text-[14px] leading-[20px] font-medium text-[#1f1f1f] outline-none placeholder:font-normal placeholder:text-[#9e9e9e]"
+                    />
+                  </span>
+                </label>
+                {/*
+                  폼에 submit 컨트롤이 하나도 없으면 엔터 동작이 브라우저마다 갈린다.
+                  눈에 안 보이는 버튼 하나로 모바일 키보드의 "이동"까지 같은 길로 모은다.
+                */}
+                <button type="submit" className="sr-only">
+                  검색
+                </button>
+              </form>
+
+              {/*
+                닫기. 길 비교 화면의 그 상자와 같은 규격(44px·테두리)이다.
+                출발 누르기 전으로 되돌린다 — history.back() 이 URL 을 통째로 되돌리고,
+                그러면 출발지도 이 카드도 같이 사라진다 (setStart 가 항목을 하나 밀어둔 덕이다).
+              */}
+              <button
+                type="button"
+                onClick={() => history.back()}
+                aria-label="닫기"
+                /* 호버는 앱의 다른 누르는 자리와 같은 옅은 주황이다 — 회색으로 혼자 빠져 있으면 안 눌리는 것처럼 읽힌다 */
+                className="mt-[32px] grid size-[44px] shrink-0 place-items-center rounded-[10px] border border-[#d6d6d6] bg-white transition hover:bg-[#fff0e6] active:bg-black/5"
+              >
+                <img src="/home/icon-close.svg" alt="" className="size-6" />
+              </button>
+            </div>
+          ) : (
+          /* 검색바. 와이어프레임(2129:1793) 기준 높이 54, 좌우 여백 20 */
           <div className="pointer-events-auto flex shrink-0 items-center pt-[19px] pr-5 pl-5">
           <form
             onSubmit={(e) => {
@@ -385,13 +496,14 @@ function Destination() {
             </button>
           </form>
         </div>
+          )}
 
           {/*
-            고른 출발지. **검색 패널이 떠 있는 동안에도 남는다** — 출발지를 고르고 나면 곧장
-            목적지를 적게 되는데, 그때 화면에 아무 흔적이 없으면 "출발"이 아무 일도 안 한 것처럼 보인다.
+            고른 출발지. 도착지를 이미 고른 뒤에만 뜬다 — 찾는 중일 때는 위 두 칸 카드가 같은 말을
+            더 또렷하게 하고 있어서, 칩까지 있으면 출발지가 화면에 두 번 적힌다.
             ✕ 가 유일한 되돌리는 길이다 (지우면 다시 현재 위치가 출발지다).
           */}
-          {query.originName && (
+          {query.originName && !routing && (
             <div className="pointer-events-auto mt-2 ml-5 flex h-[30px] shrink-0 items-center gap-[6px] self-start rounded-full border border-[#e5e5e5] bg-white pr-[8px] pl-[11px] shadow-[0_1px_4px_0_rgba(0,0,0,0.08)]">
               <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-[#fc7f35]" />
               <span className="max-w-[220px] truncate text-[12px] leading-none text-[#1f1f1f]">
@@ -479,11 +591,21 @@ function Destination() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => removeRecent(r)}
+                            onClick={() => forget(r)}
                             aria-label={`최근 검색어에서 ${r} 삭제`}
-                            className="shrink-0 p-1 transition active:scale-90"
+                            /*
+                              호버는 회색 동그라미다 — 지우는 버튼이라 주황(앱의 진행 색)으로 물들면
+                              누르면 뭔가 진행되는 것처럼 읽힌다 (route-editor 의 닫기 상자와 같은 규칙).
+                              흐려둔 아이콘도 커서를 올리면 또렷해져서, 어느 줄을 겨누고 있는지가 보인다.
+                            */
+                            className="group shrink-0 rounded-full p-1 transition hover:bg-[#fff0e6] active:scale-90"
                           >
-                            <img src="/home/icon-close.svg" alt="" aria-hidden className="size-4 opacity-40" />
+                            <img
+                              src="/home/icon-close.svg"
+                              alt=""
+                              aria-hidden
+                              className="size-4 opacity-40 transition group-hover:opacity-80"
+                            />
                           </button>
                         </li>
                       ))}
@@ -562,11 +684,19 @@ function PlaceSheet({
   }
 
   return (
-    <div className="relative rounded-t-[24px] bg-white pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-      {/* grab — 끌어올릴 수 있어 보이게 하는 표시다. 실제로 끌리지는 않는다 (와이어프레임도 장식이다) */}
-      <div aria-hidden className="mx-auto mt-[10px] h-1 w-12 rounded-[2px] bg-[#d6d6d6]" />
-
-      <div className="mt-6 flex items-start justify-between gap-3 pr-[15px] pl-[30px]">
+    /*
+      위 여백은 **패딩이다.** 손잡이를 빼고 첫 자식에 mt 를 줬더니 그 마진이 부모 밖으로 빠져나가
+      (margin collapsing) 안쪽이 아니라 시트째 밀렸다 — 이름이 시트 위 테두리에 붙어 보인 이유다.
+      부모에 padding 을 주면 빠져나갈 마진이 없다.
+    */
+    <div className="relative rounded-t-[24px] bg-white pt-7 pb-8 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+      {/*
+        손잡이(grab)는 뺐다. 끌어올릴 수 있어 보이게 하는 표시인데 **이 시트는 안 끌린다** —
+        와이어프레임에도 장식으로만 그려져 있던 것이라 그대로 옮겼었다.
+        없는 동작을 있는 것처럼 말하는 표시라, 잡아당겨 본 사람에게는 고장으로 읽힌다.
+        (주차장 화면의 손잡이는 눌러서 실제로 목록이 오르내린다 — 거기는 남는다.)
+      */}
+      <div className="flex items-start justify-between gap-3 pr-[15px] pl-[30px]">
         <div className="min-w-0">
           {/*
             유형 뱃지는 이름 뒤에 붙는다. 카테고리가 없는 곳이 있어 그때는 통째로 빠지고,
@@ -646,7 +776,7 @@ function PlaceSheet({
           onClick={onClose}
           aria-label="닫기"
           /* 이미 회색 바탕이라 옅은 주황이 안 읽힌다 — 한 톤 진한 회색(테두리와 같은 색)으로 눌린다 */
-          className="grid size-[30px] shrink-0 place-items-center rounded-full border border-[#d6d6d6] bg-[#e5e5e5] text-[15px] leading-none text-[#525252] transition hover:bg-[#d6d6d6]"
+          className="grid size-[30px] shrink-0 place-items-center rounded-full border border-[#d6d6d6] bg-[#e5e5e5] text-[15px] leading-none text-[#525252] transition hover:bg-[#fff0e6]"
         >
           ✕
         </button>
@@ -667,8 +797,8 @@ function PlaceSheet({
         </button>
         <button
           onClick={onParking}
-          /* 이미 주황이 꽉 찼다 — 옅은 주황을 덮을 수 없으니 한 톤 진한 주황으로 눌린다 */
-          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff5914] active:scale-[0.98]"
+          /* 이미 주황이 꽉 찼다 — 옅은 주황을 덮을 수 없으니 한 톤 진한 주황으로 눌린다 (주차장 화면과 같은 값) */
+          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
         >
           <span aria-hidden className="text-[17px] leading-none font-bold">
             P
@@ -725,6 +855,20 @@ function AddressRow({ badge, value, filled = false }: { badge: string; value: st
         {copied ? "복사됨" : "복사"}
       </button>
     </div>
+  );
+}
+
+/**
+ * route-editor 의 점. 속이 빈 링이다 (와이어프레임 그대로) — 꽉 찬 점은 이미 정해진 값처럼 보이는데,
+ * 여기는 아직 채우는 중인 칸이 하나 있는 자리다.
+ */
+function Ring({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden
+      className="size-[10px] shrink-0 rounded-full border-2 bg-white"
+      style={{ borderColor: color }}
+    />
   );
 }
 

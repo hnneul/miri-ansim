@@ -91,13 +91,6 @@ const POI_CAP = 15;
 /** 지도 띠 높이 (와이어프레임 PARK-01 의 Map/Placeholder 364). 목록을 내리면 그만큼 늘어난다. */
 const MAP_H = 364;
 
-/**
- * 목록을 내렸을 때 남겨두는 높이. 손잡이(18) + 칩 줄(약 60) + 카드 한 장(79)이다 —
- * 손잡이만 남기면 되돌릴 수는 있어도 무엇을 내린 건지 안 보이고, 칩까지 가려지면
- * 필터를 바꾸려고 매번 다시 올려야 한다.
- */
-const PEEK = 160;
-
 /** 같은 주차장인가. 이름이 겹치는 곳("금능리 1428" 류)이 있어 좌표까지 본다. */
 const same = (a: ParkingSpot | null, b: ParkingSpot) =>
   !!a && a.name === b.name && a.at[0] === b.at[0] && a.at[1] === b.at[1];
@@ -278,10 +271,12 @@ function Parking() {
 
   /**
    * 시트가 시작하는 높이 = 지도 띠의 높이. 한 값을 둘이 나눠 써야 사이에 틈이 안 생긴다.
-   * 프레임이 낮은 노트북에서는 100%-PEEK 가 MAP_H 보다 작아질 수 있어 max() 로 막는다 —
-   * 안 막으면 "내리기"가 목록을 되레 위로 올린다.
+   *
+   * 내리면 **화면 밖까지 통째로 내려간다** (100%). 전에는 손잡이·칩·카드 한 장을 남겼는데(PEEK),
+   * 지도를 크게 보려고 내린 사람에게 그 남은 띠는 지도를 가리는 것 말고 하는 일이 없었다.
+   * 되올리는 길은 지도 위에 뜨는 "목록 보기" 하나로 모은다 — 남은 띠가 그 문을 겸하던 자리다.
    */
-  const sheetTop = mapBig ? `max(${MAP_H}px, calc(100% - ${PEEK}px))` : `${MAP_H}px`;
+  const sheetTop = mapBig ? "100%" : `${MAP_H}px`;
 
   /*
    * 고른 카드를 목록에 보이게 끌어온다. 지도 아래 남는 자리가 카드 서너 장이라, 안 끌어오면
@@ -334,7 +329,14 @@ function Parking() {
             pins={spots}
             selected={selected}
             onPick={highlight}
-            onBlank={() => setSelected(null)}
+            /*
+              지도 빈 곳을 눌렀다 = 지도를 보겠다는 뜻이다. 고른 것을 풀고 목록도 통째로 내린다 —
+              전에는 선택만 풀려서, 지도를 보려고 누른 사람은 목록을 내리려고 손잡이를 또 찾아야 했다.
+            */
+            onBlank={() => {
+              setSelected(null);
+              setMapBig(true);
+            }}
             move={move}
             start={dest ?? START}
             dest={dest}
@@ -360,18 +362,41 @@ function Parking() {
             </span>
             <span className="shrink-0 text-[12px] leading-none text-[#9e9e9e]">주변 주차장</span>
           </div>
+
+          {/*
+            목록이 화면 밖으로 내려가 있을 때 되올리는 유일한 문이다 (손잡이가 같이 내려가서 없다).
+            지도 아래 가운데에 둔다 — 시트가 올라오면 그 자리에서 시트가 시작하므로, 문과 문이
+            열리는 자리가 같아 눌렀을 때 어디가 바뀌는지 눈으로 따라가진다.
+
+            **검은 바탕에 손잡이 바 하나다.** "☰ 목록 보기" 흰 알약이 더 예뻤지만 지도가 흰 바탕이라
+            흰 버튼이 묻혔다 — 그림자만으로 버티는 버튼은 밝은 동네에서 사라진다.
+            글자를 빼고 바만 남긴 건 이게 **시트를 도로 올리는 손잡이**이기 때문이다.
+            내려갈 때 같이 사라진 그 바가 같은 모양으로 여기 있으면, 올라오는 물건이 뭔지가 그대로 읽힌다.
+          */}
+          {mapBig && (
+            <button
+              onClick={() => setMapBig(false)}
+              aria-label="목록 보기"
+              className="absolute bottom-5 left-1/2 z-10 flex h-[30px] -translate-x-1/2 items-center justify-center rounded-full bg-[#1f1f1f] px-6 shadow-[0_4px_16px_0_rgba(0,0,0,0.28)] transition hover:bg-[#fc7f35] active:scale-95"
+            >
+              <span aria-hidden className="h-1 w-12 rounded-full bg-white" />
+            </button>
+          )}
         </div>
 
         {/*
-          칩과 목록. 기본은 지도(364) 밑이고, 손잡이를 누르면 아래로 내려가 지도가 커진다.
-          내려가도 손잡이·칩·카드 한 장은 남긴다(PEEK) — 통째로 사라지면 되돌릴 손잡이도 같이 없어진다.
+          칩과 목록. 기본은 지도(364) 밑이고, 손잡이를 누르거나 지도 빈 곳을 누르면
+          화면 밖까지 내려간다 (되올리는 문은 지도 위의 "목록 보기"다).
 
-          top 을 style 로 주는 이유 — max()·calc() 를 Tailwind 임의값에 우겨넣으면 밑줄투성이가
-          되어 읽히지 않는다. 값은 위 sheetTop 하나이고 지도 띠가 같은 값을 높이로 쓴다.
+          overflow-hidden 이 있어야 내려갔을 때 안쪽이 안 삐져나온다 — top 이 100% 면 이 상자는
+          높이가 0인데, 안의 칩·카드는 제 높이를 그대로 갖고 있어 그냥 두면 프레임 밖에 그려진다.
+
+          top 을 style 로 주는 이유 — 값이 px 과 % 를 오가서 Tailwind 임의값으로는 한 클래스에 못 담는다.
+          값은 위 sheetTop 하나이고 지도 띠가 같은 값을 높이로 쓴다.
         */}
         <div
           style={{ top: sheetTop }}
-          className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[16px] bg-white shadow-[0_-4px_16px_0_rgba(0,0,0,0.12)] transition-[top] duration-200"
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-col overflow-hidden rounded-t-[16px] bg-white shadow-[0_-4px_16px_0_rgba(0,0,0,0.12)] transition-[top] duration-200"
         >
           {/*
             손잡이 (/destination·/route 시트와 같은 모양). 눌러서 목록을 내리고 다시 올린다 —
@@ -623,7 +648,7 @@ function SpotCard({
           {/* 곁다리는 테두리 없이 연회색 면이다 — 테두리까지 두르면 옆의 주황 버튼과 무게가 비슷해진다 */}
           <button
             onClick={onOpen}
-            className="h-[48px] shrink-0 rounded-[8px] bg-[#f2f2f2] px-6 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition hover:bg-[#e5e5e5] active:scale-[0.98]"
+            className="h-[48px] shrink-0 rounded-[8px] bg-[#f2f2f2] px-6 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
           >
             자세히
           </button>
@@ -680,33 +705,38 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
  * 전에는 40곳이 전부 44×34 흰 말풍선이라 서귀포 도심에서 스무 개가 서로를 가려 지도가 안 읽혔다.
  * 흐린 점으로 두면 어디에 몰려 있는지가 먼저 보이고, 짚은 하나만 앞으로 나온다.
  *
- * 연하게는 **투명도가 아니라 색으로** 낸다. opacity 를 먹였더니 지도 무늬가 비쳐서 핀이 아예
- * 안 보였다 — 배경이 흰 종이가 아니라 도로·건물이 깔린 지도라 옅어진 만큼 그게 올라온다.
- * 옅은 주황으로 칠하고 테두리와 글자만 진하게 남기면, 색은 물러나면서 형태는 또렷하다.
- * 그림자도 뺐다 — 뒤로 물러난 것이 진한 그림자를 드리우면 그만큼 다시 앞으로 나온다.
+ * P 는 남긴다. 대신 **겹을 줄였다** — 전에는 옅은 주황 채움 + 주황 테두리 + 주황 글자 셋이
+ * 26px 안에 겹쳐서, 스무 개가 깔리면 글자가 안 읽히고 얼룩처럼 보였다.
+ * 지금은 **꽉 찬 주황 + 흰 글자** 둘이다. 같은 크기에서 대비가 커져 P 가 오히려 또렷하다.
+ * 흰 테두리가 도로·건물 위에서 핀을 떼어낸다 (전에 쓰던 옅은 채움은 지도 무늬에 묻혀서,
+ * 색을 물리려다 형태까지 같이 물러났다).
  *
  * 고른 것만 **물방울 핀**이다 (/around 의 탐나는전 핀과 같은 모양·같은 이유). 동그라미는 어디를
  * 가리키는지 스스로 말하지 못해서, 여러 개가 깔린 지도에서는 "이 근처에 뭔가 있다"까지만 읽힌다.
  * 뾰족한 끝이 있어야 "바로 여기"가 된다.
  *
- * 그래서 **앵커가 서로 다르다**: 동그라미는 가운데(13,13), 물방울은 끝점(20,52)이 좌표에 앉는다.
+ * **납작하게 둔다.** 그러데이션 + 광택 + 접지 그림자로 점토처럼 만들어 봤다가 되돌렸다 —
+ * 26px 짜리에 그런 걸 얹으면 재질만 늘고 읽히는 건 안 는다. 핀은 그림이 아니라 표시다.
+ *
+ * 둘레를 흐리게 하는 드롭섀도도 없다. 물방울에 이미 흰 테두리 2.5px 이 있어 배경과 떨어지는 일은
+ * 그게 다 하고 있었고, 흐릿한 그림자는 얹어봐야 오래돼 보이는 것 말고 하는 일이 없었다.
+ * 앞으로 나오는 일은 크기(26 → 40x52)와 모양(동그라미 → 물방울)이 맡는다.
+ *
+ * 그래서 **앵커가 서로 다르다**: 동그라미는 가운데(13,13), 물방울은 끝점(20,50)이 좌표에 앉는다.
  * 고르는 순간 핀이 위로 서는 것처럼 보이는데, 그게 맞다 — 둘 다 같은 점을 가리키고 있다.
  */
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
-     <circle cx="13" cy="13" r="9" fill="#ffe0cb" stroke="#fc7f35" stroke-width="1.5"/>
-     <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
-           fill="#fc7f35" text-anchor="middle">P</text>
+     <circle cx="13" cy="13" r="8.5" fill="#fc7f35" stroke="#fff" stroke-width="2"/>
+     <text x="13" y="17.3" font-family="system-ui,sans-serif" font-size="11.5" font-weight="700"
+           fill="#fff" text-anchor="middle">P</text>
    </svg>`,
 );
 
 const PIN_ON = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52" viewBox="0 0 40 52">
-     <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
-       <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.35"/>
-     </filter>
      <path d="M20 2 C10.6 2 3 9.6 3 19 c0 12.4 17 30 17 30 s17-17.6 17-30 C37 9.6 29.4 2 20 2 z"
-           fill="#fc7f35" stroke="#fff" stroke-width="2.5" filter="url(#s)"/>
+           fill="#fc7f35" stroke="#fff" stroke-width="2.5"/>
      <text x="20" y="26" font-family="system-ui,sans-serif" font-size="19" font-weight="700"
            fill="#fff" text-anchor="middle">P</text>
    </svg>`,

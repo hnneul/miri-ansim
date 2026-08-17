@@ -1,39 +1,38 @@
 "use client";
 
-// 출발지·도착지를 고쳐 잡는 검색 패널. 길 비교 화면(/route)의 카드를 누르면 열린다.
+// 출발지·도착지를 고쳐 잡을 때 카드 **아래**에 깔리는 목록 (와이어프레임 "목적지 → 출발 선택" 2212:2649).
 //
-// 지오코딩은 /destination 이 쓰는 서버 액션을 그대로 부른다 — 같은 카카오 장소 검색이라
-// 새로 만들 게 없다. 화면만 여기 있고 검색 규칙은 lib/geocode.ts 한 곳이다.
+// 검색칸을 여기 두지 않는다 — 적는 자리는 route-editor 카드의 그 칸이다. 검색창을 따로 띄우면
+// 방금 누른 칸과 지금 적는 칸이 화면에서 떨어져서, 어느 쪽을 고치는 중인지가 다시 흐려진다.
+//
+// 목록은 두 갈래다: 적는 중이면 후보, 비어 있으면 최근 검색어.
+// 둘을 같이 띄우지 않는 이유는 자리가 아니라 뜻이다 — 후보가 떠 있는 동안 최근 검색어는
+// 지금 적고 있는 것과 상관없는 목록이라 손이 잘못 간다 (/destination 과 같은 규칙).
 
-import { useEffect, useRef, useState } from "react";
-import StatusBar from "../StatusBar";
+import { useEffect, useState } from "react";
 import type { Place } from "@/lib/geocode";
-import { suggestPlaces } from "../destination/actions";
+import { loadRecent, removeRecent } from "@/lib/recent";
+import { findPlace, suggestPlaces } from "../destination/actions";
 
 /** 타이핑이 멎고 나서 후보를 부르기까지 (/destination 과 같은 값) */
 const TYPING_MS = 250;
 
 export default function PlaceSearch({
-  label,
+  text,
   onPick,
-  onClose,
 }: {
-  /** "출발지" / "도착지" — 자리표시자와 읽어주는 이름에 쓴다 */
-  label: string;
+  /** 카드의 그 칸에 적고 있는 글자. 여기서는 읽기만 한다. */
+  text: string;
   onPick: (place: Place) => void;
-  onClose: () => void;
 }) {
-  const [text, setText] = useState("");
   const [found, setFound] = useState<Place[]>([]);
-  const input = useRef<HTMLInputElement>(null);
+  const [recent, setRecent] = useState<string[]>([]);
 
-  useEffect(() => {
-    input.current?.focus();
-  }, []);
+  useEffect(() => setRecent(loadRecent()), []);
 
   /*
     적는 동안 후보를 불러온다. 늦게 온 앞선 응답은 버린다 — 안 버리면 글자를 지웠을 때
-    먼저 보낸 긴 검색어의 결과가 나중에 도착해 목록을 덮는다 (/destination 과 같은 이유).
+    먼저 보낸 긴 검색어의 결과가 나중에 도착해 목록을 덮는다.
   */
   useEffect(() => {
     if (!text.trim()) return setFound([]);
@@ -48,46 +47,15 @@ export default function PlaceSearch({
     };
   }, [text]);
 
+  /** 최근 검색어는 이름만 있다. 좌표가 있어야 길을 만들 수 있어 한 번 더 찾는다. */
+  function pickName(name: string) {
+    findPlace(name).then((r) => !("error" in r) && onPick(r));
+  }
+
   return (
-    <div className="absolute inset-0 z-30 flex flex-col bg-white">
-      <StatusBar tone="text-[#525252]" />
-
-      {/* 검색바 모양은 메인화면·목적지 화면과 같다 — 흰 바탕에 주황 테두리 */}
-      <form
-        onSubmit={(e) => e.preventDefault()}
-        className="mx-[15px] mt-[9px] flex h-[54px] shrink-0 items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px]"
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="검색 닫기"
-          className="shrink-0 transition active:scale-90"
-        >
-          <img src="/icon-arrow-left.svg" alt="" className="size-6" />
-        </button>
-        <input
-          ref={input}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`${label}를 검색해 주세요`}
-          aria-label={label}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-[#1f1f1f] outline-none placeholder:text-[#7d7d7d]"
-        />
-        {text && (
-          <button
-            type="button"
-            onClick={() => setText("")}
-            aria-label="지우기"
-            className="shrink-0 transition active:scale-90"
-          >
-            <img src="/home/icon-close.svg" alt="" className="size-6" />
-          </button>
-        )}
-      </form>
-
-      {/* 목록이 길면 여기만 스크롤한다 */}
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-6 pb-4">
-        {!text.trim() ? null : found.length > 0 ? (
+    <div className="min-h-0 flex-1 overflow-y-auto bg-white px-6 pt-4 pb-4">
+      {text.trim() ? (
+        found.length > 0 ? (
           <ul>
             {found.map((p) => (
               /* 같은 이름이 여럿이라 key 는 좌표까지 붙인다 ("스타벅스"가 제주에만 수십 곳이다) */
@@ -107,9 +75,7 @@ export default function PlaceSearch({
                       <span className="truncate text-[14px] leading-[22px] text-[#1f1f1f]">
                         {p.label}
                       </span>
-                      {p.type && (
-                        <span className="shrink-0 text-[11px] text-[#9e9e9e]">{p.type}</span>
-                      )}
+                      {p.type && <span className="shrink-0 text-[11px] text-[#9e9e9e]">{p.type}</span>}
                     </span>
                     {/* 주소가 있어야 같은 이름 중에 어느 지점인지 갈린다 — 없는 곳은 그 줄만 빠진다 */}
                     {(p.road || p.jibun) && (
@@ -125,8 +91,50 @@ export default function PlaceSearch({
         ) : (
           /* 아직 안 왔거나(디바운스 중) 제주에 없는 이름이다. 둘을 가려 말할 방법이 없어 한 줄로 둔다 */
           <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
-        )}
-      </div>
+        )
+      ) : (
+        /* 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */
+        recent.length > 0 && (
+          <>
+            <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
+            <ul className="mt-2">
+              {recent.map((r) => (
+                /*
+                  한 줄에 두 버튼이라 <li> 를 flex 로 두고 버튼을 나란히 놓는다 — 버튼 안에 버튼을
+                  못 넣으니 검색과 삭제를 형제로 가른다 (/destination 과 같은 모양).
+                */
+                <li key={r} className="flex items-center gap-2 py-2">
+                  <button
+                    onClick={() => pickName(r)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <img
+                      src="/home/icon-search.svg"
+                      alt=""
+                      aria-hidden
+                      className="size-[15px] shrink-0 opacity-60"
+                    />
+                    <span className="truncate text-[14px] leading-[22px] text-[#1f1f1f]">{r}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecent((prev) => removeRecent(prev, r))}
+                    aria-label={`최근 검색어에서 ${r} 삭제`}
+                    className="group shrink-0 rounded-full p-1 transition hover:bg-[#fff0e6] active:scale-90"
+                  >
+                    <img
+                      src="/home/icon-close.svg"
+                      alt=""
+                      aria-hidden
+                      className="size-4 opacity-40 transition group-hover:opacity-80"
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      )}
     </div>
   );
 }
