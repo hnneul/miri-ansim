@@ -228,7 +228,6 @@ function Home() {
           iconClass="size-[32px]"
           label="주행 저장"
           sub="글쓰러 가기"
-          href={`/safelog?${searchParams}`}
         />
         <Quick
           icon="/home/quick-tamna.png"
@@ -323,15 +322,23 @@ function Quick({
  * 저 값은 디자인에서 2배 크기 컴포넌트를 축소해 붙이며 딸려온 숫자로 보이고, 실제 390px 화면에서는
  * 읽히지 않는다. 사진 위 흰 글씨라 아래쪽 어둠막도 함께 깐다 (밝은 하늘 사진이 오면 글자가 사라진다).
  */
-function Record({ photo, title, count }: { photo: string; title: string; count: number }) {
-  return (
-    <div className="relative h-[84px] overflow-hidden rounded-[11px]">
+function Record({ photo, title, count, href }: { photo: string; title: string; count: number; href?: string }) {
+  const inner = (
+    <>
       <img src={photo} alt="" className="size-full object-cover" />
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/55 to-transparent" />
       <div className="absolute bottom-[10px] left-[14px] flex items-baseline gap-[8px]">
         <span className="text-[13px] leading-none font-bold text-white">{title}</span>
         <span className="text-[10px] leading-none text-[#e6e6e6]">사진 {count}장</span>
       </div>
-    </div>
+    </>
+  );
+  const box = "relative block h-[84px] overflow-hidden rounded-[11px]";
+  return href ? (
+    <Link href={href} className={`${box} transition active:scale-[0.98]`}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={box}>{inner}</div>
   );
 }
