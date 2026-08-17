@@ -20,7 +20,7 @@
     "satellite": "https://www.google.com/maps/place/33.4912424,126.8102477/@33.4912424,126.8102477,19z/data=!3m1!1e3"
   },
   "405-2-000231": {
-    "parallel": null,
+    "parallel": false,
     "name": "하도리 3204-1",
     "near": "세화해변 468m",
     "spaces": 124,
@@ -130,7 +130,7 @@
     "satellite": "https://www.google.com/maps/place/33.3930848,126.240701/@33.3930848,126.240701,19z/data=!3m1!1e3"
   },
   "405-2-000218": {
-    "parallel": null,
+    "parallel": false,
     "name": "세화리 1491-2",
     "near": "세화해변 345m",
     "spaces": 44,
