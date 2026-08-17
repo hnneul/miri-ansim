@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Sans_KR } from "next/font/google";
+import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+/*
+ * 서체는 Noto Sans KR 하나다 (로고만 Jalnan2, globals.css).
+ *
+ * create-next-app 이 깔아준 Geist·Geist_Mono 를 지웠다. font-sans·font-mono 를 쓰는 곳이
+ * 한 군데도 없었는데도 next/font 가 기본으로 preload 를 켜서, **첫 방문마다 안 쓰는 폰트
+ * 두 개를 미리 받고 있었다** (브라우저에서 재보니 Geist 1개 + Geist Mono 1개가 실제로 받아졌다).
+ */
 
 /**
  * 와이어프레임의 본문 서체다 (WF/Label·Title·Body 전부 Noto Sans KR).
@@ -42,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} ${notoSansKr.variable} h-full antialiased`}
+      className={`${notoSansKr.variable} h-full antialiased`}
     >
       {/* 세로 배치는 .phone 이 쥔다 (globals.css) — 노트북에서는 그게 폰 프레임이 된다 */}
       <body className="min-h-full">

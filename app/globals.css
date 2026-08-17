@@ -90,7 +90,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-noto-kr);
-  --font-mono: var(--font-geist-mono);
+  /* --font-mono 는 없다 — Geist Mono 를 지웠고(app/layout.tsx), font-mono 를 쓰는 곳도 없었다 */
   --font-logo: "Jalnan2", var(--font-noto-kr), sans-serif;
 }
 
