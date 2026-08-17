@@ -7,6 +7,12 @@ export type DriverProfile = {
   jejuExperience: boolean;
   vehicleSize: "compact" | "sedan" | "suv";
   timeOfDay: "day" | "night";
+  /**
+   * 온보딩에서 "이런 길이 긴장된다"고 고른 위험 타입들. 그 위험만 가중치를 더 준다(weight).
+   * 부담 유형(6개, lib/profile.ts CONCERNS) → 위험 타입 매핑은 CONCERN_RISK 가 쥔다.
+   * 선택이라, 안 고른 프로필은 이 키가 없다 — parseProfile 이 비면 키째 뺀다(URL 왕복 테스트가 본다).
+   */
+  fearedRisks?: RiskType[];
 };
 
 export type RiskType =
@@ -71,6 +77,16 @@ export const BASE_SCORE: Record<RiskType, number> = {
   highSpeed: 5,
 };
 
+/** 위험 타입 → 사람이 읽는 짧은 말. 근거 카드가 "긴장되는 길" 가중치를 설명할 때 쓴다. */
+export const RISK_LABEL: Record<RiskType, string> = {
+  accidentZone: "사고 잦은 곳",
+  sharpCurve: "급커브",
+  narrowRoad: "좁은 길",
+  steepSlope: "가파른 길",
+  complexJunction: "복잡한 교차로",
+  highSpeed: "고속 주행",
+};
+
 export const COMFORT_THRESHOLD = 50;
 
 /**
@@ -101,6 +117,13 @@ export const exposureFactor = (exposure: number) =>
  */
 export const isNovice = (p: DriverProfile) => p.experienceYears <= 1;
 
+/**
+ * 긴장되는 길(부담 유형) 가중치. 사용자가 온보딩에서 고른 위험 타입에만 곱한다.
+ * 기존 프로필 배수들(1.15~1.4)의 한가운데라 눈에 띄되 한 요인이 총점을 독점하진 않는다.
+ * 두 경로의 그 위험 노출이 다를 때만 추천이 갈린다 — 같으면 양쪽이 같이 커져 순위가 안 바뀐다.
+ */
+export const CONCERN_BOOST = 1.25;
+
 function weight(type: RiskType, p: DriverProfile): number {
   let w = 1;
   if (isNovice(p)) w *= 1.3;
@@ -109,6 +132,9 @@ function weight(type: RiskType, p: DriverProfile): number {
   if (p.timeOfDay === "night") w *= 1.15;
   if (type === "narrowRoad" && p.vehicleSize === "suv") w *= 1.4;
   if (type === "highSpeed" && p.experienceYears > 1) w *= 0.4;
+  // 온보딩에서 "이런 길이 긴장된다"고 고른 유형이면 그 위험만 더 무겁게. 한 위험 타입은 여러 부담
+  // 유형이 걸려도(예: 급경사·굽은 길 + 어두운 길 둘 다 sharpCurve) ×CONCERN_BOOST 한 번뿐이다.
+  if (p.fearedRisks?.includes(type)) w *= CONCERN_BOOST;
   return w;
 }
 
@@ -121,6 +147,8 @@ export function activeWeights(p: DriverProfile): string[] {
   if (p.timeOfDay === "night") out.push("야간 주행 ×1.15");
   if (p.vehicleSize === "suv") out.push("대형 차량 ×1.4 (좁은 교행로에만)");
   if (p.experienceYears > 1) out.push("경력 1년 초과 ×0.4 (고속주행에만)");
+  if (p.fearedRisks?.length)
+    out.push(`긴장되는 길 ×${CONCERN_BOOST} (${p.fearedRisks.map((t) => RISK_LABEL[t]).join("·")})`);
   return out;
 }
 

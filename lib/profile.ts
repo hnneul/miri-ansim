@@ -4,7 +4,7 @@
 // 안 날아간다. 대신 URL은 사용자가 손으로 고칠 수 있는 입력이므로 값 검증이 필수다 —
 // 여기가 유일한 신뢰 경계다.
 
-import type { DriverProfile } from "./score";
+import type { DriverProfile, RiskType } from "./score";
 import type { LatLng } from "@/app/RouteMap";
 
 /**
@@ -53,11 +53,10 @@ export const CHARACTERS: Record<number, { src: string; alt: string; tier: string
 export const characterOf = (experienceYears: number) => CHARACTERS[experienceYears] ?? CHARACTERS[1];
 
 /**
- * 부담 유형 — 온보딩 4단계(여러 개 선택)에서 고르는 값.
- * 점수에는 아직 안 들어가서 DriverProfile 에 자리가 없다. 그래서 프로필 값과 따로,
- * 고른 인덱스만 쿼리 hard=0,4 로 실어 마이 화면(app/profile)에 되보여 준다.
+ * 부담 유형 — 온보딩 마지막 단계(여러 개 선택)에서 고르는 값.
+ * 고른 인덱스를 쿼리 hard=0,4 로 실어 두 곳에 쓴다: (1) 마이 화면(app/profile)에 되보여 주고,
+ * (2) CONCERN_RISK 로 위험 타입에 매핑해 점수 가중치(lib/score.ts weight)에 태운다.
  * short 는 카드 한 줄에 넣을 짧은 말이다 ("어려움: 좁은 길 · 주차").
- * ponytail: 점수에 반영하려면 lib/score.ts 가중치에 값을 뚫고 DriverProfile 로 옮긴다.
  */
 export const CONCERNS = [
   { label: "좁은 골목길", desc: "차가 마주 오면 불안해요", short: "좁은 길" },
@@ -66,6 +65,24 @@ export const CONCERNS = [
   { label: "어두운 길", desc: "가로등이 적으면 긴장돼요", short: "야간" },
   { label: "주차 어려운 곳", desc: "공간이 좁으면 부담돼요", short: "주차" },
   { label: "해당 없음", desc: "특별히 부담 없어요", short: "없음" },
+];
+
+/**
+ * 부담 유형(CONCERNS 인덱스) → 점수에서 무겁게 볼 위험 타입. 승인된 매핑표 그대로다:
+ *   0 좁은 골목길 → 좁은 길 · 1 복잡한 교차로 → 교차로 · 2 급경사·굽은 길 → 가파른 길+급커브 ·
+ *   3 어두운 길 → 급커브(조명 데이터가 없어 곡률로 대신 — 어두울 때 커브가 특히 위험).
+ * 4 주차 어려운 곳·5 해당 없음은 경로 점수에 대응이 없어 뺀다 — 주차는 주차 화면이 따로 쓴다.
+ */
+export const CONCERN_RISK: Record<number, RiskType[]> = {
+  0: ["narrowRoad"],
+  1: ["complexJunction"],
+  2: ["steepSlope", "sharpCurve"],
+  3: ["sharpCurve"],
+};
+
+/** 고른 부담 유형 인덱스들 → 위험 타입 목록(중복 제거). 대응 없는 유형(주차·없음)은 자연히 빠진다. */
+export const fearedRisksOf = (concerns: number[]): RiskType[] => [
+  ...new Set(concerns.flatMap((i) => CONCERN_RISK[i] ?? [])),
 ];
 
 /** ?key=value&key=value 형태에서 같은 키가 여러 번 오면 첫 값을 쓴다. 결과 페이지도 같은 규칙을 쓴다. */
@@ -80,6 +97,10 @@ export function parseProfile(sp: Record<string, string | string[] | undefined>):
     return ((allowed as readonly unknown[]).includes(v) ? v : fallback) as T[number];
   };
 
+  // 긴장되는 길 → 위험 타입. 비면 키째 뺀다 — DEFAULT_PROFILE 에도 이 키가 없어, 빈 쿼리와
+  // 부담 유형 없는 왕복이 프로필과 그대로 deepEqual 로 맞는다 (profile.check.ts 신뢰 경계 테스트).
+  const feared = fearedRisksOf(parseConcerns(sp));
+
   return {
     experienceYears: pick("exp", OPTIONS.experienceYears, DEFAULT_PROFILE.experienceYears),
     drivingFrequency: pick("freq", OPTIONS.drivingFrequency, DEFAULT_PROFILE.drivingFrequency),
@@ -87,6 +108,7 @@ export function parseProfile(sp: Record<string, string | string[] | undefined>):
     jejuExperience: oneOf(sp, "jeju") === "true",
     vehicleSize: pick("car", OPTIONS.vehicleSize, DEFAULT_PROFILE.vehicleSize),
     timeOfDay: pick("time", OPTIONS.timeOfDay, DEFAULT_PROFILE.timeOfDay),
+    ...(feared.length ? { fearedRisks: feared } : {}),
   };
 }
 

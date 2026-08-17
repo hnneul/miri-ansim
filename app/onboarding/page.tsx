@@ -82,10 +82,10 @@ const STEPS: Step[] = [
     note: " · 여러 개 선택 가능",
     title: ["어떤 길에서 특히", "긴장되시나요?"],
     subtitle: "피하고 싶거나, 안내를 더 자세히 받고 싶은 상황을 골라주세요.",
-    hint: "선택 내용은 길 설명에만 사용하며 언제든 바꿀 수 있어요.",
+    hint: "선택 내용은 경로 추천과 길 설명에 반영되며 언제든 바꿀 수 있어요.",
     multi: true,
     // 선택지는 마이 화면과 공유한다 (lib/profile.ts CONCERNS) — 거기서 되보여 주므로 문구가 갈리면 안 된다.
-    // ponytail: 부담 유형은 아직 점수·브리핑에 안 들어간다. 반영하려면 lib/score.ts 가중치에 값을 뚫어야 한다.
+    // 고른 인덱스는 hard= 로 실려 점수 가중치에 탄다 (lib/profile.ts CONCERN_RISK → lib/score.ts weight).
     options: CONCERNS,
   },
 ];
