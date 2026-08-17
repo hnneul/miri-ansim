@@ -29,7 +29,6 @@ import {
   walkMinutes,
   parkingKind,
   isEasyParking,
-  feeText,
   REACH_M,
   type Lot,
   type ParkingSpot,
@@ -537,7 +536,7 @@ function SpotCard({
   spot: ParkingSpot;
   /** 지도에서 고른 그 곳인가. 테두리 굵기는 그대로 두고 색만 바꾼다 — 굵어지면 목록이 덜컹인다. */
   picked: boolean;
-  /** 우리가 골라 맨 위에 올린 곳인가. 배지와 이유 줄이 그때만 붙는다. */
+  /** 우리가 골라 맨 위에 올린 곳인가. "추천" 표시가 그때만 붙는다. */
   recommended: boolean;
   /** 카드 몸통 — 지도에서 그 자리를 보여준다. */
   onSelect: () => void;
@@ -580,19 +579,6 @@ function SpotCard({
           <span className="mt-[10px] block text-[18px] leading-[26px] font-bold text-[#1f1f1f]">
             {spot.name}
           </span>
-          {/*
-            한 줄로 잇는다. 모르는 값은 통째로 빠진다 — 카카오에서 온 곳은 요금도 규모도 몰라
-            "도보 N분"만 남는다 (모르는 자리에 "정보 없음"을 적으면 줄만 늘고 아는 건 없다).
-          */}
-          <span className="mt-[6px] block text-[13px] leading-[20px] text-[#616161]">
-            {[
-              `목적지에서 도보 ${walkMinutes(spot.walkM)}분`,
-              kakao ? null : feeText(spot),
-              spot.spaces != null ? `${spot.spaces}면` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
         </>
       ) : (
         <span className="flex h-[26px] items-center justify-between gap-3">
@@ -624,15 +610,6 @@ function SpotCard({
         */}
         {kakao && <Badge muted>카카오맵</Badge>}
       </span>
-      {/*
-        왜 이게 맨 위에 떴는지 밝힌다. 안 밝히면 추천이 근거 없는 지목으로 보이고, 초보는 그걸
-        못 따진다. 직각주차인 곳이 없으면 애초에 추천을 안 하므로(위 useMemo) 할 말이 늘 있다.
-      */}
-      {recommended && (
-        <span className={`block text-[12px] leading-[18px] text-[#9e9e9e] ${picked ? "mt-[12px]" : "mt-[6px]"}`}>
-          칸에 맞춰 대는 곳 중 목적지에서 가장 가까워요.
-        </span>
-      )}
       </button>
 
       {/*
@@ -643,19 +620,22 @@ function SpotCard({
         /*
           둘로 갈랐다. 전에는 "이 주차장 자세히" 하나뿐이라, 여기 대기로 이미 정한 사람도 상세를
           거쳐야 길 비교로 갈 수 있었다 — 같은 뜻의 버튼을 두 번 누르는 길이었다.
-          목적지 시트(app/destination)와 같은 짝이다: 곁다리는 흰 알약, 하려던 일은 주황 알약.
+
+          치수는 이 시트의 원본(커밋 591511e 이전 /parking 하단 시트)에서 그대로 가져왔다 —
+          높이 52 · 모서리 12 · 사이 10 · 굵은 글씨 · 주황 #ff6114.
+          곁다리는 테두리 없이 연회색 면이다. 테두리까지 두르면 옆의 주황 버튼과 무게가 비슷해진다.
         */
-        <div className="mx-[18px] mb-[16px] flex gap-2">
-          {/* 곁다리는 테두리 없이 연회색 면이다 — 테두리까지 두르면 옆의 주황 버튼과 무게가 비슷해진다 */}
+        <div className="mx-[18px] mb-[16px] flex gap-2.5">
           <button
             onClick={onOpen}
-            className="h-[48px] shrink-0 rounded-[8px] bg-[#f2f2f2] px-6 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+            className="h-[52px] shrink-0 rounded-xl bg-[#f2f2f2] px-6 text-[14px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
           >
             자세히
           </button>
+          {/* 눌림색은 한 톤 더 내려간 주황이다 — 기본이 #ff6114 라 여기서 #ff6114 를 또 쓸 수 없다 */}
           <button
             onClick={onGo}
-            className="flex h-[48px] flex-1 items-center justify-center rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
+            className="h-[52px] flex-1 rounded-xl bg-[#ff6114] text-[14px] font-bold text-white transition hover:bg-[#e5601a] active:scale-[0.98]"
           >
             여기로 갈게요
           </button>
