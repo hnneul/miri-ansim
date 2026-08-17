@@ -605,7 +605,10 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 
 /**
  * 핀. 안 고른 것은 와이어프레임의 **모양·크기 그대로**다 (Figma 3090:886, 탐나는전 섹션
- * 2160:2236) — 18x18 원, 테두리 2px, 그림자 없음.
+ * 2160:2236) — 18x18 원, 그림자 없음.
+ *
+ * 테두리만 원본 2px 이 아니라 1px 이다. 그만큼 r 을 8 → 8.5 로 키워 바깥 지름 18 을 지켰다
+ * (테두리는 선 한가운데를 기준으로 그려져서, 굵기를 줄이면 원이 같이 작아진다).
  *
  * **색만 회색으로 바꿨다.** 원본은 #FFC5AB / #FF773E 인데, 카카오 지도가 가게 이름을 주황
  * 글씨로 써서 우리 핀 20개가 지도 원래 글자와 안 갈렸다. 회색은 지도가 안 쓰는 색이라
@@ -629,7 +632,7 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
 
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18">
-     <circle cx="9" cy="9" r="8" fill="#c4c4c4" stroke="#bfbfbf" stroke-width="2"/>
+     <circle cx="9" cy="9" r="8.5" fill="#c4c4c4" stroke="#8a8a8a" stroke-width="1"/>
    </svg>`,
 );
 
