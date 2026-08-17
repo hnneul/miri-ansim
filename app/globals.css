@@ -6,22 +6,13 @@
 }
 
 /*
- * 로고 전용 서체 (스플래시 "미리 안심" 한 곳에만 쓴다). 여기어때 잘난체 2 — 상업 이용 무료.
- * 구글 폰트에 없어서 공식 배포처(gccompany.co.kr/font)에서 받은 파일을 public/fonts/ 에 둔다.
+ * 로고 서체(여기어때 잘난체 2)는 더 이상 안 싣는다.
  *
- * 배포본 그대로다. 같이 온 ttf(3.7MB) 대신 otf(2.8MB)를 쓰고, 서브셋으로 줄이지 않았다 —
- * 라이선스가 "임의 수정·개작하여 재배포"를 막는데, 로고 넉 자만 남기는 서브셋이 거기 걸릴 소지가 있다.
- * 그 대신 무겁다. font-display: swap 이라 늦게 오면 Noto 로 먼저 그렸다가 바뀌는데,
- * 스플래시가 1.6초뿐이라 배포 환경에서 첫 방문이면 로고가 Noto 인 채로 지나갈 수 있다.
- * 로컬 시연에서는 즉시 뜨므로 문제되지 않는다.
- *
- * 파일이 없으면 조용히 Noto Sans KR 로 떨어진다 — 깨지지는 않되 로고만 디자인과 달라 보인다.
+ * 스플래시 "미리 안심" 한 곳에 쓰자고 2.7MB 짜리 otf 를 통째로 받아왔었다 — 다섯 글자를 위해
+ * 한글 11,172자를 내려받는 셈이다. 서브셋으로 줄이는 건 라이선스가 막는다("임의 수정·개작하여
+ * 재배포" 금지). 그래서 글자를 **외곽선으로 떠서** 페이지에 넣었다 (app/page.tsx LOGO_PATH, 1.9KB).
+ * 글자를 이미지·로고로 쓰는 건 허용되는 범위다. 다시 뜨는 법은 scripts/build-logo.py 에 있다.
  */
-@font-face {
-  font-family: "Jalnan2";
-  src: url("/fonts/Jalnan2.otf") format("opentype");
-  font-display: swap;
-}
 
 /*
  * 스플래시 → 소개 전환 (app/page.tsx).
@@ -91,7 +82,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-noto-kr);
   /* --font-mono 는 없다 — Geist Mono 를 지웠고(app/layout.tsx), font-mono 를 쓰는 곳도 없었다 */
-  --font-logo: "Jalnan2", var(--font-noto-kr), sans-serif;
+  /* --font-logo 도 없다 — 로고는 서체가 아니라 외곽선이다 (위 주석) */
 }
 
 /* 다크모드 제거 — 심사위원 노트북 설정에 따라 톤이 달라지면 안 됨 (PLAN.md §11 디자인 방향) */
