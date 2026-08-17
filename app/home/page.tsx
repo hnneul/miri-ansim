@@ -4,7 +4,7 @@
 // 같은 이름의 프레임이 캔버스에 둘 있다. 첫 칸이 혼잡도인 쪽(2759:2125)이 아니라 운전 TIP 인
 // 이쪽이 최신이다 — 나머지는 두 벌이 같다.
 // 온보딩(/onboarding)을 마치면 여기로 온다. 프로필은 URL 쿼리로 계속 나르고(lib/profile.ts),
-// 목적지를 검색하면 그대로 /destination 으로 넘긴다.
+// 검색바를 누르면 목적지 검색 화면(/destination)이 검색 패널을 편 채로 열린다.
 //
 // 이전 버전(HOME-00 v2)과 골격이 다르다. 히어로·프로모 카드가 빠지고 **지도가 화면의 중심**이다.
 // 그래서 위치 권한을 검색을 누를 때가 아니라 화면에 들어오는 순간 묻는다 — 지도와 그 아래
@@ -20,7 +20,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
-import { parseProfile, toCustomQuery } from "@/lib/profile";
+import { parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
 import { hereNow } from "./actions";
 
 /** 위치를 못 받았을 때 지도가 보는 곳. 제주시청이다 — 섬 한복판(한라산)보다 사람이 있는 자리다. */
@@ -45,16 +45,18 @@ export default function HomePage() {
 function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const profile = parseProfile(Object.fromEntries(searchParams));
+  const query = Object.fromEntries(searchParams);
+  const profile = parseProfile(query);
 
-  const [destination, setDestination] = useState("");
   const [here, setHere] = useState<LatLng | null>(null);
-  /** 위치를 못 받은 사유. 검색을 눌렀을 때 이걸 그대로 보여준다 — 고칠 방법이 여기 적혀 있다. */
+  /**
+   * 위치를 못 받은 사유. 지도 밑 "현위치" 줄이 이걸로 갈린다 ("위치를 확인할 수 없어요").
+   * 검색바 밑 빨간 줄은 없앴다 — 검색이 위치를 안 기다리게 되면서 거기서 할 말이 없어졌다.
+   */
   const [geoError, setGeoError] = useState<string | null>(null);
   /** 지금 선 동네 ("제주시 아라이동"). 번지는 일부러 안 받는다 — 이유는 lib/geocode.ts areaAt 주석에. */
   const [area, setArea] = useState<string | null>(null);
   const [sky, setSky] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   // 지도 오른쪽 위 버튼도 같은 걸 다시 부른다 — 권한을 뒤늦게 허용한 사람이 쓸 문 하나는 있어야 한다.
   const locate = useCallback(() => {
@@ -84,16 +86,31 @@ function Home() {
 
   useEffect(locate, [locate]);
 
-  // 출발지(현재 위치)를 붙여 목적지 입력 화면(/destination)으로 넘긴다.
-  // 거기서 지오코딩해 지도에 찍으므로 여기서는 적은 글자를 그대로 실어 보내면 된다.
-  function search(e: React.FormEvent) {
-    e.preventDefault();
-    if (!destination.trim()) return setError("목적지를 입력해주세요");
-    // 화면에 들어올 때 이미 물었다. 아직 없으면 사유가 있거나(권한 거부) 응답을 기다리는 중이다.
-    if (!here) return setError(geoError ?? "현재 위치를 확인하는 중이에요. 잠시 후 다시 눌러주세요.");
-
-    setError(null);
-    router.push(`/destination${toCustomQuery(profile, here, destination.trim())}`);
+  /**
+   * 검색바를 누르면 목적지 검색 화면을 연다 (수정 HOME-01 a).
+   *
+   * **여기서는 글자를 안 받는다.** 예전에는 이 칸에 직접 적고 돋보기를 눌러 넘겼는데, 그러면
+   * 최근 검색어도 후보 목록도 없는 칸에 오타 없이 한 번에 적어야 했다. 적는 자리는 그 화면 하나로
+   * 모으고 여기는 문만 한다 — 지도·목록 앱들이 다 그렇게 하는 이유이기도 하다.
+   *
+   * 현재 위치는 있으면 싣고, 없으면 안 싣는다. 예전처럼 막지 않는다 — 검색 목록을 여는 데는
+   * 출발지가 필요 없고, 없으면 그 다음 화면들이 각자 다시 묻는다 (길 비교의 geolocation).
+   * 검색을 눌렀는데 "위치 확인 중이에요"로 막히는 게 기다리게 할 값어치가 없었다.
+   */
+  function openSearch() {
+    /*
+     * 쿼리를 **다시 짓는다.** 여기 URL 을 통째로 복사하면 안 된다 — 목적지 화면에서 뒤로 나오면
+     * 그 화면 쿼리가 프로필과 함께 여기까지 따라오고(dest·destLat·to…), 그걸 그대로 실어 보내면
+     * 도착하자마자 자동 검색이 돌아 **검색창 대신 지난번 목적지 시트가 뜬다.**
+     * 새로 찾으러 가는 길이니 프로필과 부담 유형만 남긴다.
+     */
+    const q = new URLSearchParams(toProfileQuery(profile, parseConcerns(query)));
+    if (here) {
+      q.set("originLat", String(here[0]));
+      q.set("originLng", String(here[1]));
+    }
+    q.set("search", "1"); // 그 화면이 검색 패널을 편 채로 열린다
+    router.push(`/destination?${q}`);
   }
 
   return (
@@ -123,33 +140,27 @@ function Home() {
         </button>
       </div>
 
-      {/* destination-search — 흰 바탕에 주황 테두리. 이 화면에서 유일하게 색이 있는 테두리라 여기가 입구인 게 보인다 */}
-      <form
-        onSubmit={search}
-        className="mx-[15px] flex h-[54px] shrink-0 items-center gap-2 rounded-[16px] border border-[#fc7f35] bg-white pr-6 pl-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]"
-      >
-        <input
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          placeholder="가고 싶은 제주 장소를 검색해요"
-          aria-label="목적지"
-          className="min-w-0 flex-1 text-[15px] text-[#1f1f1f] outline-none placeholder:text-[#7d7d7d]"
-        />
-        {/*
-          돋보기는 17x18 짜리 그림 하나라 바탕을 깔 자리가 없었다 — 여백(p-2)을 줘서 동그란 자리를
-          만들고 거기에 옅은 주황을 깐다. -mr-2 가 그 여백만큼 도로 당겨서 그림 위치는 그대로다.
-          덤으로 누르는 자리가 17px 에서 33px 로 늘었다 (전에는 손가락으로 맞히기 어려웠다).
-        */}
-        <button
-          type="submit"
-          aria-label="검색"
-          className="-mr-2 shrink-0 rounded-full p-2 transition hover:bg-[#fff0e6] active:scale-90"
-        >
-          <img src="/home/icon-search.svg" alt="" className="h-[18px] w-[17px]" />
-        </button>
-      </form>
+      {/*
+        destination-search — 흰 바탕에 주황 테두리. 이 화면에서 유일하게 색이 있는 테두리라 여기가 입구인 게 보인다.
 
-      {error && <p className="mt-2 shrink-0 px-[15px] text-[12px] text-rose-600">{error}</p>}
+        **입력칸이 아니라 버튼이다.** 생김새는 검색칸이지만 누르면 목적지 검색 화면이 열린다
+        (openSearch). 적는 자리를 두 곳에 두지 않으려는 것이다 — 여기 적으면 최근 검색어도
+        후보도 없이 한 번에 맞혀야 했다.
+
+        **색은 누를 때만 나온다** (hover 아니고 active). 커서를 얹기만 해도 물들게 했더니
+        54px 짜리 바가 통째로 켜져서 이 화면에서 제일 큰 색 덩어리가 됐다 — 눌러야 할 곳을
+        알려주는 게 아니라 지나갈 때마다 켜졌다 꺼졌다 했다.
+        누르는 순간에만 옅은 주황이 깔리면 "눌렸다"는 대답으로 읽히고, 그건 한 번뿐이다.
+      */}
+      <button
+        onClick={openSearch}
+        className="mx-[15px] flex h-[54px] shrink-0 items-center gap-2 rounded-[16px] border border-[#fc7f35] bg-white pr-6 pl-[14px] text-left shadow-[0_3px_5px_0_rgba(0,0,0,0.07)] transition active:scale-[0.99] active:bg-[#fff0e6]"
+      >
+        <span className="min-w-0 flex-1 truncate text-[15px] text-[#7d7d7d]">
+          가고 싶은 제주 장소를 검색해요
+        </span>
+        <img src="/home/icon-search.svg" alt="" aria-hidden className="h-[18px] w-[17px] shrink-0" />
+      </button>
 
       {/*
         Hero / Character Journey. 높이가 166 으로 고정이라 안쪽은 절대배치를 쓴다 —
