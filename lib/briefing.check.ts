@@ -2,7 +2,7 @@
 //
 // AI가 죽거나 하루 한도에 걸린 날 화면에 나가는 문장이다. 여기서 볼 건 문장이 예쁜가가 아니라
 // **점수를 읊던 옛 말투로 돌아가지 않았는가**다. 이 문장이 앉는 자리는 "내 조건으로 본 이 길"이고
-// 부담점수·임계값은 같은 화면이 이미 큰 글씨로 보여준다 — 여기서 또 읊으면 자리가 비는 셈이다.
+// 추천점수·임계값은 같은 화면이 이미 큰 글씨로 보여준다 — 여기서 또 읊으면 자리가 비는 셈이다.
 
 import assert from "node:assert";
 import { briefing, tradeoff } from "./briefing.ts";
@@ -39,9 +39,10 @@ const safe = { name: "평화로 경유", durationMin: 65, risks: [risk("highSpee
 const 해석 = (p: DriverProfile, r = { fast, safe }) => briefing(p, scoreRoutes(p, r.fast, r.safe), r);
 
 // --- ① 점수를 읊지 않는다 (옛 문장: "부담점수도 63.5점으로 편안 임계값 50점을 넘습니다") ---
+// 점수 이름은 둘 다 막는다. 옛 이름만 남겨두면 이름을 바꾼 날 가드가 조용히 통과한다.
 for (const p of [초보, 경력자])
   for (const line of 해석(p))
-    assert.ok(!/부담점수|임계값|\d+점/.test(line), `점수를 읊었다: ${line}`);
+    assert.ok(!/추천점수|부담점수|임계값|\d+점/.test(line), `점수를 읊었다: ${line}`);
 
 // --- ② 운전자 조건이 문장을 갈라야 한다 (없으면 붙이지 않는다) ---
 assert.ok(해석(초보)[0].startsWith("운전을 시작한 지 얼마 안 됐다면 "), 해석(초보)[0]);

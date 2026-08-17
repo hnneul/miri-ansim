@@ -26,10 +26,19 @@ const 초보: DriverProfile = {
   timeOfDay: "day",
 };
 
-const risk = (type: RiskFactor["type"], label: string, exposure: number): RiskFactor => ({
+/**
+ * 위치를 받는다. ①칸의 정체("○○라는 산길")는 **요인이 그 도로에 있을 때만** 붙으므로
+ * (briefing.ts radioScript), 위치가 경로 이름을 포함하는지가 픽스처의 전제가 된다.
+ */
+const risk = (
+  type: RiskFactor["type"],
+  label: string,
+  exposure: number,
+  location = "서귀포시 남원읍",
+): RiskFactor => ({
   type,
   label,
-  location: "서귀포시 남원읍",
+  location,
   coord: [33.3, 126.6],
   value: "급커브 42곳",
   exposure,
@@ -41,13 +50,13 @@ const fast = {
   id: "fast" as const,
   name: "5.16도로 경유",
   durationMin: 63,
-  risks: [risk("sharpCurve", "연속 급커브", 0.29)],
+  risks: [risk("sharpCurve", "연속 급커브", 0.29, "5.16도로 8.2km")],
 };
 const safe = {
   id: "safe" as const,
   name: "평화로 경유",
   durationMin: 58,
-  risks: [risk("highSpeed", "고속주행 구간", 0.48)],
+  risks: [risk("highSpeed", "고속주행 구간", 0.48, "평화로 22.5km")],
 };
 const 점수 = scoreRoutes(초보, fast, safe);
 assert.equal(점수.recommendedRoute, "safe", "픽스처 전제가 깨졌다");
@@ -129,6 +138,28 @@ assert.ok(대본(fast, safe)[0].includes("5.16도로라는 산길"), 대본(fast
 const 뜻없음 = radioScript(초보, 요인없음점수, 요인없음, fast, undefined, "성산일출봉")[0];
 assert.ok(뜻없음.includes("평화로 타시네요"), 뜻없음);
 
+/*
+ * ★ **요인이 다른 도로에 있으면 뜻을 붙이지 않는다.**
+ *
+ * 경로 이름은 가장 많이 달리는 도로에서 오는데(lib/route.ts roadKm) 요인은 다른 도로에 있을 수
+ * 있다. 실측에서 "번영로라는 좁은 길"이 나왔다 — 번영로는 왕복 4차선이고 좁은 건 금백조로였다.
+ */
+const 남의도로 = {
+  ...safe,
+  name: "번영로 경유",
+  risks: [risk("narrowRoad", "좁은 교행 구간", 0.295, "금백조로 10.5km · 비자림로 2.9km")],
+};
+const 남의도로첫칸 = radioScript(
+  초보,
+  scoreRoutes(초보, fast, 남의도로),
+  남의도로,
+  fast,
+  undefined,
+  "성산일출봉",
+)[0];
+assert.ok(남의도로첫칸.includes("번영로 타시네요"), 남의도로첫칸);
+assert.ok(!남의도로첫칸.includes("라는"), `다른 도로의 성격을 경로 이름에 붙였다: ${남의도로첫칸}`);
+
 // 오늘 어디 가는지 말한다. 라디오인데 목적지를 한 번도 안 부르고 있었다
 assert.ok(대본()[0].includes("성산일출봉"), 대본()[0]);
 // 모르면 지어내지 않는다 — 목적지 화면을 안 거쳐 온 흐름이다
@@ -195,14 +226,14 @@ assert.ok(조건없음.startsWith("오늘은 성산일출봉"), 조건없음);
 //
 // (가) 추천한 길을 골랐다. **다른 길에는 있고 이 길에는 없는 부담**을 말한다.
 //
-// 비교표의 좌회전·회전교차로는 쓰지 않는다 — 부담점수에 한 점도 안 들어가는 축이라
+// 비교표의 좌회전·회전교차로는 쓰지 않는다 — 추천점수에 한 점도 안 들어가는 축이라
 // (lib/route.ts risksOf), 화면이 큰 글씨로 띄운 점수와 음성이 서로 다른 얘기를 하게 된다.
 const 추천이유 = 대본()[1];
 assert.ok(추천이유.includes("굽이가 계속 이어지는 산길인데"), 추천이유);
 assert.ok(추천이유.includes("이 길은 그게 없어요"), 추천이유);
 assert.ok(추천이유.includes("5분"), "시간 이득이 있으면 말해야 한다");
 for (const 표 of ["좌회전", "회전교차로", "유턴"])
-  assert.ok(!추천이유.includes(표), `부담점수에 없는 축을 추천 이유로 댔다: ${표}`);
+  assert.ok(!추천이유.includes(표), `추천점수에 없는 축을 추천 이유로 댔다: ${표}`);
 
 /*
  * ★ **다른 경로를 이름이나 지시어로 부르지 않는다.**
@@ -292,6 +323,25 @@ assert.ok(셋째.startsWith("하나만 기억하세요."), 셋째);
 // ①이 이미 "큰길"·"산길"이라고 불렀으니 되풀이하지 않는다
 for (const 되풀이 of ["큰길", "산길", "고갯길"])
   assert.ok(!대본()[2].includes(되풀이), `①이 부른 길 이름을 ③에서 되풀이했다: ${대본()[2]}`);
+
+/*
+ * ★ **편도 1차선을 왕복 1차선처럼 말하지 않는다.**
+ *
+ * 이 요인의 근거는 LANES=1 이고 그건 편도 한 차로다 — 대개 왕복 2차선이라 중앙선이 있고
+ * 비킬 일이 없다. "넓은 데서 기다렸다 가라"는 중앙선 없는 왕복 1차선 얘기고, 편도 1차선
+ * 70km/h 구간(금백조로)에서는 틀린 데다 위험한 조언이다 (briefing.ts WHY.narrowRoad 주석).
+ */
+const 좁은길칸 = radioScript(
+  초보,
+  scoreRoutes(초보, fast, 남의도로),
+  남의도로,
+  fast,
+  undefined,
+  "성산일출봉",
+)[2];
+for (const 틀린말 of ["비켜", "기다렸다", "후진", "물러나"])
+  assert.ok(!좁은길칸.includes(틀린말), `편도 1차선에 왕복 1차선 조언을 했다: ${좁은길칸}`);
+assert.ok(좁은길칸.includes("앞지르기"), 좁은길칸);
 
 // --- ⑤ ④칸: 도착해서 차를 댈 곳 — 이 기능에서 제일 위험한 자리 ---
 const 도착칸 = 대본()[3];

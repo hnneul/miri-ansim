@@ -52,8 +52,15 @@ console.log("베테랑", b.recommendedRoute, `fast=${b.fastScore} safe=${b.safeS
 assert.equal(a.recommendedRoute, "safe", "초보에게는 저부담 경로를 추천해야 한다");
 assert.equal(b.recommendedRoute, "safe", "시간 이득이 없으면 베테랑에게도 저부담 경로다");
 
-// 부담점수는 프로필에 따라 크게 달라진다 (PDF Core 완료 기준)
-assert.ok(a.fastScore > b.fastScore * 1.5, "초보의 부담점수가 베테랑보다 뚜렷이 높아야 한다");
+// 추천점수는 프로필에 따라 크게 달라진다 (PDF Core 완료 기준)
+//
+// 비율이 아니라 점수 차로 잰다. 추천점수는 100에서 깎아 내려온 값이라 배수에 뜻이 없다 —
+// 부담 71과 35 는 두 배 차이지만 추천점수로는 29와 65 이고, 여기서 "1.5배"는 아무것도
+// 가리키지 않는다. 실측은 36점 차다.
+assert.ok(
+  b.fastScore - a.fastScore >= 20,
+  `초보의 추천점수가 베테랑보다 뚜렷이 낮아야 한다: 초보=${a.fastScore} 베테랑=${b.fastScore}`,
+);
 
 // --- 실시간 교통이 뒤집는 경우 ---
 // 굳힌 값에서는 최단거리 경로가 항상 더 느려서 위 분기만 돌았다. lib/traffic.ts 가
@@ -66,7 +73,7 @@ const d = scoreRoutes(베테랑, 빠른경로, 정체난저부담);
 console.log("실시간 역전 — 초보  ", c.recommendedRoute, `fast=${c.fastScore} safe=${c.safeScore}`);
 console.log("실시간 역전 — 베테랑", d.recommendedRoute, `fast=${d.fastScore} safe=${d.safeScore}`);
 
-// 초보: 시간 이득이 생겨도 부담점수가 임계값을 넘고 저부담 쪽이 30% 이상 낮으므로 저부담 유지.
+// 초보: 시간 이득이 생겨도 부담이 임계값을 넘고 저부담 쪽이 30% 이상 낮으므로 저부담 유지.
 // 추천은 그대로여도 이유가 "시간 이득 없음"에서 "부담 차이가 커서"로 바뀐다 — 브리핑이 달라진다.
 assert.equal(c.recommendedRoute, "safe", "초보는 시간 이득보다 부담 차이가 크면 저부담 경로다");
 assert.ok(
@@ -74,7 +81,7 @@ assert.ok(
   `실시간 역전 시 추천 이유가 바뀌어야 한다: ${c.reasons[0]}`,
 );
 
-// 베테랑: 부담점수가 임계값 이하라 시간 이득이 생기면 최단거리 경로로 넘어간다
+// 베테랑: 부담이 임계값 이하라 시간 이득이 생기면 최단거리 경로로 넘어간다
 assert.equal(d.recommendedRoute, "fast", "베테랑은 부담이 임계값 이하면 빠른 쪽을 추천한다");
 
 // 고속주행은 경력이 쌓이면 부담이 크게 줄지만 요인 자체는 남는다.
@@ -108,14 +115,14 @@ const 작은부담 = { risks: [dummy("narrowRoad", "좁은 교행", 0.05)], dura
 const 같은부담 = { risks: [dummy("narrowRoad", "좁은 교행", 0.3)], durationMin: 60 };
 
 const 무의미 = scoreRoutes(초보, 큰부담, 같은부담);
-assert.equal(무의미.recommendedRoute, "single", `부담이 같으면 추천을 접어야 한다: ${무의미.fastScore}/${무의미.safeScore}`);
+assert.equal(무의미.recommendedRoute, "single", `점수가 같으면 추천을 접어야 한다: ${무의미.fastScore}/${무의미.safeScore}`);
 
 // fast 쪽이 부담이 낮은데 시간 이득도 없는 경우 — 전에는 무조건 safe 였다
 const 역전 = scoreRoutes(초보, 작은부담, 큰부담);
 assert.equal(
   역전.recommendedRoute,
   "fast",
-  `부담이 낮은 쪽을 추천해야 한다: fast=${역전.fastScore} safe=${역전.safeScore}`,
+  `추천점수가 높은 쪽을 추천해야 한다: fast=${역전.fastScore} safe=${역전.safeScore}`,
 );
 
 // 브리핑 문장도 추천을 따라가야 한다 (전에는 시간손해만 보고 safe 를 추천한다고 썼다)
@@ -174,9 +181,15 @@ assert.ok(
 const 긴좁은길 = { risks: [dummy("narrowRoad", "좁은 교행", 0.31)], durationMin: 80 };
 const 짧은좁은길 = { risks: [dummy("narrowRoad", "좁은 교행", 0.03)], durationMin: 71 };
 const 노출 = scoreRoutes(초보, 긴좁은길, 짧은좁은길);
+// 총점이 아니라 **감점(breakdown)** 으로 잰다. 재려는 건 "노출이 10배면 이 요인이 훨씬 무겁냐"인데,
+// 총점은 100에서 깎아 내려온 값이라 배수가 그 뜻을 못 담는다 (56 과 92.9 는 1.7배지만
+// 실제로 깎인 몫은 44 와 7.1 로 6배다). 감점은 요인 무게 그 자체라 배수가 그대로 통한다.
+const [긴것, 짧은것] = ["fast", "safe"].map(
+  (id) => 노출.breakdown.find((b) => b.route === id)!.weighted,
+);
 assert.ok(
-  노출.fastScore > 노출.safeScore * 3,
-  `노출 차이가 점수에 반영되지 않음: ${노출.fastScore} vs ${노출.safeScore}`,
+  긴것 > 짧은것 * 3,
+  `노출 차이가 점수에 반영되지 않음: 감점 ${긴것} vs ${짧은것} (총점 ${노출.fastScore} / ${노출.safeScore})`,
 );
 
 // 근거 카드가 곱셈식을 복원할 수 있어야 한다 (기본 × 노출 × 조건 = 점수)
