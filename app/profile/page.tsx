@@ -35,7 +35,7 @@ const MASCOT = "귤이";
  * ponytail: 화면이 생기면 여기 href 를 채우고 div → Link 로 바꾼다.
  */
 const MENU = [
-  { title: "부담점수 계산 기준", desc: "길 근거와 가중치 보기" },
+  { title: "추천점수 계산 기준", desc: "길 근거와 가중치 보기" },
   { title: "데이터 출처 6종", desc: "출처와 갱신일 보기" },
   { title: "개인정보 처리방침", desc: "수집 항목 확인" },
   { title: "이용약관", desc: "서비스 이용 기준" },

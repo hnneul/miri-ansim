@@ -1,5 +1,10 @@
-// 주행부담점수 엔진 — PLAN.md §5
+// 주행 추천점수 엔진 — PLAN.md §5
 // 결정론적: 같은 입력이면 언제나 같은 출력. AI는 이 결과를 문장으로 옮길 뿐 재계산하지 않는다.
+//
+// **안쪽은 부담(낮을수록 좋음), 바깥은 추천점수(높을수록 좋음)다.**
+// 요인을 더해 부담을 쌓는 계산도, 어느 길을 추천할지 고르는 분기도 전부 부담으로 한다.
+// 뒤집는 자리는 아래 추천점수() 한 곳뿐이고, ScoreResult 로 나가는 순간부터는 추천점수다.
+// 안쪽까지 뒤집지 않는 이유는 그 함수 주석에 적었다.
 
 export type DriverProfile = {
   experienceYears: number;
@@ -38,17 +43,20 @@ export type ScoreResult = {
    * 추천을 접은 이유. **single 이 성격이 다른 두 경우를 뭉치고 있어서** 필요하다.
    *
    *   tie     — 부담이 사실상 같다 (5% 이내). 고를 것도 없다.
-   *   unclear — 차이는 있는데(예: 68 vs 57) 단정할 만큼은 아니다. 시간과 맞바꿔야 한다.
+   *   unclear — 차이는 있는데(추천점수로 32 vs 43) 단정할 만큼은 아니다. 시간과 맞바꿔야 한다.
    *
    * 이걸 안 남기면 화면이 둘을 같은 문장으로 말하게 되고, 실제로 그랬다 —
-   * 68점과 57점을 두고 "부담이 비슷합니다"라고 적고 있었다. 추천이 있으면 null 이다.
+   * 뚜렷이 다른 두 점수를 두고 "부담이 비슷합니다"라고 적고 있었다. 추천이 있으면 null 이다.
    */
   noPick: "tie" | "unclear" | null;
+  /** 추천점수 — **높을수록 권할 만한 길**이다. 아래 breakdown 의 요인 점수와 방향이 반대다 */
   fastScore: number;
   safeScore: number;
   reasons: string[];
   // PLAN.md §4 그대로. factor는 RiskFactor.label이며,
   // 근거 카드는 이 이름으로 Route.risks를 되짚어 위치·수치·출처를 가져온다.
+  // **여기 점수는 뒤집지 않는다 — 추천점수에서 깎인 몫(감점)이라 클수록 나쁜 게 맞다.**
+  // 급커브가 부담스럽다는 사실은 총점을 어느 방향으로 세든 그대로다.
   // 점수는 기본 × 노출 × 프로필 세 요소의 곱이므로 셋을 따로 담는다 —
   // weighted 하나만 주면 근거 카드가 곱셈식을 복원할 수 없다.
   breakdown: {
@@ -71,7 +79,16 @@ export const BASE_SCORE: Record<RiskType, number> = {
   highSpeed: 5,
 };
 
+/** 판정 분기가 쓰는 값 — **부담** 기준이다 (이하면 편안) */
 export const COMFORT_THRESHOLD = 50;
+
+/**
+ * 화면이 "높음/낮음"을 가르는 값 — **추천점수** 기준이다 (이상이면 높음).
+ *
+ * 같은 선을 반대편에서 본 것이라 지금은 숫자가 우연히 50으로 같다. 그렇다고 화면에서
+ * COMFORT_THRESHOLD 를 그대로 쓰면, 편안 임계값을 45로 옮기는 날 화면만 조용히 틀린다.
+ */
+export const RECOMMEND_THRESHOLD = 100 - COMFORT_THRESHOLD;
 
 /**
  * 노출 비율 20%를 기준 1.0으로 본다.
@@ -145,7 +162,8 @@ function scoreRoute(risks: RiskFactor[], p: DriverProfile) {
 }
 
 /**
- * 경로 하나의 부담점수.
+ * 경로 하나의 **부담**. 화면에 나가는 추천점수가 아니다 — 낮을수록 좋은 값이고,
+ * 고르는 쪽(routesFor)이 최솟값을 집는다. 뒤집을 이유가 없어 그대로 둔다.
  *
  * 후보가 셋일 때 어느 것을 "안심 길" 자리에 앉힐지 고르는 데 쓴다 (lib/route.ts routesFor).
  * 아래 scoreRoutes 는 **두 개를 받아 비교**하는 함수라, 셋 중 하나를 고르는 일에는 못 쓴다.
@@ -153,6 +171,20 @@ function scoreRoute(risks: RiskFactor[], p: DriverProfile) {
  */
 export const burdenOf = (risks: RiskFactor[], p: DriverProfile) =>
   scoreRoute(risks, p).total;
+
+/**
+ * 부담 → 추천점수. **뒤집는 자리는 여기 하나뿐이다.**
+ *
+ * 아래 scoreRoutes 의 비교식은 계속 부담으로 본다. 안쪽까지 뒤집으면 비율로 쓴 두 규칙이
+ * 뜻을 잃기 때문이다 — 부담 30% 감소(`safe < fast * 0.7`)는 추천점수 공간에서 상수 비율이
+ * 아니고, "큰 값의 5% 이내면 같다"는 규칙은 축이 뒤집히면 판정이 정확히 반대로 뒤집힌다
+ * (부담 80 vs 84 는 같다고 보는데, 추천점수 20 vs 16 은 다르다고 본다 — 같은 4점 차이다).
+ * 그 두 상수를 다시 정하는 건 점수 이름을 바꾸는 일과 별개다.
+ *
+ * 반올림이 필요하다: 100 - 22.3 은 77.69999999999999 다.
+ * 위험요인이 없으면 100점이고 상한을 눌러두지 않는다 — "확인된 부담 요인 없음"이 그 뜻이다.
+ */
+const 추천점수 = (부담: number) => Math.max(0, round1(100 - 부담));
 
 type RouteInput = { risks: RiskFactor[]; durationMin: number | null };
 
@@ -207,26 +239,31 @@ export function scoreRoutes(
       ? fastRoute.durationMin - safeRoute.durationMin
       : null;
 
+  // 여기서부터는 바깥에 보일 값이라 추천점수로 말한다 (판정은 위에서 부담으로 이미 끝났다)
+  const fastScore = 추천점수(fast.total);
+  const safeScore = 추천점수(safe.total);
+
   const lead = 무의미한차이
-    ? `두 경로의 부담 차이가 작음 (${fast.total} / ${safe.total})`
+    ? `두 경로의 추천점수 차이가 작음 (${fastScore} / ${safeScore})`
     : !fastIsQuicker
       ? gap != null
-        ? `최단거리 경로가 ${gap}분 더 걸림 — 시간 이득이 없음 (부담점수 ${fast.total})`
-        : `최단거리 경로에 시간 이득이 없음 (부담점수 ${fast.total})`
+        ? `최단거리 경로가 ${gap}분 더 걸림 — 시간 이득이 없음 (추천점수 ${fastScore})`
+        : `최단거리 경로에 시간 이득이 없음 (추천점수 ${fastScore})`
       : recommendedRoute === "fast"
-        ? `빠른 경로 부담점수 ${fast.total} — 편안 임계값 ${COMFORT_THRESHOLD} 이하`
+        ? `빠른 경로 추천점수 ${fastScore} — 추천 임계값 ${RECOMMEND_THRESHOLD} 이상`
         : recommendedRoute === "safe"
-          ? `빠른 경로 부담점수 ${fast.total} — 임계값 ${COMFORT_THRESHOLD} 초과`
-          : `두 경로의 부담 차이가 작음 (${fast.total} / ${safe.total})`;
+          ? `빠른 경로 추천점수 ${fastScore} — 임계값 ${RECOMMEND_THRESHOLD} 미만`
+          : `두 경로의 추천점수 차이가 작음 (${fastScore} / ${safeScore})`;
 
-  const reasons = [lead, ...top.map((r) => `${r.factor} ${r.weighted}점`)];
+  // 요인 점수는 감점이라 뒤집지 않는다 (breakdown 주석 참고)
+  const reasons = [lead, ...top.map((r) => `${r.factor} -${r.weighted}점`)];
 
   return {
     recommendedRoute,
     noPick:
       recommendedRoute !== "single" ? null : 무의미한차이 ? "tie" : "unclear",
-    fastScore: fast.total,
-    safeScore: safe.total,
+    fastScore,
+    safeScore,
     reasons,
     breakdown: [
       ...fast.rows.map((r) => ({ route: "fast" as const, ...r })),

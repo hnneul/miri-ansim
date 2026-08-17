@@ -3,8 +3,9 @@
 // 길 비교 — 최종 와이어프레임 HOME-02 | 길 비교 (Figma 2153:1704).
 // 주차장을 정한 뒤(/parking/detail "이 주차장까지 경로보기") 여기로 온다.
 //
-// 화면이 하는 일: 카카오가 준 두 갈래를 지도에 겹쳐 그리고, 각각의 **부담점수**를 카드로 보여준다.
-// 부담점수는 lib/score.ts 가 매긴다 — 운전 경력·빈도·차종·시간대(프로필)에 따라 같은 길도 값이 다르다.
+// 화면이 하는 일: 카카오가 준 두 갈래를 지도에 겹쳐 그리고, 각각의 **추천점수**를 카드로 보여준다.
+// 추천점수는 lib/score.ts 가 매긴다 — 운전 경력·빈도·차종·시간대(프로필)에 따라 같은 길도 값이 다르다.
+// **높을수록 권할 만한 길이다.** 근거 카드의 요인별 점수는 반대 방향(깎인 몫)이라는 데 주의.
 //
 // 근거 화면(수정 HOME-03 | 안심 길 근거 1, Figma 2153:1986)도 여기 있다 — 라우트가 아니라 상태다.
 // "이 길로 갈게요"를 누르면 여기로 온다 (카드 오른쪽 › 도 같은 문이다).
@@ -18,7 +19,7 @@ import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
 import { parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
-import { COMFORT_THRESHOLD } from "@/lib/score";
+import { RECOMMEND_THRESHOLD } from "@/lib/score";
 import { tradeoff } from "@/lib/briefing";
 import { viaPoint, type LiveRoute } from "@/lib/route";
 import RouteRadio from "./RouteRadio";
@@ -665,12 +666,12 @@ function Why({
           이 화면의 주인공이 그 숫자다 — 와이어프레임도 여기서만 주황으로 칠했다.
         */}
         <span className="ml-auto flex shrink-0 items-baseline gap-[6px]">
-          <span className="text-[12px] text-[#9e9e9e]">부담점수</span>
+          <span className="text-[12px] text-[#9e9e9e]">추천점수</span>
           <span className="text-[34px] leading-none font-bold text-[#fc7f35]">
             {Math.round(score)}
           </span>
           <span className="text-[12px] font-medium text-[#9e9e9e]">
-            {score < COMFORT_THRESHOLD ? "낮음" : "높음"}
+            {score >= RECOMMEND_THRESHOLD ? "높음" : "낮음"}
           </span>
         </span>
       </div>
@@ -820,13 +821,13 @@ function RouteCard({
       </div>
 
       <div className="mt-[14px] flex items-baseline gap-[6px]">
-        <span className="text-[12px] text-[#9e9e9e]">부담점수</span>
+        <span className="text-[12px] text-[#9e9e9e]">추천점수</span>
         <span className="text-[32px] leading-none font-bold text-[#1f1f1f]">
           {Math.round(score)}
         </span>
-        {/* 낮음/높음의 기준은 lib/score.ts 의 COMFORT_THRESHOLD 하나다 — 화면에서 다시 정하지 않는다 */}
+        {/* 높음/낮음의 기준은 lib/score.ts 의 RECOMMEND_THRESHOLD 하나다 — 화면에서 다시 정하지 않는다 */}
         <span className="text-[12px] font-medium text-[#9e9e9e]">
-          {score < COMFORT_THRESHOLD ? "낮음" : "높음"}
+          {score >= RECOMMEND_THRESHOLD ? "높음" : "낮음"}
         </span>
       </div>
 
