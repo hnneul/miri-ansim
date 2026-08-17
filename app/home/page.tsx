@@ -135,7 +135,16 @@ function Home() {
           aria-label="목적지"
           className="min-w-0 flex-1 text-[15px] text-[#1f1f1f] outline-none placeholder:text-[#7d7d7d]"
         />
-        <button type="submit" aria-label="검색" className="shrink-0 transition active:scale-90">
+        {/*
+          돋보기는 17x18 짜리 그림 하나라 바탕을 깔 자리가 없었다 — 여백(p-2)을 줘서 동그란 자리를
+          만들고 거기에 옅은 주황을 깐다. -mr-2 가 그 여백만큼 도로 당겨서 그림 위치는 그대로다.
+          덤으로 누르는 자리가 17px 에서 33px 로 늘었다 (전에는 손가락으로 맞히기 어려웠다).
+        */}
+        <button
+          type="submit"
+          aria-label="검색"
+          className="-mr-2 shrink-0 rounded-full p-2 transition hover:bg-[#fff0e6] active:scale-90"
+        >
           <img src="/home/icon-search.svg" alt="" className="h-[18px] w-[17px]" />
         </button>
       </form>

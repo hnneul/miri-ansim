@@ -347,7 +347,11 @@ function Destination() {
               type="button"
               onClick={() => (searching ? history.back() : router.push(`/home?${searchParams}`))}
               aria-label={searching ? "검색 닫기" : "뒤로"}
-              className="shrink-0 transition active:scale-90"
+              /*
+                -mx-1.5 가 p-1.5 만큼 도로 당긴다 — 커서 얹을 동그란 자리만 생기고 화살표 위치와
+                입력칸 사이 간격(gap-[10px])은 그대로다. 아래 ✕ 도 같은 값이라 둘이 짝이 맞는다.
+              */
+              className="-mx-1.5 shrink-0 rounded-full p-1.5 transition hover:bg-[#fff0e6] active:scale-90"
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
@@ -362,7 +366,12 @@ function Destination() {
             />
             {/* 값이 있을 때만 지우기. 와이어프레임 HOME-01 b 의 X 자리다 */}
             {text && (
-              <button type="button" onClick={openSearch} aria-label="지우기" className="shrink-0 transition active:scale-90">
+              <button
+                type="button"
+                onClick={openSearch}
+                aria-label="지우기"
+                className="-mx-1.5 shrink-0 rounded-full p-1.5 transition hover:bg-[#fff0e6] active:scale-90"
+              >
                 <img src="/home/icon-close-bold.svg" alt="" className="size-6" />
               </button>
             )}
@@ -636,7 +645,8 @@ function PlaceSheet({
         <button
           onClick={onClose}
           aria-label="닫기"
-          className="grid size-[30px] shrink-0 place-items-center rounded-full border border-[#d6d6d6] bg-[#e5e5e5] text-[15px] leading-none text-[#525252]"
+          /* 이미 회색 바탕이라 옅은 주황이 안 읽힌다 — 한 톤 진한 회색(테두리와 같은 색)으로 눌린다 */
+          className="grid size-[30px] shrink-0 place-items-center rounded-full border border-[#d6d6d6] bg-[#e5e5e5] text-[15px] leading-none text-[#525252] transition hover:bg-[#d6d6d6]"
         >
           ✕
         </button>
@@ -651,13 +661,14 @@ function PlaceSheet({
       <div className="mt-[11px] flex gap-1 px-4">
         <button
           onClick={onStart}
-          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition active:scale-[0.98]"
+          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
         >
           출발
         </button>
         <button
           onClick={onParking}
-          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.98]"
+          /* 이미 주황이 꽉 찼다 — 옅은 주황을 덮을 수 없으니 한 톤 진한 주황으로 눌린다 */
+          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff5914] active:scale-[0.98]"
         >
           <span aria-hidden className="text-[17px] leading-none font-bold">
             P
