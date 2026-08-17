@@ -615,7 +615,8 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  * 40개가 다 같은 캐시백 가맹점이라 하나하나가 무엇인지 말할 게 없다. 지도가 할 일은
  * "이 동네에 이만큼 깔려 있다"고, 고른 하나만 모양·크기·색·그림자가 전부 달라 앞으로 나온다.
  *
- * 옅은 주황(#FFC5AB)과 글자색(#FF773E)은 와이어프레임에서 뽑은 값이다 (Figma 3090:886).
+ * 옅은 주황(#FFC5AB)과 테두리·글자색(#FF773E)은 와이어프레임에서 뽑은 값이다 (Figma 3090:886).
+ * 테두리가 있어야 옅은 바탕이 지도에서 떨어져 나오고, 겹친 핀끼리도 경계가 선다.
  *
  * 안 고른 원은 한가운데가 그 가게 자리고, 물방울은 뾰족한 끝이 자리다 — 아래 기준점이 다르다.
  *
@@ -627,7 +628,7 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
 
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26">
-     <circle cx="13" cy="13" r="11" fill="#FFC5AB"/>
+     <circle cx="13" cy="13" r="11" fill="#FFC5AB" stroke="#FF773E" stroke-width="2"/>
      <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="13" font-weight="700"
            fill="#FF773E" text-anchor="middle">T</text>
    </svg>`,
