@@ -368,18 +368,19 @@ function Parking() {
             지도 아래 가운데에 둔다 — 시트가 올라오면 그 자리에서 시트가 시작하므로, 문과 문이
             열리는 자리가 같아 눌렀을 때 어디가 바뀌는지 눈으로 따라가진다.
 
-            **검은 바탕에 손잡이 바 하나다.** "☰ 목록 보기" 흰 알약이 더 예뻤지만 지도가 흰 바탕이라
-            흰 버튼이 묻혔다 — 그림자만으로 버티는 버튼은 밝은 동네에서 사라진다.
-            글자를 빼고 바만 남긴 건 이게 **시트를 도로 올리는 손잡이**이기 때문이다.
-            내려갈 때 같이 사라진 그 바가 같은 모양으로 여기 있으면, 올라오는 물건이 뭔지가 그대로 읽힌다.
+            **검은 바탕이다.** 흰 알약이 더 예뻤지만 지도가 흰 바탕이라 흰 버튼이 묻혔다 —
+            그림자만으로 버티는 버튼은 밝은 동네에서 사라진다.
+
+            **글자만 있다.** 손잡이 바 한 줄도, 줄 세 개(☰)도 붙여봤는데 둘 다 뺐다 —
+            "목록 보기" 네 글자가 이미 무슨 버튼인지 다 말하고 있어서, 아이콘은 같은 말을
+            한 번 더 하면서 알약만 넓혔다.
           */}
           {mapBig && (
             <button
               onClick={() => setMapBig(false)}
-              aria-label="목록 보기"
-              className="absolute bottom-5 left-1/2 z-10 flex h-[30px] -translate-x-1/2 items-center justify-center rounded-full bg-[#1f1f1f] px-6 shadow-[0_4px_16px_0_rgba(0,0,0,0.28)] transition hover:bg-[#fc7f35] active:scale-95"
+              className="absolute bottom-5 left-1/2 z-10 flex h-[42px] -translate-x-1/2 items-center rounded-full bg-[#1f1f1f] px-6 text-[15px] leading-none font-medium text-white shadow-[0_4px_16px_0_rgba(0,0,0,0.28)] transition hover:bg-[#fc7f35] active:scale-95"
             >
-              <span aria-hidden className="h-1 w-12 rounded-full bg-white" />
+              목록 보기
             </button>
           )}
         </div>
@@ -705,38 +706,46 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
  * 전에는 40곳이 전부 44×34 흰 말풍선이라 서귀포 도심에서 스무 개가 서로를 가려 지도가 안 읽혔다.
  * 흐린 점으로 두면 어디에 몰려 있는지가 먼저 보이고, 짚은 하나만 앞으로 나온다.
  *
- * P 는 남긴다. 대신 **겹을 줄였다** — 전에는 옅은 주황 채움 + 주황 테두리 + 주황 글자 셋이
- * 26px 안에 겹쳐서, 스무 개가 깔리면 글자가 안 읽히고 얼룩처럼 보였다.
- * 지금은 **꽉 찬 주황 + 흰 글자** 둘이다. 같은 크기에서 대비가 커져 P 가 오히려 또렷하다.
- * 흰 테두리가 도로·건물 위에서 핀을 떼어낸다 (전에 쓰던 옅은 채움은 지도 무늬에 묻혀서,
- * 색을 물리려다 형태까지 같이 물러났다).
+ * **안 고른 것은 납작하다.** 옅은 주황 채움 + 주황 테두리 + 주황 글자 — 색이 물러나 있어
+ * 스무 개가 깔려도 지도를 안 덮는다. 여기에 입체를 주면 안 되는데, 스무 개가 다 볼록하면
+ * 지도가 아니라 단추판이 된다.
  *
- * 고른 것만 **물방울 핀**이다 (/around 의 탐나는전 핀과 같은 모양·같은 이유). 동그라미는 어디를
- * 가리키는지 스스로 말하지 못해서, 여러 개가 깔린 지도에서는 "이 근처에 뭔가 있다"까지만 읽힌다.
- * 뾰족한 끝이 있어야 "바로 여기"가 된다.
+ * **고른 하나만 물방울 + 입체다.** 모양(동그라미 → 물방울)과 크기(26 → 40)만으로도 앞에 서는데,
+ * 여기에 재질까지 얹어 확실히 갈라놓는다 — 앱의 다른 그림(귤이 캐릭터·마커)이 전부 점토 렌더라
+ * 화면에서 겉돌지도 않는다. 입체는 세 겹이다:
+ *   · 그러데이션 (위 #ffa96f → 아래 #e5601a) — 위에서 빛이 온다
+ *   · 위쪽 흰 타원 (0.18) — 점토의 광택. 0.3 을 넘기면 빛이 아니라 흰 얼룩으로 읽힌다
+ *   · 발밑 타원 — **접지 그림자**다. 도형 둘레를 흐리게 하는 드롭섀도(핀이 공중에 뜬 것처럼
+ *     보여서 오래돼 보이던 그것)와는 다른 물건이고, 지도 위에 서 있는 것처럼 읽힌다
  *
- * **납작하게 둔다.** 그러데이션 + 광택 + 접지 그림자로 점토처럼 만들어 봤다가 되돌렸다 —
- * 26px 짜리에 그런 걸 얹으면 재질만 늘고 읽히는 건 안 는다. 핀은 그림이 아니라 표시다.
- *
- * 둘레를 흐리게 하는 드롭섀도도 없다. 물방울에 이미 흰 테두리 2.5px 이 있어 배경과 떨어지는 일은
- * 그게 다 하고 있었고, 흐릿한 그림자는 얹어봐야 오래돼 보이는 것 말고 하는 일이 없었다.
- * 앞으로 나오는 일은 크기(26 → 40x52)와 모양(동그라미 → 물방울)이 맡는다.
+ * 접지 그림자 때문에 물방울 그림이 52 → 58 로 6px 길어졌지만 **앵커는 그대로 (20,50)** 다.
+ * 늘어난 6px 은 그림자 자리지 핀이 아니라서 가리키는 좌표가 안 움직인다.
  *
  * 그래서 **앵커가 서로 다르다**: 동그라미는 가운데(13,13), 물방울은 끝점(20,50)이 좌표에 앉는다.
  * 고르는 순간 핀이 위로 서는 것처럼 보이는데, 그게 맞다 — 둘 다 같은 점을 가리키고 있다.
  */
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
-     <circle cx="13" cy="13" r="8.5" fill="#fc7f35" stroke="#fff" stroke-width="2"/>
-     <text x="13" y="17.3" font-family="system-ui,sans-serif" font-size="11.5" font-weight="700"
-           fill="#fff" text-anchor="middle">P</text>
+     <circle cx="13" cy="13" r="9" fill="#ffe0cb" stroke="#fc7f35" stroke-width="1.5"/>
+     <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
+           fill="#fc7f35" text-anchor="middle">P</text>
    </svg>`,
 );
 
 const PIN_ON = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="52" viewBox="0 0 40 52">
+  `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="58" viewBox="0 0 40 58">
+     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0" stop-color="#ffa96f"/>
+       <stop offset="0.55" stop-color="#fc7f35"/>
+       <stop offset="1" stop-color="#e5601a"/>
+     </linearGradient>
+     <filter id="c" x="-70%" y="-200%" width="240%" height="500%">
+       <feGaussianBlur stdDeviation="1.6"/>
+     </filter>
+     <ellipse cx="20" cy="53.5" rx="7.5" ry="2.4" fill="#7a3a10" opacity="0.3" filter="url(#c)"/>
      <path d="M20 2 C10.6 2 3 9.6 3 19 c0 12.4 17 30 17 30 s17-17.6 17-30 C37 9.6 29.4 2 20 2 z"
-           fill="#fc7f35" stroke="#fff" stroke-width="2.5"/>
+           fill="url(#g)" stroke="#fff" stroke-width="2.5"/>
+     <ellipse cx="20" cy="11.5" rx="9.5" ry="6" fill="#fff" opacity="0.18"/>
      <text x="20" y="26" font-family="system-ui,sans-serif" font-size="19" font-weight="700"
            fill="#fff" text-anchor="middle">P</text>
    </svg>`,
@@ -747,7 +756,7 @@ const PIN_ON = pin(
  * 카카오 기본값("이미지 아래 가운데")에 맡기면 동그라미가 좌표 위로 반쯤 떠서 엉뚱한 데를 가리킨다.
  */
 const PIN_SIZE = [26, 26, 13, 13] as const;
-const PIN_ON_SIZE = [40, 52, 20, 50] as const;
+const PIN_ON_SIZE = [40, 58, 20, 50] as const;
 
 /** 목적지 핀 — 주차장 P 핀과 안 헷갈리게 파란 점으로 둔다 (와이어프레임 지도의 destination 색). */
 const DEST_PIN = pin(
