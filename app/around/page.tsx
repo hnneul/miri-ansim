@@ -615,7 +615,11 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  * 40개가 다 같은 캐시백 가맹점이라 하나하나가 무엇인지 말할 게 없다. 지도가 할 일은
  * "이 동네에 이만큼 깔려 있다"고, 고른 하나만 모양·크기·색·그림자가 전부 달라 앞으로 나온다.
  *
- * 옅은 주황(#FFC5AB)과 테두리·글자색(#FF773E)은 와이어프레임에서 뽑은 값이다 (Figma 3090:886).
+ * 색은 **와이어프레임 마커 값 두 개**로 통일했다 (Figma 3090:886) — 옅은 #FFC5AB 와
+ * 진한 #FF773E. 안 고른 것은 옅은 바탕에 진한 테두리·글자, 고른 것은 진한 바탕에 흰 글자다.
+ * 고른 핀에 앱 브랜드색(#ff6114)을 쓰다가 바꿨다 — 한 지도 안에서 주황이 두 가지면
+ * 크기·모양으로 갈라둔 두 상태가 색으로는 안 갈린다.
+ *
  * 테두리가 있어야 옅은 바탕이 지도에서 떨어져 나오고, 겹친 핀끼리도 경계가 선다.
  *
  * 안 고른 원은 한가운데가 그 가게 자리고, 물방울은 뾰족한 끝이 자리다 — 아래 기준점이 다르다.
@@ -645,7 +649,7 @@ const PIN_ON = pin(
      </filter>
      <g transform="translate(5,3)">
        <path d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z"
-             fill="#ff6114" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"
+             fill="#FF773E" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"
              filter="url(#s)"/>
        <text x="23" y="32" font-family="system-ui,sans-serif" font-size="26" font-weight="700"
              fill="#fff" text-anchor="middle">T</text>
