@@ -180,6 +180,15 @@ function Destination() {
     requestAnimationFrame(() => input.current?.focus());
   }
 
+  /** 최근 검색어 한 개를 지운다 — 목록에서 빼고 저장소도 같은 값으로 맞춘다 (choose 의 저장과 짝이다). */
+  function removeRecent(term: string) {
+    setRecent((prev) => {
+      const next = prev.filter((r) => r !== term);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
   return (
     <div className="flex flex-1 flex-col">
       {/*
@@ -342,16 +351,29 @@ function Destination() {
                     <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
                     <ul className="mt-2">
                       {recent.map((r) => (
-                        <li key={r}>
+                        /*
+                          한 줄에 두 버튼이라 <li> 를 flex 로 두고 버튼을 나란히 놓는다 — 버튼 안에 버튼을
+                          못 넣으니(검색 전체를 감싸면 X 가 그 안에 갇힌다) 검색과 삭제를 형제로 가른다.
+                          왼쪽을 누르면 재검색, 오른쪽 X 를 누르면 그 항목만 지운다 (Figma icon/close 자리).
+                        */
+                        <li key={r} className="flex items-center gap-2 py-2">
                           <button
                             onClick={() => {
                               setText(r);
                               search(r);
                             }}
-                            className="flex w-full items-center gap-3 py-2 text-left"
+                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
                           >
                             <img src="/home/icon-search.svg" alt="" aria-hidden className="size-[15px] shrink-0 opacity-60" />
-                            <span className="text-[14px] leading-[22px] text-[#1f1f1f]">{r}</span>
+                            <span className="truncate text-[14px] leading-[22px] text-[#1f1f1f]">{r}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeRecent(r)}
+                            aria-label={`최근 검색어에서 ${r} 삭제`}
+                            className="shrink-0 p-1 transition active:scale-90"
+                          >
+                            <img src="/home/icon-close.svg" alt="" aria-hidden className="size-4 opacity-40" />
                           </button>
                         </li>
                       ))}
