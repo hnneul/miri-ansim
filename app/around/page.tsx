@@ -607,22 +607,20 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  * 핀. 주차장 화면(/parking)과 **같은 형식**이다 — 원 안에 글자 한 자를 넣고, 그 글자로
  * 무슨 지도인지 말한다. 주차장은 P, 여기는 탐나는전의 T 다.
  *
- * 두 상태가 셋으로 갈린다 (주차장도 같은 규칙으로 갈 예정):
+ * 그림 자체가 /parking 의 핀과 **같은 값**이다 (거기 PIN·PIN_ON 을 그대로 가져와 글자만
+ * 바꿨다). 두 지도가 같은 문법을 쓰면 한 화면에서 다른 화면으로 넘어가도 눈이 다시 배울 게 없다.
  *
- *   안 고른 것 — **평면**, 옅은 주황, 작다. 그림자가 없어서 지도에 눌러 붙은 것처럼 보인다.
- *   고른 것   — **입체**, 진한 주황, 위치표시(물방울) 모양, 두 배 크다. 그림자로 떠 보인다.
+ *   안 고른 것 — **납작하다.** 옅은 주황 채움 + 주황 테두리 + 주황 글자, 26px.
+ *                여기에 입체를 주면 안 된다 — 마흔 개가 다 볼록하면 지도가 단추판이 된다.
+ *   고른 것   — **물방울 + 입체**, 40x58. 그러데이션(위 밝고 아래 어둡게) + 위쪽 흰 광택 타원
+ *                + 발밑 접지 그림자 세 겹이다. 접지 그림자는 도형 둘레를 흐리게 하는 드롭섀도와
+ *                다른 물건이라, 공중에 뜬 게 아니라 지도 위에 서 있는 것으로 읽힌다.
  *
  * 40개가 다 같은 캐시백 가맹점이라 하나하나가 무엇인지 말할 게 없다. 지도가 할 일은
- * "이 동네에 이만큼 깔려 있다"고, 고른 하나만 모양·크기·색·그림자가 전부 달라 앞으로 나온다.
- *
- * 색은 **와이어프레임 마커 값 두 개**로 통일했다 (Figma 3090:886) — 옅은 #FFC5AB 와
- * 진한 #FF773E. 안 고른 것은 옅은 바탕에 진한 테두리·글자, 고른 것은 진한 바탕에 흰 글자다.
- * 고른 핀에 앱 브랜드색(#ff6114)을 쓰다가 바꿨다 — 한 지도 안에서 주황이 두 가지면
- * 크기·모양으로 갈라둔 두 상태가 색으로는 안 갈린다.
- *
- * 테두리가 있어야 옅은 바탕이 지도에서 떨어져 나오고, 겹친 핀끼리도 경계가 선다.
+ * "이 동네에 이만큼 깔려 있다"고, 고른 하나만 모양·크기·재질이 전부 달라 앞으로 나온다.
  *
  * 안 고른 원은 한가운데가 그 가게 자리고, 물방울은 뾰족한 끝이 자리다 — 아래 기준점이 다르다.
+ * 고르는 순간 핀이 위로 서는 것처럼 보이는데, 그게 맞다. 둘 다 같은 점을 가리키고 있다.
  *
  * 둘 다 인라인 data: URI 다 (/parking 과 같은 방식). 전에는 고른 핀만 파일이었는데, 그건
  * 자동 벡터화한 로고 좌표가 6KB라 소스에 못 박아서였다. 글자 T 로 바뀌면서 그 이유가 사라졌고,
@@ -631,29 +629,29 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
 const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 const PIN = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26">
-     <circle cx="13" cy="13" r="11" fill="#FFC5AB" stroke="#FF773E" stroke-width="2"/>
-     <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="13" font-weight="700"
-           fill="#FF773E" text-anchor="middle">T</text>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
+     <circle cx="13" cy="13" r="9" fill="#ffe0cb" stroke="#fc7f35" stroke-width="1.5"/>
+     <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
+           fill="#fc7f35" text-anchor="middle">T</text>
    </svg>`,
 );
 
-/*
-  고른 핀 — 위치표시 모양. 머리는 원(중심 23,23 / r 21), 꼬리는 (23,66)에서 그 원에 그은
-  접선 둘이다. 그림자가 번질 자리를 만드느라 캔버스(56x78)가 그림보다 커서 (5,3) 만큼 밀어 둔다.
-*/
 const PIN_ON = pin(
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 78">
-     <filter id="s" x="-50%" y="-50%" width="200%" height="200%">
-       <feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.3"/>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="58" viewBox="0 0 40 58">
+     <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0" stop-color="#ffa96f"/>
+       <stop offset="0.55" stop-color="#fc7f35"/>
+       <stop offset="1" stop-color="#e5601a"/>
+     </linearGradient>
+     <filter id="c" x="-70%" y="-200%" width="240%" height="500%">
+       <feGaussianBlur stdDeviation="1.6"/>
      </filter>
-     <g transform="translate(5,3)">
-       <path d="M4.67 33.26A21 21 0 1 1 41.33 33.26L23 66Z"
-             fill="#FF773E" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"
-             filter="url(#s)"/>
-       <text x="23" y="32" font-family="system-ui,sans-serif" font-size="26" font-weight="700"
-             fill="#fff" text-anchor="middle">T</text>
-     </g>
+     <ellipse cx="20" cy="53.5" rx="7.5" ry="2.4" fill="#7a3a10" opacity="0.3" filter="url(#c)"/>
+     <path d="M20 2 C10.6 2 3 9.6 3 19 c0 12.4 17 30 17 30 s17-17.6 17-30 C37 9.6 29.4 2 20 2 z"
+           fill="url(#g)" stroke="#fff" stroke-width="2.5"/>
+     <ellipse cx="20" cy="11.5" rx="9.5" ry="6" fill="#fff" opacity="0.18"/>
+     <text x="20" y="26" font-family="system-ui,sans-serif" font-size="19" font-weight="700"
+           fill="#fff" text-anchor="middle">T</text>
    </svg>`,
 );
 
@@ -661,11 +659,12 @@ const PIN_ON = pin(
  * 핀 크기와 **기준점** — [폭, 높이, 기준 x, 기준 y].
  *
  * 카카오 기본값이 "이미지 아래 가운데"라 그대로 두면 핀이 떠서 엉뚱한 건물을 가리킨다.
- * 그려진 자리를 직접 넘겨 막는다 — 원은 한가운데 (13,13), 물방울은 뾰족한 끝 (28,69) 이고,
- * 물방울 쪽은 그림자가 번질 자리 때문에 캔버스가 그림보다 커서 환산한 값이다.
+ * 그려진 자리를 직접 넘겨 막는다 — 동그라미는 한가운데 (13,13), 물방울은 끝점 (20,50) 이다.
+ * 물방울 그림이 58 인데 앵커가 50 인 건 발밑 접지 그림자 자리라서다. 늘어난 8px 은 그림자지
+ * 핀이 아니라서 가리키는 좌표가 안 움직인다.
  */
 const PIN_SIZE = [26, 26, 13, 13] as const;
-const PIN_ON_SIZE = [50, 70, 25, 62] as const;
+const PIN_ON_SIZE = [40, 58, 20, 50] as const;
 
 /**
  * 우리가 지도를 옮긴 뒤 멎기까지 넉넉히 잡은 시간.
