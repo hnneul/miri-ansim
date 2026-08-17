@@ -304,8 +304,17 @@ function Quick({
       <span className="mt-[4px] text-[9px] leading-[13px] text-[#707070]">{sub}</span>
     </>
   );
+  /*
+    호버는 살아 있는 칸에만 붙인다 — 흐린 칸에 붙으면 커서를 올렸을 때 눌리는 것처럼 보인다.
+    폰에서는 아무 일도 안 일어나는 게 맞다 (누르는 느낌은 active:scale 이 맡는다). Tailwind v4 는
+    hover: 를 @media (hover: hover) 로 감싸 주므로, 탭한 뒤 상태가 눌어붙는 일은 없다.
+
+    테두리 색이 아니라 바탕에 옅은 주황을 깐다. 테두리 #fc7f35 는 이 앱에서 "지금 입력 중"을
+    뜻하는 색이라(검색바) 커서만 얹은 칸에 쓰면 그 뜻이 흐려지고, 1px 은 78px 칸에서 너무 얇다.
+    #fff0e6 은 이미 23군데 쓰는 집 색이라 새 색을 만들지 않는다.
+  */
   return href ? (
-    <Link href={href} className={`${box} transition active:scale-[0.96]`}>
+    <Link href={href} className={`${box} transition hover:bg-[#fff0e6] active:scale-[0.96]`}>
       {inner}
     </Link>
   ) : (
