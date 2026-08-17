@@ -562,7 +562,7 @@ function SpotCard({
       <button
         onClick={onSelect}
         className={`block w-full text-left transition active:bg-black/[0.03] ${
-          picked ? "px-[18px] pt-[16px] pb-[14px]" : "px-[15px] pt-[11px] pb-[14px]"
+          picked ? "px-[20px] pt-[20px] pb-[20px]" : "px-[15px] pt-[11px] pb-[14px]"
         }`}
       >
       {/*
@@ -576,7 +576,7 @@ function SpotCard({
           <span className="block text-[12px] leading-none font-bold text-[#ff6114]">
             {recommended ? "추천 주차장" : "선택한 주차장"}
           </span>
-          <span className="mt-[10px] block text-[18px] leading-[26px] font-bold text-[#1f1f1f]">
+          <span className="mt-[9px] block text-[18px] leading-[26px] font-bold text-[#1f1f1f]">
             {spot.name}
           </span>
         </>
@@ -598,7 +598,7 @@ function SpotCard({
           </span>
         </span>
       )}
-      <span className={`flex items-center gap-1.5 ${picked ? "mt-[10px]" : "mt-1"}`}>
+      <span className={`flex items-center gap-1.5 ${picked ? "mt-[15px]" : "mt-1"}`}>
         {type && <Badge>{type}</Badge>}
         {/* 칸이 넉넉한 곳. 카카오는 spaces 를 모르니 애초에 안 붙는다 (SPACIOUS 주석) */}
         {(spot.spaces ?? 0) >= SPACIOUS && <Badge>큰 주차장</Badge>}
@@ -621,21 +621,21 @@ function SpotCard({
           둘로 갈랐다. 전에는 "이 주차장 자세히" 하나뿐이라, 여기 대기로 이미 정한 사람도 상세를
           거쳐야 길 비교로 갈 수 있었다 — 같은 뜻의 버튼을 두 번 누르는 길이었다.
 
-          치수는 이 시트의 원본(커밋 591511e 이전 /parking 하단 시트)에서 그대로 가져왔다 —
-          높이 52 · 모서리 12 · 사이 10 · 굵은 글씨 · 주황 #ff6114.
-          곁다리는 테두리 없이 연회색 면이다. 테두리까지 두르면 옆의 주황 버튼과 무게가 비슷해진다.
+          **값은 목적지 화면(app/destination)의 "출발 · 근처 주차장 보기" 짝을 그대로 따른다** —
+          알약 모양 · 높이 40 · 사이 4 · medium · 흰 알약은 #e5e5e5 테두리, 주황 알약은 #ff7b33.
+          같은 흐름에서 연달아 나오는 같은 성격의 버튼 짝이라, 화면이 바뀌었다고 모양이 달라지면
+          방금 누른 것과 지금 누를 것이 다른 물건처럼 보인다.
         */
-        <div className="mx-[18px] mb-[16px] flex gap-2.5">
+        <div className="mx-[20px] mb-[20px] flex gap-1">
           <button
             onClick={onOpen}
-            className="h-[52px] shrink-0 rounded-xl bg-[#f2f2f2] px-6 text-[14px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+            className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
           >
             자세히
           </button>
-          {/* 눌림색은 한 톤 더 내려간 주황이다 — 기본이 #ff6114 라 여기서 #ff6114 를 또 쓸 수 없다 */}
           <button
             onClick={onGo}
-            className="h-[52px] flex-1 rounded-xl bg-[#ff6114] text-[14px] font-bold text-white transition hover:bg-[#e5601a] active:scale-[0.98]"
+            className="flex h-10 flex-1 items-center justify-center rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-bold text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
           >
             여기로 갈게요
           </button>

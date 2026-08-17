@@ -791,14 +791,18 @@ function PlaceSheet({
       <div className="mt-[11px] flex gap-1 px-4">
         <button
           onClick={onStart}
-          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
         >
           출발
         </button>
         <button
           onClick={onParking}
-          /* 이미 주황이 꽉 찼다 — 옅은 주황을 덮을 수 없으니 한 톤 진한 주황으로 눌린다 (주차장 화면과 같은 값) */
-          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
+          /*
+            이 짝(흰 알약 + 주황 알약)이 앱의 기준이다 — 주차장 카드의 "자세히 · 여기로 갈게요"가
+            여기 값을 그대로 따라간다 (app/parking/page.tsx SpotCard).
+            이미 주황이 꽉 차 있어 옅은 주황을 덮을 수 없으니 한 톤 진한 주황으로 눌린다.
+          */
+          className="flex h-10 flex-1 items-center justify-center gap-[15px] rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-bold text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
         >
           <span aria-hidden className="text-[17px] leading-none font-bold">
             P
