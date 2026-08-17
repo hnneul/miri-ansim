@@ -112,7 +112,11 @@ function Home() {
         <button
           onClick={() => router.push(`/profile?${searchParams}`)}
           aria-label="마이 화면"
-          className="size-[44px] shrink-0 overflow-hidden rounded-full transition active:scale-95"
+          /*
+            여기는 옅은 주황 바탕(빠르게 둘러보기 칸)을 못 쓴다 — 그림이 원을 꽉 채워서 바탕이 안 보인다.
+            대신 원 밖에 테두리를 두른다. 쉬고 있을 때는 테두리가 아예 없어서, 얇아도 생겼다는 게 보인다.
+          */
+          className="size-[44px] shrink-0 overflow-hidden rounded-full transition hover:ring-2 hover:ring-[#fc7f35] active:scale-95"
         >
           {/* 원본이 세로로 긴 장면(1086x1448)이라 가운데를 정사각형으로 잘라 넣어뒀다 — 여기서는 그대로 채운다 */}
           <img src="/character/avatar-my.png" alt="" className="size-full object-cover" />
