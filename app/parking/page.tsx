@@ -29,6 +29,7 @@ import {
   walkMinutes,
   parkingKind,
   isEasyParking,
+  feeText,
   REACH_M,
   type Lot,
   type ParkingSpot,
@@ -69,6 +70,23 @@ const START_LEVEL = 4;
 
 /** 카카오에서 받은 것 중 지도에 얹을 최대 개수. 받아오는 건 한 페이지(15곳)뿐이다. */
 const POI_CAP = 15;
+
+/*
+ * 이 화면의 값 묶음 (다른 화면으로 넓히기 전 시험판).
+ *
+ * 피그마에서 화면마다 눈에 보이는 값을 하나씩 옮겨 적다 보니 앱 전체에 모서리 25종·그림자 8종·
+ * 회색 7종이 쌓였다. 화면 하나만 보면 멀쩡한데 넘길 때 카드 모서리가 12에서 13으로, 회색이
+ * #616161 에서 #6e6e6e 로 미세하게 어긋난다 — 눈은 그걸 "정리 안 된 화면"으로 읽는다.
+ * 아래로 모은다. 레이아웃은 하나도 안 바뀌고 값만 맞춘다.
+ *
+ * · 모서리 — 8px(버튼·배지) / 12px(카드) / 16px(시트) / full(알약·칩)
+ * · 그림자 — 뜬 것 아래로 0 4 16 .12, 시트만 그 거울(위로). 얹힌 것(카드)은 테두리로 끝낸다.
+ * · 회색 — 본문 #1f1f1f / 보조 #616161 / 흐림 #9e9e9e
+ * · 주황 — 기본 #fc7f35 / 눌림 #ff6114 / 옅은 바탕 #fff0e6
+ *
+ * 남은 하나: StatusBar tone(#525252)은 모든 화면이 같이 쓰는 값이라 여기서만 못 바꾼다 —
+ * 이 화면만 상태바 색이 달라지면 그게 더 어긋나 보인다. 화면 전체를 훑을 때 같이 옮긴다.
+ */
 
 /** 지도 띠 높이 (와이어프레임 PARK-01 의 Map/Placeholder 364). 목록을 내리면 그만큼 늘어난다. */
 const MAP_H = 364;
@@ -212,10 +230,19 @@ function Parking() {
    * 대신 **목록을 기본 자리로 되올린다.** 지도를 크게 본 상태에서는 목록이 카드 한 장만 남기고
    * 내려가 있어서, 핀을 골라봐야 그 카드가 화면 밖이다 — 고른 결과를 볼 수 없으면 고른 게 아니다.
    * 올라온 뒤에는 아래 효과가 그 카드를 목록 안에서 끌어온다.
+   *
+   * **이미 고른 것을 또 누르면 풀린다.** 고른 카드는 펼쳐져서 자리를 크게 차지하는데, 전에는
+   * 접는 길이 지도 빈 곳을 누르는 것(onBlank)뿐이라 목록만 보고 있던 사람에게는 길이 없었다.
+   * 고르는 문과 접는 문이 같은 자리인 게 맞다 — 카드에서도 핀에서도 똑같이 동작한다.
+   *
+   * 돌려주는 값은 "골랐는가"다. 접은 것뿐이면 지도를 옮길 이유가 없어서 아래 focus 가 이걸 본다.
    */
   function highlight(spot: ParkingSpot) {
-    setSelected(spot);
-    setMapBig(false);
+    const off = same(selected, spot);
+    setSelected(off ? null : spot);
+    // 접을 때는 지도 크기를 안 건드린다 — 크게 보던 사람이 카드 하나 접었다고 지도가 줄면 안 된다
+    if (!off) setMapBig(false);
+    return !off;
   }
 
   /*
@@ -228,11 +255,23 @@ function Parking() {
   const move = useRef<((at: LatLng) => void) | null>(null);
   function focus(spot: ParkingSpot) {
     // 고르는 규칙은 highlight 하나로 모은다 — 목록을 되올리는 일을 두 군데서 따로 하면 어긋난다
-    highlight(spot);
-    move.current?.(spot.at);
+    if (highlight(spot)) move.current?.(spot.at);
   }
 
   /** 상세(PARK-02)로. 고른 카드에 펼쳐지는 버튼만 이 문을 연다. */
+  /**
+   * 상세를 건너뛰고 곧장 길 비교로. 상세 화면의 "이 주차장까지 경로보기"(detail/GoButton)와 같은 일을
+   * 한 화면 앞에서 한다 — 대는 자리를 정한 사람에게 상세를 한 번 더 거치게 할 이유가 없다.
+   * 길의 도착지는 관광지가 아니라 **차를 대는 자리**여야 소요시간이 실제로 운전하는 시간이 된다.
+   */
+  function go(spot: ParkingSpot) {
+    const q = new URLSearchParams(searchParams);
+    q.set("to", spot.name);
+    q.set("toLat", String(spot.at[0]));
+    q.set("toLng", String(spot.at[1]));
+    router.push(`/route?${q}`);
+  }
+
   function open(spot: ParkingSpot) {
     router.push(`/parking/detail?${detailQuery(spot, searchParams)}`);
   }
@@ -271,20 +310,6 @@ function Parking() {
     <div className="flex flex-1 flex-col overflow-hidden bg-white">
       <StatusBar tone="text-[#525252]" />
 
-      {/* AppBar/Back — 44px 터치 영역 + 24px 화살표 (공통 앱바 규격) */}
-      <div className="mx-4 flex h-14 shrink-0 items-center gap-3">
-        <button
-          onClick={() => router.push(`/destination?${searchParams}`)}
-          aria-label="뒤로"
-          className="flex size-11 shrink-0 items-center justify-center"
-        >
-          <img src="/icon-arrow-left.svg" alt="" className="size-6" />
-        </button>
-        <h1 className="min-w-0 truncate text-[18px] leading-[26px] font-bold text-[#1f1f1f]">
-          목적지 주변 주차장
-        </h1>
-      </div>
-
       {/*
         지도 띠. 와이어프레임은 364px 고정이고 그 아래는 목록 차지다 —
         지도를 더 키우면 첫 화면에 카드가 한 장도 안 들어온다.
@@ -314,10 +339,26 @@ function Parking() {
             start={dest ?? START}
             dest={dest}
           />
-          <div className="pointer-events-none absolute inset-x-7 top-3 z-10 flex h-[54px] items-center rounded-[50px] border border-[#e5e5e5] bg-white px-[21px]">
-            <span className="truncate text-[15px] leading-[22px] text-[#1f1f1f]">
+          {/*
+            지도 위에 뜨는 알약 하나가 이 화면의 머리다 — 위에 있던 "목적지 주변 주차장" 앱바 줄을
+            없앴다. 나가는 길(←)과 여기가 어디 주변인지(이름)와 무슨 화면인지(오른쪽 회색 글자)를
+            한 줄이 다 말하는데, 그 위에 제목 줄을 또 두면 같은 말을 두 번 하면서 지도만 56px 잃는다.
+
+            테두리 대신 그림자다. 지도 위에 뜬 것은 떠 있어 보여야 하고, 얇은 회색 테두리는
+            지도의 도로·구획선에 묻힌다.
+          */}
+          <div className="absolute inset-x-4 top-3 z-10 flex h-[54px] items-center gap-2 rounded-full bg-white pr-[18px] pl-2 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]">
+            <button
+              onClick={() => router.push(`/destination?${searchParams}`)}
+              aria-label="뒤로"
+              className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+            >
+              <img src="/icon-arrow-left.svg" alt="" className="size-6" />
+            </button>
+            <span className="min-w-0 flex-1 truncate text-[15px] leading-[22px] font-medium text-[#1f1f1f]">
               {destName ?? "목적지"}
             </span>
+            <span className="shrink-0 text-[12px] leading-none text-[#9e9e9e]">주변 주차장</span>
           </div>
         </div>
 
@@ -330,7 +371,7 @@ function Parking() {
         */}
         <div
           style={{ top: sheetTop }}
-          className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[20px] bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.12)] transition-[top] duration-200"
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[16px] bg-white shadow-[0_-4px_16px_0_rgba(0,0,0,0.12)] transition-[top] duration-200"
         >
           {/*
             손잡이 (/destination·/route 시트와 같은 모양). 눌러서 목록을 내리고 다시 올린다 —
@@ -407,6 +448,7 @@ function Parking() {
                     recommended={s === recommended}
                     onSelect={() => focus(s)}
                     onOpen={() => open(s)}
+                    onGo={() => go(s)}
                   />
                 ))}
               </div>
@@ -417,7 +459,7 @@ function Parking() {
               넉 달 전 요금을 오늘 값인 것처럼 보여주는 셈이 된다.
               목록 끝에 붙어 같이 스크롤된다 — 늘 보일 값어치는 없고, 끝까지 본 사람에게는 답이 된다.
             */}
-              <p className="mx-4 mt-3 mb-6 text-[11px] leading-[16px] text-[#bdbdbd]">{SOURCE}</p>
+              <p className="mx-4 mt-3 mb-6 text-[11px] leading-[16px] text-[#9e9e9e]">{SOURCE}</p>
             </>
           )}
           </div>
@@ -464,6 +506,7 @@ function SpotCard({
   recommended,
   onSelect,
   onOpen,
+  onGo,
 }: {
   spot: ParkingSpot;
   /** 지도에서 고른 그 곳인가. 테두리 굵기는 그대로 두고 색만 바꾼다 — 굵어지면 목록이 덜컹인다. */
@@ -474,6 +517,8 @@ function SpotCard({
   onSelect: () => void;
   /** 고른 카드에만 펼쳐지는 버튼 — 상세로 간다. */
   onOpen: () => void;
+  /** 상세를 건너뛰고 길 비교로 간다. */
+  onGo: () => void;
 }) {
   const type = typeBadge(spot);
   const kakao = spot.source === "카카오";
@@ -481,31 +526,67 @@ function SpotCard({
   return (
     <div
       data-picked={picked}
-      className={`overflow-hidden rounded-[12px] border transition ${
-        picked ? "border-[#fc7f35] bg-[#fff6f0]" : "border-[#e6e6e6] bg-white"
+      /*
+        고른 카드도 흰 바탕이다. 주황을 옅게 깔아 봤더니 그 위에 얹힌 주황 배지·주황 버튼이
+        같은 색 위에 떠서 서로 안 갈렸다 — 고른 표시는 테두리 하나로 충분하다.
+      */
+      className={`overflow-hidden rounded-[12px] border bg-white transition ${
+        picked ? "border-[#fc7f35]" : "border-[#e5e5e5]"
       }`}
     >
       <button
         onClick={onSelect}
-        className="block w-full px-[15px] pt-[11px] pb-[14px] text-left transition active:bg-black/[0.03]"
+        className={`block w-full text-left transition active:bg-black/[0.03] ${
+          picked ? "px-[18px] pt-[16px] pb-[14px]" : "px-[15px] pt-[11px] pb-[14px]"
+        }`}
       >
-      <span className="flex h-[26px] items-center justify-between gap-3">
-        {/* 추천 배지는 이름 앞이다 — 길 비교 카드(app/route)가 같은 자리에 같은 모양으로 둔다 */}
-        <span className="flex min-w-0 items-center gap-1.5">
-          {recommended && (
-            <span className="shrink-0 rounded-[5px] bg-[#fc7f35] px-[6px] py-[3px] text-[11px] leading-none font-bold text-white">
-              추천
-            </span>
-          )}
-          <span className="min-w-0 truncate text-[14px] leading-[22px] font-medium text-[#1f1f1f]">
+      {/*
+        고른 카드는 펼쳐 놓는다. 목록에서는 한 줄에 이름·도보만 있으면 훑는 데 충분하지만,
+        고르고 나면 그 한 곳을 정말 갈지 정하는 자리가 되므로 요금·규모까지 편다
+        (다음 화면까지 가야 알 수 있던 값이다).
+        접힌 카드는 그대로 한 줄이다 — 42장을 다 펴면 목록이 아니라 카드 더미가 된다.
+      */}
+      {picked ? (
+        <>
+          <span className="block text-[12px] leading-none font-bold text-[#ff6114]">
+            {recommended ? "추천 주차장" : "선택한 주차장"}
+          </span>
+          <span className="mt-[10px] block text-[18px] leading-[26px] font-bold text-[#1f1f1f]">
             {spot.name}
           </span>
+          {/*
+            한 줄로 잇는다. 모르는 값은 통째로 빠진다 — 카카오에서 온 곳은 요금도 규모도 몰라
+            "도보 N분"만 남는다 (모르는 자리에 "정보 없음"을 적으면 줄만 늘고 아는 건 없다).
+          */}
+          <span className="mt-[6px] block text-[13px] leading-[20px] text-[#616161]">
+            {[
+              `목적지에서 도보 ${walkMinutes(spot.walkM)}분`,
+              kakao ? null : feeText(spot),
+              spot.spaces != null ? `${spot.spaces}면` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        </>
+      ) : (
+        <span className="flex h-[26px] items-center justify-between gap-3">
+          {/* 추천 배지는 이름 앞이다 — 길 비교 카드(app/route)가 같은 자리에 같은 모양으로 둔다 */}
+          <span className="flex min-w-0 items-center gap-1.5">
+            {recommended && (
+              <span className="shrink-0 rounded-[8px] bg-[#fff0e6] px-[6px] py-[3px] text-[11px] leading-none font-bold text-[#ff6114]">
+                추천
+              </span>
+            )}
+            <span className="min-w-0 truncate text-[14px] leading-[22px] font-medium text-[#1f1f1f]">
+              {spot.name}
+            </span>
+          </span>
+          <span className="shrink-0 text-[14px] leading-[22px] font-medium tabular-nums text-[#616161]">
+            도보 {walkMinutes(spot.walkM)}분
+          </span>
         </span>
-        <span className="shrink-0 text-[14px] leading-[22px] font-medium tabular-nums text-[#525252]">
-          도보 {walkMinutes(spot.walkM)}분
-        </span>
-      </span>
-      <span className="mt-1 flex items-center gap-1.5">
+      )}
+      <span className={`flex items-center gap-1.5 ${picked ? "mt-[10px]" : "mt-1"}`}>
         {type && <Badge>{type}</Badge>}
         {/* 칸이 넉넉한 곳. 카카오는 spaces 를 모르니 애초에 안 붙는다 (SPACIOUS 주석) */}
         {(spot.spaces ?? 0) >= SPACIOUS && <Badge>큰 주차장</Badge>}
@@ -522,7 +603,7 @@ function SpotCard({
         못 따진다. 직각주차인 곳이 없으면 애초에 추천을 안 하므로(위 useMemo) 할 말이 늘 있다.
       */}
       {recommended && (
-        <span className="mt-[6px] block text-[12px] leading-[18px] text-[#9e9e9e]">
+        <span className={`block text-[12px] leading-[18px] text-[#9e9e9e] ${picked ? "mt-[12px]" : "mt-[6px]"}`}>
           칸에 맞춰 대는 곳 중 목적지에서 가장 가까워요.
         </span>
       )}
@@ -533,12 +614,26 @@ function SpotCard({
         버튼 벽이 되고, 카드를 누르는 일(지도에서 짚기)과 자리를 다투게 된다.
       */}
       {picked && (
-        <button
-          onClick={onOpen}
-          className="mx-[15px] mb-[12px] flex h-[44px] w-[calc(100%-30px)] items-center justify-center rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.99]"
-        >
-          이 주차장 자세히
-        </button>
+        /*
+          둘로 갈랐다. 전에는 "이 주차장 자세히" 하나뿐이라, 여기 대기로 이미 정한 사람도 상세를
+          거쳐야 길 비교로 갈 수 있었다 — 같은 뜻의 버튼을 두 번 누르는 길이었다.
+          목적지 시트(app/destination)와 같은 짝이다: 곁다리는 흰 알약, 하려던 일은 주황 알약.
+        */
+        <div className="mx-[18px] mb-[16px] flex gap-2">
+          {/* 곁다리는 테두리 없이 연회색 면이다 — 테두리까지 두르면 옆의 주황 버튼과 무게가 비슷해진다 */}
+          <button
+            onClick={onOpen}
+            className="h-[48px] shrink-0 rounded-[8px] bg-[#f2f2f2] px-6 text-[14px] leading-[22px] font-medium text-[#1f1f1f] transition hover:bg-[#e5e5e5] active:scale-[0.98]"
+          >
+            자세히
+          </button>
+          <button
+            onClick={onGo}
+            className="flex h-[48px] flex-1 items-center justify-center rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
+          >
+            여기로 갈게요
+          </button>
+        </div>
       )}
     </div>
   );
@@ -558,11 +653,17 @@ function typeBadge(spot: ParkingSpot): string | null {
   return kind.confirmed ? name : `${name}(추정)`;
 }
 
+/*
+  배지를 진한 주황 채움에서 **옅은 바탕 + 진한 글자**로 바꿨다.
+  카드 한 장에 배지가 셋까지 붙는데(직각 주차·큰 주차장·공영) 전부 진한 주황이면 그 줄이
+  카드에서 제일 센 것이 된다 — 정작 눌러야 할 주황 버튼과 무게가 같아진다.
+  배지는 사실을 적는 자리지 누르는 자리가 아니라, 한 단계 물러나 있는 게 맞다.
+*/
 function Badge({ children, muted }: { children: string; muted?: boolean }) {
   return (
     <span
-      className={`flex h-6 shrink-0 items-center rounded-full px-2 text-[11px] leading-4 font-medium ${
-        muted ? "border border-[#d6d6d6] text-[#9e9e9e]" : "bg-[#fc7f35] text-white"
+      className={`flex h-6 shrink-0 items-center rounded-full px-[10px] text-[11px] leading-4 font-medium ${
+        muted ? "bg-[#f2f2f2] text-[#9e9e9e]" : "bg-[#fff0e6] text-[#ff6114]"
       }`}
     >
       {children}
