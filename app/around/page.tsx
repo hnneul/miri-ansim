@@ -293,8 +293,13 @@ function Around() {
 
       {/* 지도가 화면을 꽉 채우고 나머지는 그 위에 뜬다 (/parking 과 같은 full-map) */}
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-        <div className="pointer-events-auto px-4 text-[#1f1f1f] drop-shadow-[0_1px_2px_rgba(255,255,255,0.9)]">
-          <StatusBar tone="" />
+        {/*
+          상태바 자리는 흰 띠다 (/parking 과 같다). 전에는 지도가 맨 위까지 올라오고 시각·배터리가
+          그 위에 얹혀서, 글자가 안 묻히게 흰 그림자를 둘러야 했다 — 지도 무늬에 따라 읽히는
+          정도가 달라지는 임시방편이었다. 띠를 깔면 그 그림자도 같이 필요 없어진다.
+        */}
+        <div className="pointer-events-auto bg-white">
+          <StatusBar tone="text-[#525252]" />
         </div>
 
         {/*
@@ -305,7 +310,7 @@ function Around() {
         */}
         <form
           onSubmit={search}
-          className="pointer-events-auto mx-[18px] flex h-[54px] shrink-0 items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]"
+          className="pointer-events-auto mx-[18px] mt-3 flex h-[54px] shrink-0 items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]"
         >
           <button
             type="button"
