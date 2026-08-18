@@ -252,6 +252,7 @@ function Home() {
           iconClass="size-[32px]"
           label="주행 저장"
           sub="글쓰러 가기"
+          href={`/safelog?${searchParams}`}
         />
         <Quick
           icon="/home/quick-tamna.png"
