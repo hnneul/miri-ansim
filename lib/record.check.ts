@@ -1,17 +1,18 @@
 // 여행 기록 왕복 + 입력 검증 — node --experimental-strip-types lib/record.check.ts
-// URL 과 localStorage 는 둘 다 사용자가 고칠 수 있는 입력이다. 여기가 새면 목록이 깨진 칸을 그린다.
+// URL·서버 응답·localStorage 는 모두 사용자가 고칠 수 있는 입력이다. 여기가 새면 목록이 깨진 칸을 그린다.
+// 저장소 자체(SQLite)는 lib/records.db.check.ts 가 본다 — 여기는 모양 검사만.
 
 import assert from "node:assert";
 import {
   BODY_MAX,
   clearDraft,
   dotted,
+  asRecord,
+  asTier,
   isoToday,
   loadDraft,
-  loadRecords,
   parseSummary,
   saveDraft,
-  saveRecord,
   summaryOf,
   toRecordQuery,
   type CourseSummary,
@@ -96,49 +97,46 @@ const empty = summaryOf({ ...course, days: [] }, "제주공항");
 assert.deepEqual(empty.route, ["제주공항"]);
 assert.equal(empty.date, isoToday());
 
-/* ─────────────────────────────── 저장소 ─────────────────────────────── */
+/* ─────────────────────────────── 기록 모양 (신뢰 경계) ─────────────────────────────── */
 
+// 서버가 돌려준 목록도 손댈 수 있는 입력이다. 화면과 서버가 **같은** asRecord 를 쓴다
+// (app/api/records/route.ts) — 여기가 느슨해지면 양쪽이 같이 느슨해진다.
 const record: TripRecord = { ...summary, id: 2, title: "애월에서 협재까지", body: "좋았다", places: ["애월", "협재", "금능"] };
 
-assert.deepEqual(loadRecords(), []);
-saveRecord(record);
-assert.deepEqual(loadRecords(), [record]);
+assert.deepEqual(asRecord(record), record);
 
-// 최근 저장한 것이 앞이다 — 나중에 넣은 id 3 이 위로 온다
-saveRecord({ ...record, id: 3, title: "비 오는 날의 성산" });
-assert.deepEqual(
-  loadRecords().map((r) => r.id),
-  [3, 2],
-);
+// 모양이 안 맞으면 그 칸만 버린다
+assert.equal(asRecord(null), null);
+assert.equal(asRecord(42), null);
+assert.equal(asRecord("기록"), null);
+assert.equal(asRecord({ title: "제목만" }), null);
+assert.equal(asRecord({ ...record, id: "1" }), null, "id 가 숫자가 아니면 정렬 키가 없다");
+assert.equal(asRecord({ ...record, route: "제주공항" }), null);
 
-// --- 검증 (신뢰 경계) ---
-// 손으로 고친 값. 모양이 안 맞는 칸만 버리고 나머지는 살린다
-store.set(
-  "miri-ansim.records",
-  JSON.stringify([
-    record,
-    null,
-    42,
-    "기록",
-    { title: "제목만" },
-    { ...record, id: "1" },
-    { ...record, id: 9, km: -5, date: "언젠가", body: 7 },
-  ]),
-);
-const loaded = loadRecords();
-assert.deepEqual(
-  loaded.map((r) => r.id),
-  [9, 2],
-);
-assert.equal(loaded[0].km, 0);
-assert.equal(loaded[0].date, isoToday());
-assert.equal(loaded[0].body, "");
+// 살릴 수 있는 칸은 고쳐서 살린다 — 한 값이 깨졌다고 기록째 버리면 시연 중에 목록이 빈다
+const 고침 = some(asRecord({ ...record, id: 9, km: -5, date: "언젠가", body: 7 }));
+assert.equal(고침.km, 0);
+assert.equal(고침.date, isoToday());
+assert.equal(고침.body, "");
 
-// 배열이 아니거나 JSON 이 깨졌으면 빈 목록 — 화면이 뻗는 대신 "기록이 아직 없어요"가 뜬다
-store.set("miri-ansim.records", '{"not":"array"}');
-assert.deepEqual(loadRecords(), []);
-store.set("miri-ansim.records", "{{{");
-assert.deepEqual(loadRecords(), []);
+// 이야기는 500자에서 잘린다. 화면은 이미 막지만 API 가 공개라 여기서 다시 건다
+assert.equal(some(asRecord({ ...record, body: "가".repeat(BODY_MAX + 50) })).body.length, BODY_MAX);
+
+/* ─────────────────────────────── 티어 (버킷 키) ─────────────────────────────── */
+
+// 온보딩이 고를 수 있는 세 값만 버킷이 된다 (lib/profile.ts OPTIONS.experienceYears)
+assert.equal(asTier(1), 1);
+assert.equal(asTier(3), 3);
+assert.equal(asTier("10"), 10, "쿼리스트링은 문자열로 온다");
+
+// 그 밖은 **기본값으로 안 떨어뜨리고 거절한다** — 아무도 안 보는 버킷이 조용히 생기면 안 된다
+for (const bad of [0, 2, 99, -1, NaN, true, null, undefined, "", " ", "abc", {}, [1]])
+  assert.equal(asTier(bad), null, `티어가 아닌 값이 통과했다: ${JSON.stringify(bad)}`);
+
+// 같은 수를 달리 적은 것은 그 수의 버킷으로 간다 — 없는 버킷이 생기는 게 아니라 1번으로 들어간다.
+// lib/profile.ts parseProfile 도 같은 Number() 를 쓰므로 화면과 저장소가 같은 칸을 가리킨다.
+assert.equal(asTier("1e0"), 1);
+assert.equal(asTier(" 3 "), 3);
 
 /* ─────────────────────────────── 임시 저장 ─────────────────────────────── */
 

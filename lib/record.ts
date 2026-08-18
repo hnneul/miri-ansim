@@ -1,13 +1,18 @@
 // 여행 기록 — 최종 와이어프레임 "여행 기록" 섹션(Figma 2765:1883)이 쓰는 데이터.
 //
-// 서버가 없다. 그래서 기록은 브라우저 localStorage 에 쌓고, 방금 끝낸 코스의 **요약만** URL 로 넘긴다 —
-// 코스 전체(장소 × 좌표 × 날짜)는 URL 에 담기 너무 크고(app/trip/course/page.tsx 첫 주석),
-// 기록에 필요한 건 이름 몇 개와 거리뿐이다.
+// 기록은 **서버**에 쌓는다 (/api/records → lib/records.db.ts). 익숙함 티어 셋이 곧 버킷이라,
+// 같은 티어를 고른 사람은 어느 기기로 들어와도 같은 목록을 본다 — 로그인 대신이다.
+// 방금 끝낸 코스의 **요약만** URL 로 넘긴다 — 코스 전체(장소 × 좌표 × 날짜)는 URL 에 담기
+// 너무 크고(app/trip/course/page.tsx 첫 주석), 기록에 필요한 건 이름 몇 개와 거리뿐이다.
 //
-// URL 도 localStorage 도 사용자가 손으로 고칠 수 있는 입력이다. 여기가 신뢰 경계라
+// 작성 중인 초안만 localStorage 에 남는다. 아직 저장 안 누른 글은 그 브라우저 것이지 공용이 아니다.
+//
+// URL 도 서버 응답도 localStorage 도 전부 사용자가 손댈 수 있는 입력이다. 여기가 신뢰 경계라
 // 읽을 때마다 모양을 확인하고, 안 맞으면 그 칸을 조용히 버린다 (lib/profile.ts 와 같은 규칙).
+// **서버도 같은 asRecord 를 쓴다** — 검사가 두 벌이면 한쪽만 느슨해진다.
 
 import type { Course } from "./course";
+import { OPTIONS } from "./profile.ts";
 
 /** 방금 끝낸 코스에서 기록으로 넘어오는 값. 이것만 URL 에 실린다. */
 export type CourseSummary = {
@@ -32,7 +37,6 @@ export type TripRecord = CourseSummary & {
 /** 여행 이야기 글자 수 상한 (와이어프레임 "52 / 500") */
 export const BODY_MAX = 500;
 
-const KEY = "miri-ansim.records";
 /** "임시 저장" — 저장을 누르기 전의 초안. 기록과 따로 둬야 목록이 초안에 안 오염된다 */
 const DRAFT_KEY = "miri-ansim.record-draft";
 
@@ -101,8 +105,11 @@ export function parseSummary(params: URLSearchParams): CourseSummary | null {
 
 const str = (v: unknown) => (typeof v === "string" ? v : null);
 
-/** localStorage 에서 읽은 한 칸이 기록인지. 하나라도 모양이 다르면 그 칸을 버린다. */
-function asRecord(v: unknown): TripRecord | null {
+/**
+ * 한 칸이 기록인지. 하나라도 모양이 다르면 그 칸을 버린다.
+ * 서버가 받은 몸통을 검사할 때도 이걸 쓴다 (app/api/records/route.ts).
+ */
+export function asRecord(v: unknown): TripRecord | null {
   if (!v || typeof v !== "object") return null;
   const r = v as Record<string, unknown>;
   const title = str(r.title);
@@ -116,36 +123,62 @@ function asRecord(v: unknown): TripRecord | null {
     date: /^\d{4}-\d{2}-\d{2}$/.test(str(r.date) ?? "") ? (r.date as string) : isoToday(),
     course,
     title,
-    body: str(r.body) ?? "",
+    // 화면은 500자에서 막지만 API 는 공개라 그 상한을 여기서 다시 건다 (초안 loadDraft 와 같은 자리)
+    body: (str(r.body) ?? "").slice(0, BODY_MAX),
     route: r.route.filter((n): n is string => typeof n === "string"),
     places: r.places.filter((n): n is string => typeof n === "string"),
     km: typeof r.km === "number" && Number.isFinite(r.km) && r.km >= 0 ? r.km : 0,
   };
 }
 
-/** 최근 저장한 것이 앞이다 (목록 "최근 기록" 순서). 브라우저가 아니거나 값이 깨졌으면 빈 목록. */
-export function loadRecords(): TripRecord[] {
+/**
+ * 티어인지. 온보딩이 고를 수 있는 세 값(1·3·10)만 버킷이 된다 — 그 밖의 값이 들어오면
+ * 아무도 안 보는 버킷이 조용히 생기므로 기본값으로 떨어뜨리지 않고 거절한다.
+ * 서버(app/api/records/route.ts)와 화면이 같은 판정을 써야 해서 여기 하나만 둔다.
+ */
+export function asTier(v: unknown): number | null {
+  const n = typeof v === "string" ? Number(v) : v;
+  return typeof n === "number" && (OPTIONS.experienceYears as readonly number[]).includes(n) ? n : null;
+}
+
+const API = "/api/records";
+
+/**
+ * 한 티어의 기록, 최신순. **서버가 죽어도 빈 목록으로 돌아온다** — 화면이 뻗는 대신
+ * "기록이 아직 없어요"가 뜬다. 목록을 못 읽는 것과 없는 것이 화면에서 같아 보이는 건
+ * 아는 대가다: 시연 중에 예외 화면이 뜨는 쪽이 더 나쁘다.
+ */
+export async function loadRecords(tier: number): Promise<TripRecord[]> {
   try {
-    const raw: unknown = JSON.parse(globalThis.localStorage?.getItem(KEY) ?? "[]");
-    if (!Array.isArray(raw)) return [];
-    return raw
-      .map(asRecord)
-      .filter((r): r is TripRecord => r !== null)
-      .sort((a, b) => b.id - a.id);
+    const res = await fetch(`${API}?t=${tier}`);
+    if (!res.ok) return [];
+    const raw: unknown = await res.json();
+    return Array.isArray(raw) ? raw.map(asRecord).filter((r): r is TripRecord => r !== null) : [];
   } catch {
-    return [];
+    return []; // 네트워크가 없거나 서버가 안 뜬 경우
   }
 }
 
-/** 저장하고 새 목록을 돌려준다. 저장이 막혀도(사파리 시크릿 모드 등) 화면은 넘어가야 하므로 삼킨다. */
-export function saveRecord(record: TripRecord): TripRecord[] {
-  const next = [record, ...loadRecords()];
+/**
+ * 저장하고 그 티어의 새 목록을 돌려준다. **못 저장했으면 null 이다.**
+ *
+ * 빈 배열로 뭉개지 않는 이유: 부르는 쪽(app/trip/record)이 "서버에 남았다"와 "이번 화면에서만
+ * 보인다"를 갈라 다뤄야 한다. 예전 localStorage 판은 실패를 삼키고 목록을 돌려줬는데,
+ * 그러면 저장이 안 된 기록이 저장된 것과 똑같이 보였다.
+ */
+export async function saveRecord(tier: number, record: TripRecord): Promise<TripRecord[] | null> {
   try {
-    globalThis.localStorage?.setItem(KEY, JSON.stringify(next));
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tier, record }),
+    });
+    if (!res.ok) return null;
+    const raw: unknown = await res.json();
+    return Array.isArray(raw) ? raw.map(asRecord).filter((r): r is TripRecord => r !== null) : null;
   } catch {
-    /* 저장은 못 했지만 이번 화면에서는 보인다 */
+    return null;
   }
-  return next;
 }
 
 /* ─────────────────────────────── 임시 저장 (초안) ─────────────────────────────── */

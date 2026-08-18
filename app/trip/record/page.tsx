@@ -32,6 +32,7 @@ import {
   type CourseSummary,
   type TripRecord,
 } from "@/lib/record";
+import { parseProfile } from "@/lib/profile";
 
 /** 사진 한 기록에 최대 몇 장인지 (와이어프레임 "2 / 10") */
 const PHOTO_MAX = 10;
@@ -51,13 +52,21 @@ function Record() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const summary = parseSummary(searchParams);
+  // 기록 버킷은 익숙함 티어다 (lib/records.db.ts). 프로필이 이미 쿼리로 흘러와서 그대로 읽는다
+  const tier = parseProfile(Object.fromEntries(searchParams)).experienceYears;
 
   // 방금 끝낸 코스가 있으면 완료 화면부터, 없으면 목록만 (위 첫 주석)
   const [view, setView] = useState<View>(summary ? "done" : "list");
   const [records, setRecords] = useState<TripRecord[]>([]);
 
-  // localStorage 는 서버에 없다 — 첫 그림을 그린 뒤에 읽는다
-  useEffect(() => setRecords(loadRecords()), []);
+  // 서버에서 받아온다 — 첫 그림을 그린 뒤다. 실패하면 빈 목록이라 화면은 그대로 뜬다
+  useEffect(() => {
+    let 살아있나 = true;
+    loadRecords(tier).then((rs) => 살아있나 && setRecords(rs));
+    return () => {
+      살아있나 = false; // 티어가 바뀌어 다시 부르면 늦게 온 옛 응답이 새 목록을 덮지 않게
+    };
+  }, [tier]);
 
   const home = () => router.push(`/home?${searchParams}`);
 
@@ -66,6 +75,7 @@ function Record() {
   if (view === "write")
     return (
       <Write
+        tier={tier}
         summary={summary}
         records={records}
         onBack={() => setView(summary ? "done" : "list")}
@@ -162,11 +172,13 @@ function Done({ onSave, onSkip }: { onSave: () => void; onSkip: () => void }) {
  * 안 지우면 다음 기록이 지난번 글로 열린다.
  */
 function Write({
+  tier,
   summary,
   records,
   onBack,
   onSaved,
 }: {
+  tier: number;
   summary: CourseSummary | null;
   records: TripRecord[];
   onBack: () => void;
@@ -218,8 +230,8 @@ function Write({
     setAdding(null);
   }
 
-  function save() {
-    const next = saveRecord({
+  async function save() {
+    const record: TripRecord = {
       id: Date.now(),
       date: summary?.date ?? isoToday(),
       course: course.trim() || "직접 남긴 기록",
@@ -228,9 +240,12 @@ function Write({
       title: title.trim() || "제목 없는 기록",
       body: body.trim(),
       km: summary?.km ?? 0,
-    });
+    };
+    const next = await saveRecord(tier, record);
     clearDraft();
-    onSaved(next);
+    // 서버가 안 받아줬으면(null) 이번 화면에서만 보여준다 — 목록이 통째로 비는 것보다 낫다.
+    // 새로고침하면 사라지는데, 그게 저장 안 됐다는 사실과 맞다 (lib/record.ts saveRecord 주석).
+    onSaved(next ?? [record, ...records]);
   }
 
   const heading = "shrink-0 px-6 text-[14px] leading-normal font-bold text-[#262626]";
