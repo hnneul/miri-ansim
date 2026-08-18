@@ -484,6 +484,8 @@ function Route() {
               ...(dest ? [{ coord: dest, label: "도착" }] : []),
             ]}
             padBottom={sheetH}
+            /* 지도 빈 곳을 눌렀다 = 지도를 보겠다는 뜻이다 — 손잡이를 다시 찾게 하지 않는다 */
+            onBlank={() => view === "compare" && setCollapsed(true)}
           />
         </div>
       </div>

@@ -158,10 +158,14 @@ assert.equal(역전.noPick, null, "추천이 있으면 noPick 은 없다");
 
 // 차이는 있는데(임계값 미달) 단정만 못 하는 경우 — tie 와 다른 말을 해야 한다.
 // 빠른 쪽 부담이 편안 임계값을 넘어야 이 갈래로 들어오므로 노출을 크게 잡는다.
+//
+// 0.39 였는데 SAFE_MARGIN 이 0.7 → 0.8 로 풀리면서 이 값이 추천 쪽으로 넘어가 버렸다.
+// 검증하려는 건 "차이는 있지만 단정 못 하는 자리"지 특정 숫자가 아니라, 그 자리에 계속
+// 머무는 값으로 옮긴다 (부담 72 대 60.5 — 무의미 문턱 5% 는 넘고 추천 문턱 0.8 에는 못 미친다).
 const 애매 = scoreRoutes(
   초보,
   { risks: [dummy("accidentZone", "사고 잦은 곳", 0.5)], durationMin: 60 },
-  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.39)], durationMin: 77 },
+  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.42)], durationMin: 77 },
 );
 assert.equal(애매.recommendedRoute, "single", `임계값 미달이면 접는다: ${애매.fastScore}/${애매.safeScore}`);
 assert.equal(애매.noPick, "unclear", "부담 차이가 있는데 접었으면 unclear 다");

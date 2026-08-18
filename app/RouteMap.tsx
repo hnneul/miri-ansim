@@ -48,6 +48,13 @@ type Props = {
    * 이 값만큼 안 가린 영역의 한가운데로 올려 잡는다.
    */
   padBottom?: number;
+  /**
+   * 지도의 빈 곳(선·마커가 아닌 자리)을 눌렀다. 지도를 보겠다는 뜻이라, 부르는 쪽은 보통
+   * 덮고 있던 시트를 내린다 (/route 의 collapsed).
+   *
+   * 카카오의 map "click" 은 마커·선을 눌렀을 때는 안 온다 — 그래서 "빈 곳"이 그냥 성립한다.
+   */
+  onBlank?: () => void;
 };
 
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
@@ -82,6 +89,7 @@ export default function RouteMap({
   markers = [],
   className = "rounded-[24px] shadow-inner ring-1 ring-black/5",
   padBottom = 0,
+  onBlank,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -90,6 +98,9 @@ export default function RouteMap({
   const [selected, setSelected] = useState<RiskFactor | null>(null);
 
   // 배열 prop이 매 렌더 새 참조라 의존성으로 직접 못 쓴다
+  const blank = useRef<(() => void) | undefined>(undefined);
+  const blankBound = useRef(false);
+
   const shape = JSON.stringify({ center, level, routes, markers, padBottom });
 
   useEffect(() => {
@@ -107,6 +118,16 @@ export default function RouteMap({
     const pt = ([lat, lng]: LatLng) => new kakao.maps.LatLng(lat, lng);
 
     map.current ??= new kakao.maps.Map(box.current, { center: pt(center), level });
+
+    /*
+      빈 곳 누르기. 리스너는 지도 하나당 한 번만 단다 — 이 효과는 경로·마커가 바뀔 때마다 도는데
+      그때마다 붙이면 누를 때 콜백이 여러 번 불린다. 최신 콜백은 ref 로 읽어 오래된 값에 안 묶인다.
+    */
+    blank.current = onBlank;
+    if (onBlank && !blankBound.current) {
+      blankBound.current = true;
+      kakao.maps.event.addListener(map.current, "click", () => blank.current?.());
+    }
 
     // 라벨을 어느 쪽으로 붙일지 정하는 기준선 (경로 전체의 동서 한가운데)
     const allLng = routes.flatMap((r) => r.path.map((p) => p[1]));

@@ -35,6 +35,16 @@ export type RiskFactor = {
    */
   exposure: number;
   source: string; // ★ 필수 — 출처 없으면 데이터에 못 들어감
+  /**
+   * 이 요인이 실제로 깔린 구간 — 지도에 경로선 위로 겹쳐 그릴 선들 (lib/analyze.ts spansOf).
+   *
+   * coord 하나만 있을 때는 지도가 그걸 그리지도 않았고, 그렸어도 "여기 한 군데"로 읽혔다 —
+   * 실측에서 좁은 구간은 13.8km 였고 두 도로에 흩어져 있었다. 그래서 점이 아니라 선 여러 개다.
+   *
+   * **선택이다.** 급커브는 조각 기하가 달라 아직 안 만든다(lib/analyze.ts sharpCurve).
+   * 검증용 더미 요인에도 없다 — 없으면 지도가 그냥 안 그린다.
+   */
+  spans?: [number, number][][];
 };
 
 export type ScoreResult = {
@@ -81,6 +91,20 @@ export const BASE_SCORE: Record<RiskType, number> = {
 
 /** 판정 분기가 쓰는 값 — **부담** 기준이다 (이하면 편안) */
 export const COMFORT_THRESHOLD = 50;
+
+/**
+ * 빠른 길이 실제로 빠를 때, **안심 길이 이만큼은 덜 부담스러워야** 추천을 받는다.
+ * 0.8 = 부담 20% 감소.
+ *
+ * 0.7(30% 감소)이었는데 너무 빡셌다. 제주공항→매일올레시장 실측이 부담 66 대 52 로
+ * 14점(21%) 차인데도 문턱을 못 넘어 "추천 없음"으로 떨어졌다 — 100점 만점에 14점이면
+ * 화면에서 한눈에 갈리는 차이인데 앱만 판단을 미룬 셈이었다. 그렇게 되면 추천 배지도
+ * "맞춤" 이름도 거의 안 뜬다.
+ *
+ * 더 낮추지는 않는다. 이 값이 작아질수록 "조금 덜 부담스러운 쪽"을 추천이라 부르게 되고,
+ * 그건 아래 무의미한차이(5%) 규칙이 막으려던 것과 같은 잘못이다.
+ */
+export const SAFE_MARGIN = 0.8;
 
 /**
  * 화면이 "높음/낮음"을 가르는 값 — **추천점수** 기준이다 (이상이면 높음).
@@ -198,7 +222,7 @@ export const burdenOf = (risks: RiskFactor[], p: DriverProfile) =>
  * 부담 → 추천점수. **뒤집는 자리는 여기 하나뿐이다.**
  *
  * 아래 scoreRoutes 의 비교식은 계속 부담으로 본다. 안쪽까지 뒤집으면 비율로 쓴 두 규칙이
- * 뜻을 잃기 때문이다 — 부담 30% 감소(`safe < fast * 0.7`)는 추천점수 공간에서 상수 비율이
+ * 뜻을 잃기 때문이다 — 부담 20% 감소(`safe < fast * SAFE_MARGIN`)는 추천점수 공간에서 상수 비율이
  * 아니고, "큰 값의 5% 이내면 같다"는 규칙은 축이 뒤집히면 판정이 정확히 반대로 뒤집힌다
  * (부담 80 vs 84 는 같다고 보는데, 추천점수 20 vs 16 은 다르다고 본다 — 같은 4점 차이다).
  * 그 두 상수를 다시 정하는 건 점수 이름을 바꾸는 일과 별개다.
@@ -249,7 +273,7 @@ export function scoreRoutes(
         : "fast"
       : fast.total <= COMFORT_THRESHOLD
         ? "fast"
-        : safe.total < fast.total * 0.7
+        : safe.total < fast.total * SAFE_MARGIN
           ? "safe"
           : "single";
 
