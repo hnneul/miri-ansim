@@ -345,14 +345,15 @@ function Parking() {
             없앴다. 나가는 길(←)과 여기가 어디 주변인지(이름)와 무슨 화면인지(오른쪽 회색 글자)를
             한 줄이 다 말하는데, 그 위에 제목 줄을 또 두면 같은 말을 두 번 하면서 지도만 56px 잃는다.
 
-            테두리 대신 그림자다. 지도 위에 뜬 것은 떠 있어 보여야 하고, 얇은 회색 테두리는
-            지도의 도로·구획선에 묻힌다.
+            모양은 목적지 화면 검색바와 같다 (app/destination) — 높이 54 · 모서리 16 · 주황 테두리.
+            같은 흐름에서 연달아 나오는 같은 자리라, 화면이 바뀌었다고 바 모양이 달라지면
+            방금 보던 것과 지금 보는 것이 다른 물건처럼 보인다.
           */}
-          <div className="absolute inset-x-4 top-3 z-10 flex h-[54px] items-center gap-2 rounded-full bg-white pr-[18px] pl-2 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]">
+          <div className="absolute inset-x-4 top-3 z-10 flex h-[54px] items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]">
             <button
               onClick={() => router.push(`/destination?${searchParams}`)}
               aria-label="뒤로"
-              className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+              className="-mx-1.5 shrink-0 rounded-full p-1.5 transition hover:bg-[#fff0e6] active:scale-90"
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>

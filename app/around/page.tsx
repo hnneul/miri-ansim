@@ -305,13 +305,13 @@ function Around() {
         */}
         <form
           onSubmit={search}
-          className="pointer-events-auto mx-[18px] flex h-[58px] shrink-0 items-center gap-2 rounded-[29px] bg-white pr-[18px] pl-3 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]"
+          className="pointer-events-auto mx-[18px] flex h-[54px] shrink-0 items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]"
         >
           <button
             type="button"
             onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="뒤로"
-            className="shrink-0 transition active:scale-90"
+            className="-mx-1.5 shrink-0 rounded-full p-1.5 transition hover:bg-[#fff0e6] active:scale-90"
           >
             <img src="/icon-arrow-left.svg" alt="" className="size-6" />
           </button>
