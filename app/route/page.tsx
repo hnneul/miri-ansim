@@ -41,6 +41,20 @@ import { aiRadio, compareRoutes, type Compared } from "./actions";
  */
 const SHEET_H = { compare: 350, why: 520 };
 
+/**
+ * 부담 구간을 겹쳐 그릴 색. 경로선(fast 주황 #fb923c · safe 하늘 #38bdf8) 위에 올라가므로
+ * 둘 다와 구별돼야 한다.
+ *
+ * **빨강(#dc2626)을 쓰다 되돌렸다.** DESIGN.md 토큰에 "빨강(#FF0000 계열) 사용 금지"가
+ * 적혀 있고, 그 줄의 근거가 이 앱을 만든 이유다 — 멘토 지적 "네비게이션들 보면 빨간색으로
+ * 띵띵 알림을 주는데 이게 초보자에게 어떻게 작용할까?". 경고색을 도로 가져오면 화면 하나가
+ * 그 답을 뒤집는다. 게다가 나머지가 전부 귤빛·오프화이트라 순수 빨강만 채도가 튀었다.
+ *
+ * 그래서 3단 스케일의 맨 윗칸(--color-heavy)을 그대로 쓴다. 경로 두 색과도 구별되고,
+ * 같은 뜻을 쓰는 자리가 지도와 카드 두 곳으로 갈리지 않는다.
+ */
+const 부담색 = "#D9663F";
+
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function RoutePage() {
   return (
@@ -210,6 +224,53 @@ function Route() {
   const sheetH = SHEET_H[view];
 
   /**
+   * 지도에 겹쳐 그릴 위험 구간 — **부담이 가장 큰 요인 하나**의 것.
+   *
+   * 요인을 다 그리면 색이 늘고 범례가 필요해진다. 게다가 좁은 교행과 고속주행은 성격이 반대인
+   * 길이라(좁은 길 / 큰길) 한 색으로 묶으면 거짓말이 된다. 음성 ③칸과 근거 카드가 이미
+   * 하나를 지목하고 있으니 지도도 같은 하나를 짚는다 — 세 매체가 같은 곳을 가리킨다.
+   *
+   * breakdown 을 경로로 먼저 좁힌다. 요인 이름이 양쪽에 같으면(좁은 교행 등) factor 만으로
+   * 찾다가 다른 경로 행이 잡힌다 (lib/briefing.ts 최대요인 과 같은 함정이다).
+   * spans 가 없는 요인(급커브)은 건너뛰고 그다음 요인을 본다 — 그릴 게 없으면 그리지 않는다.
+   */
+  /**
+   * 비교 화면에서 두 경로에 칠할 요인 — **두 경로의 감점 차가 가장 큰 것** 하나다.
+   *
+   * 경로마다 자기 최대 요인을 칠하면 안 된다. 같은 빨강이 한쪽에서는 좁은 교행, 다른 쪽에서는
+   * 고속주행을 뜻하게 되고, 그러면 "빨간 게 적은 쪽이 낫다"가 거짓이 된다 — 비교 화면에서
+   * 색은 **두 길에 같은 뜻**이어야 한다.
+   *
+   * 차가 가장 큰 요인을 고르는 이유는 그게 두 길을 가른 이유이기 때문이다 (음성 ②칸이 말로
+   * 하는 것과 같은 선택 — lib/briefing.ts 나은점). 한쪽에 그 요인이 아예 없으면 그 길에는
+   * 빨간 게 안 그려지고, 그 빈 것 자체가 비교다.
+   *
+   * spans 가 있는 요인만 후보다 — 급커브는 아직 구간 좌표가 없어 칠할 수가 없다.
+   */
+  const 가른요인 = (() => {
+    if (!result || "error" in result || routes.length < 2) return null;
+    const 감점 = (id: string, factor: string) =>
+      result.score.breakdown.find((b) => b.route === id && b.factor === factor)?.weighted ?? 0;
+    const 후보 = [
+      ...new Set(routes.flatMap((r) => r.risks.filter((k) => k.spans?.length).map((k) => k.label))),
+    ];
+    return (
+      후보
+        .map((f) => ({ f, 차: Math.abs(감점("fast", f) - 감점("safe", f)) }))
+        .sort((a, b) => b.차 - a.차)[0]?.f ?? null
+    );
+  })();
+
+  const 위험구간 =
+    result && !("error" in result) && chosen
+      ? (result.score.breakdown
+          .filter((b) => b.route === chosen.id)
+          .sort((a, b) => b.weighted - a.weighted)
+          .map((b) => chosen.risks.find((r) => r.label === b.factor))
+          .find((r) => r?.spans?.length) ?? null)
+      : null;
+
+  /**
    * 고른 경로의 대본. AI 것이 있으면 그걸, 없으면 규칙 대본을 쓴다.
    * 둘의 칸 구성이 같아서 RouteRadio 는 어느 쪽이 왔는지 몰라도 된다.
    */
@@ -327,16 +388,59 @@ function Route() {
             center={dest ?? [33.38, 126.55]}
             level={9}
             /* 근거 화면에서는 고른 길 하나만 그린다 — 그 길을 설명하는 자리라 나머지는 방해다 */
-            routes={(view === "why"
-              ? routes.filter((r) => r.id === picked)
-              : routes
-            ).map((r) => ({
-              path: r.path,
-              color: r.color,
-              weight: r.id === picked ? 7 : 5,
-              opacity: r.id === picked ? 0.95 : 0.45,
-              label: `${r.durationMin}분`,
-            }))}
+            routes={[
+              ...(view === "why" ? routes.filter((r) => r.id === picked) : routes).map((r) => ({
+                path: r.path,
+                color: r.color,
+                weight: r.id === picked ? 7 : 5,
+                opacity: r.id === picked ? 0.95 : 0.45,
+                label: `${r.durationMin}분`,
+              })),
+              /*
+                위험 구간을 경로선 위에 겹친다. **근거 화면에서만** 그린다 —
+                비교 화면은 두 길 중 하나를 고르는 자리라 색이 이미 둘이고, 거기에 세 번째 색이
+                올라오면 무엇을 견주는 화면인지 흐려진다. 여기는 이미 고른 길 하나만 그리는 자리다.
+
+                뒤에 놓아야 경로선 위로 올라온다 (RouteMap 이 배열 순서대로 그린다).
+
+                **말풍선은 안 붙인다.** 가장 긴 선에 요인 이름을 붙여봤더니 경로 라벨("67분")과
+                한 자리에 겹쳐 시간을 통째로 가렸다 — 둘 다 경로 중간점 근처라 그렇다
+                (RouteMap 주석의 "겹치면 그때" 가 이 경우다). 무슨 색인지는 아래 비교표의
+                같은 줄에 같은 색 점을 찍어 알린다 (Why 의 위험요인 prop) — 지도에 말풍선을
+                하나 더 띄우는 것보다 싸고, 숫자를 확인하는 자리와 지도가 한 색으로 묶인다.
+              */
+              ...(view === "why" && 위험구간?.spans
+                ? 위험구간.spans.map((path) => ({
+                    path,
+                    color: 부담색,
+                    weight: 7,
+                    opacity: 0.95,
+                  }))
+                : []),
+              /*
+                비교 화면에서는 **두 경로에 같은 요인**을 칠한다 (가른요인 주석).
+
+                **투명도는 경로를 따라가지 않는다.** 처음엔 "고른 쪽이 진하다"는 규칙을 여기도
+                적용했는데(0.95 / 0.55), 그러면 안 고른 길의 빨강이 흐려져서 **빨간 게 적어
+                보인다** — 실제로 추천한 길이 더 위험해 보이는 화면이 나왔다. 이 색이 하는 일은
+                양을 견주는 것이고, 한쪽을 흐리면 그 비교가 거짓이 된다.
+
+                **굵기는 경로를 따라간다.** 이건 반대다 — 아래 선보다 굵으면 빨강이 양옆으로
+                삐져나와 **선 위에 얹은 점**처럼 보인다 (안 고른 경로는 선이 5px 인데 빨강을 7px 로
+                그리고 있었다). 같은 굵기로 정확히 덮으면 "이 구간에서 선이 빨개진다"로 읽힌다.
+                어느 길인지는 아래 깔린 경로선과 말풍선이 이미 말한다.
+              */
+              ...(view === "compare" && 가른요인
+                ? routes.flatMap((r) =>
+                    (r.risks.find((k) => k.label === 가른요인)?.spans ?? []).map((path) => ({
+                      path,
+                      color: 부담색,
+                      weight: r.id === picked ? 7 : 5,
+                      opacity: 0.95,
+                    })),
+                  )
+                : []),
+            ]}
             markers={[
               ...(origin ? [{ coord: origin, label: "출발" }] : []),
               ...(dest ? [{ coord: dest, label: "도착" }] : []),
@@ -395,6 +499,8 @@ function Route() {
                   }
                   pick={result.score.recommendedRoute}
                   대본={대본}
+                  위험요인={위험구간?.label ?? null}
+                  대본펼침={query.대본 === "1"}
                 />
               ) : (
                 <>
@@ -414,7 +520,36 @@ function Route() {
                       </p>
                     )}
 
-                  <div className="mt-[18px] flex gap-[14px] px-4">
+                  {/*
+                    지도의 빨간 색이 무엇인지 대는 한 줄.
+
+                    카드 안에 넣을 자리가 없고(추천점수·시간·거리·이름이 이미 꽉 찼다) 지도에
+                    말풍선을 띄우면 경로 라벨과 겹친다(위 routes prop 주석). 그래서 지도와 카드
+                    사이에 잔글씨로 둔다 — 지도를 본 눈이 카드로 내려오는 길목이다.
+
+                    **근거 화면과 칠하는 요인이 다르다.** 여기는 두 길을 견주는 자리라 "두 길을
+                    가른 것"을 칠하고(가른요인), 근거 화면은 한 길을 설명하는 자리라 "그 길에서
+                    가장 부담인 것"을 칠한다. 질문이 다르니 답도 다르다 — 그래서 양쪽 다 이름을
+                    적어야 한다. 한쪽에만 이름이 없으면 같은 빨강을 같은 것으로 오해한다.
+                  */}
+                  {가른요인 && (
+                    <p className="mt-[14px] flex items-center gap-[6px] px-4 text-[11px] leading-[16px] text-[#949494]">
+                      <span
+                        aria-hidden
+                        className="size-[7px] shrink-0 rounded-full"
+                        style={{ backgroundColor: 부담색 }}
+                      />
+                      {가른요인} — 두 길이 가장 다른 구간
+                    </p>
+                  )}
+
+                  {/*
+                    두 카드가 크기가 다르다 (와이어프레임 3847:2926 — 추천 202x132 / 나머지 147x98).
+                    items-end 로 **아래를 맞춘다** — 위를 맞추면 작은 카드가 공중에 뜬 것처럼 보인다.
+                    폭은 고정값 대신 비율(flex-[202]/flex-[147])로 준다. 360px 기기에서 합이 넘치면
+                    고정 폭은 그냥 삐져나가는데, 비율이면 둘이 같이 줄어든다.
+                  */}
+                  <div className="mt-[18px] flex items-end gap-[11px] px-4">
                     {result.routes.map((r) => (
                       <RouteCard
                         key={r.id}
@@ -440,14 +575,21 @@ function Route() {
 
             <div className="shrink-0 px-4 pt-2 pb-2">
               {/*
-                두 화면이 같은 글씨의 버튼을 쓰지만 **하는 일이 다르다.**
-                비교(HOME-02)의 검정 버튼은 근거 화면으로 넘기고, 근거(HOME-03)의 주황 버튼이
-                실제로 카카오맵을 연다. 와이어프레임이 색을 갈라 둔 게 그 뜻이다
-                (2153:1730 검정 → 2153:2036 주황).
-
+                두 화면이 같은 글씨의 버튼을 쓰지만 **하는 일이 다르다.** 비교(HOME-02)의 버튼은
+                근거 화면으로 넘기고, 근거(HOME-03)의 버튼이 실제로 카카오맵을 연다.
                 고른 길을 확인만 하고 떠나는 게 아니라 **왜 이 길인지 한 번은 보고 떠나게** 하는
-                흐름이다. 카드 오른쪽 › 로도 같은 화면에 들어가지만, 그건 안 눌러도 되는 문이라
+                흐름이다 — 카드 오른쪽 › 로도 같은 화면에 들어가지만 그건 안 눌러도 되는 문이라
                 대부분 안 누른 채로 나갔다.
+
+                **와이어프레임은 그 차이를 색으로 갈라 뒀는데(2153:1730 검정 → 2153:2036 주황)
+                여기서는 둘 다 주황 알약이다.** 앱에서 검정 버튼은 흐름에 들어오기 전 화면
+                (스플래시 "프로필 만들기" · 온보딩 "다음")에만 쓰고, 흐름 안에서 하려던 일은
+                전부 주황 알약이다 (출발·근처 주차장 보기, 자세히·여기로 갈게요). 이 화면만
+                검정을 쓰면 결이 어긋나고, 게다가 같은 버튼이 화면 상태에 따라 검정과 주황을
+                오갔다 — 색이 "무엇을 하는 버튼인가"가 아니라 "지금 몇 번째 화면인가"를 말하고 있었다.
+                두 단계의 차이는 화면이 이미 말하고 있으니 버튼 색까지 나눌 일이 아니다.
+
+                ➤ 도 뺐다. 앱의 다른 버튼은 글자만 있다 (주차장의 P 하나가 예외인데 그건 주차 기호다).
               */}
               <button
                 onClick={() => {
@@ -456,13 +598,21 @@ function Route() {
                   setPicked(chosen.id);
                   setView("why");
                 }}
-                className={`flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] text-[16px] font-bold text-white transition active:scale-[0.99] ${
-                  view === "why" ? "bg-[#fc7f35]" : "bg-[#1f1f1f]"
-                }`}
+                /*
+                  두 화면이 색과 폭까지 다르다 (와이어프레임 3847:2947 검정 ↔ 2153:2036 주황).
+                  비교 화면의 버튼은 아직 떠나는 버튼이 아니라 근거를 여는 문이라, 화면 폭을
+                  꽉 채우지 않고 가운데 251px 알약으로 물러나 있다. 근거 화면에서 같은 글씨가
+                  주황 통짜로 바뀌는 그 순간이 "이제 진짜 나간다"는 표시가 된다.
+                */
+                className={
+                  view === "why"
+                    ? "h-[52px] w-full rounded-full bg-[#ff7b33] text-[16px] font-bold text-white transition hover:bg-[#ff6114] active:scale-[0.99]"
+                    : "mx-auto flex h-[49px] w-[251px] items-center justify-center gap-2 rounded-full bg-[#3a3532] text-[14px] font-bold text-white transition hover:bg-[#1f1f1f] active:scale-[0.99]"
+                }
               >
-                <span aria-hidden className="text-[15px]">
-                  ➤
-                </span>
+                {view !== "why" && (
+                  <img src="/route/icon-navigation.svg" alt="" aria-hidden className="size-5" />
+                )}
                 이 길로 갈게요
               </button>
               {/*
@@ -608,6 +758,8 @@ function Why({
   score,
   pick,
   대본,
+  대본펼침,
+  위험요인,
 }: {
   route: LiveRoute;
   /** 상대 경로. 없으면(단일 경로) 비교 칸 없이 내 값만 적는다 */
@@ -616,6 +768,14 @@ function Why({
   /** 추천 결과 그대로 (lib/score.ts). "single" 은 추천을 접었다는 뜻이다 */
   pick: "fast" | "safe" | "single";
   대본: string[] | null;
+  /** `?대본=1` — 대본 전체를 글로 펼친다 (RouteRadio 펼침 주석) */
+  대본펼침?: boolean;
+  /**
+   * 지도가 빨갛게 칠한 요인의 이름. 그 줄에 같은 색 점을 찍어 **지도와 표를 묶는다** —
+   * 지도에 말풍선을 띄우면 경로 라벨과 겹친다 (위 routes prop 주석).
+   * 그릴 구간이 없으면 null 이고, 그때는 어느 줄에도 점이 없다.
+   */
+  위험요인: string | null;
 }) {
   const recommended = pick === route.id;
   const 한줄 = tradeoff(pick, route, other);
@@ -722,7 +882,7 @@ function Why({
       */}
       {대본 && (
         <div className="mt-3">
-          <RouteRadio script={대본} routeId={route.id} />
+          <RouteRadio script={대본} routeId={route.id} 펼침={대본펼침} />
         </div>
       )}
 
@@ -738,7 +898,16 @@ function Why({
             key={r.label}
             className={`flex items-center justify-between px-[14px] py-[9px] ${i ? "border-t border-[#f0f0f0]" : ""}`}
           >
-            <dt className="text-[13px] text-[#525252]">{r.label}</dt>
+            <dt className="flex items-center gap-[6px] text-[13px] text-[#525252]">
+              {r.label === 위험요인 && (
+                <span
+                  aria-hidden
+                  className="size-[7px] shrink-0 rounded-full"
+                  style={{ backgroundColor: 부담색 }}
+                />
+              )}
+              {r.label}
+            </dt>
             <dd className="flex items-baseline gap-[8px] text-[13px]">
               {r.theirs && (
                 <>
@@ -777,69 +946,94 @@ function RouteCard({
   onPick: () => void;
   onWhy: () => void;
 }) {
+  /*
+    와이어프레임 "수정 HOME-02 | 길 비교 24" (3847:2926) 그대로다.
+
+    **두 카드가 같은 모양이 아니다.** 추천 카드는 크고(202x132) 주황이 차 있고, 나머지는
+    작고(147x98) 흰 바탕이다 — 크기 자체가 "이쪽을 권한다"는 말이라, 배지 하나로 알리던
+    것보다 훨씬 먼저 읽힌다. 글자 크기도 한 벌씩 다르다 (점수 37 대 27, 이름 17.5 대 13).
+
+    고른 표시(picked)는 테두리로만 낸다. 크기까지 바뀌면 누를 때마다 두 카드가 서로 자리를
+    뺏어 목록이 덜컹인다 — 와이어프레임의 크기 차이는 "추천"이 기준이지 "고름"이 아니다.
+  */
+  const big = recommended;
   return (
     <button
       onClick={onPick}
       aria-pressed={picked}
-      /* 높이를 130 으로 못 박지 않는다 — 추천 카드만 도로 이름 한 줄이 더 붙어서 글자가 잘렸다.
-         min-h 로 두면 둘이 같이 늘어난다 (나란한 flex 항목이라 키가 저절로 맞는다). */
-      className={`min-h-[130px] min-w-0 flex-1 rounded-[10px] px-3 pt-[14px] pb-[12px] text-left transition ${
+      /*
+        flex 가 필요하다 — <button> 은 안쪽 내용을 세로 가운데로 몰아넣는 기본 동작이 있어서,
+        그냥 두면 위에 붙어야 할 제목이 카드 한가운데로 내려와 아래 절대배치 줄과 겹친다.
+      */
+      className={`relative flex min-w-0 flex-col items-start rounded-[7px] text-left transition ${
+        big ? "h-[132px] flex-[202] px-[14px] pt-[16px]" : "h-[98px] flex-[147] px-[11px] pt-[14px]"
+      } ${
         picked
           ? "border-2 border-[#fc7f35] bg-[#ffece1]"
           : "border border-[#d6d6d6] bg-white"
       }`}
     >
-      <div className="flex items-center gap-2">
+      <span className="flex items-center gap-[9px]">
         {recommended && (
-          <span className="shrink-0 rounded-[5px] bg-[#fc7f35] px-2 py-[3px] text-[11px] leading-none font-bold text-white">
+          <span className="shrink-0 rounded-[6px] bg-[#fc7f35] px-[9px] py-[6px] text-[12.5px] leading-none font-bold text-white">
             추천
           </span>
         )}
-        <span className="min-w-0 truncate text-[15px] leading-none font-bold text-[#1f1f1f]">
+        <span
+          className={`min-w-0 truncate font-bold text-[#1f1f1f] ${big ? "text-[17.5px]" : "text-[13px]"}`}
+        >
           {recommended ? "맞춤 안심 길" : route.name}
         </span>
-        {/*
-          › — 근거 화면(HOME-03)으로 가는 문. 와이어프레임이 두 카드 모두에 달아 둔 것이다.
+      </span>
 
-          카드가 <button> 이라 그 안에 또 버튼을 넣으면 HTML 이 겹친다. span 에 역할만 얹고
-          클릭이 바깥 카드로 새지 않게 여기서 끊는다 — 대신 그 카드를 고른 뒤에 열어야
-          지도에 굵게 그려진 길과 근거 화면이 어긋나지 않으므로, 누를 때 선택도 같이 옮긴다.
-        */}
+      {/*
+        › — 근거 화면(HOME-03)으로 가는 문. 와이어프레임이 두 카드 모두에 달아 둔 것이다.
+
+        카드가 <button> 이라 그 안에 또 버튼을 넣으면 HTML 이 겹친다. span 에 역할만 얹고
+        클릭이 바깥 카드로 새지 않게 여기서 끊는다 — 대신 그 카드를 고른 뒤에 열어야
+        지도에 굵게 그려진 길과 근거 화면이 어긋나지 않으므로, 누를 때 선택도 같이 옮긴다.
+      */}
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label={`${route.name} 근거 보기`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onWhy();
+        }}
+        onKeyDown={(e) => e.key === "Enter" && (e.stopPropagation(), onWhy())}
+        className={`absolute top-[26px] right-[9px] cursor-pointer leading-none ${
+          big ? "text-[20px] text-[#ff7d32]" : "text-[16px] text-[#9e9e9e]"
+        }`}
+      >
+        ›
+      </span>
+
+      {/*
+        시간·거리는 왼쪽 아래, 점수는 오른쪽에 큰 숫자로 — 둘이 같은 줄에 서지 않는다.
+        추천 카드에서는 이 줄도 주황이다 (#ff7d32). 카드가 통째로 주황 계열이라 회색으로 두면
+        혼자 식은 것처럼 보인다.
+      */}
+      <span
+        className={`absolute left-[14px] ${
+          big ? "top-[58px] text-[15px] text-[#ff7d32]" : "top-[44px] text-[11px] text-[#7d7d7d]"
+        }`}
+      >
+        {route.durationMin}분 · {route.distanceKm}km
+      </span>
+
+      <span className={`absolute right-[9px] ${big ? "top-[52px]" : "top-[40px]"} text-right`}>
         <span
-          role="button"
-          tabIndex={0}
-          aria-label={`${route.name} 근거 보기`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onWhy();
-          }}
-          onKeyDown={(e) => e.key === "Enter" && (e.stopPropagation(), onWhy())}
-          className="ml-auto shrink-0 cursor-pointer px-1 text-[18px] leading-none text-[#9e9e9e]"
+          className={`block font-bold text-[#1f1f1f] ${big ? "text-[37px]" : "text-[27px]"} leading-none`}
         >
-          ›
-        </span>
-      </div>
-
-      <div className="mt-[14px] flex items-baseline gap-[6px]">
-        <span className="text-[12px] text-[#9e9e9e]">추천점수</span>
-        <span className="text-[32px] leading-none font-bold text-[#1f1f1f]">
           {Math.round(score)}
         </span>
-        {/* 높음/낮음의 기준은 lib/score.ts 의 RECOMMEND_THRESHOLD 하나다 — 화면에서 다시 정하지 않는다 */}
-        <span className="text-[12px] font-medium text-[#9e9e9e]">
-          {score >= RECOMMEND_THRESHOLD ? "높음" : "낮음"}
+        <span
+          className={`mt-[7px] block font-medium text-[#040404] ${big ? "text-[11.5px]" : "text-[8.5px]"} leading-none`}
+        >
+          추천 점수
         </span>
-      </div>
-
-      <p className="mt-[14px] text-[13px] text-[#9e9e9e]">
-        {route.durationMin}분 · {route.distanceKm}km
-      </p>
-      {/* 추천 카드는 이름 자리를 "맞춤 안심 길"에 내줬으니 도로 이름을 여기로 내린다 */}
-      {recommended && (
-        <p className="mt-[2px] truncate text-[11px] text-[#bdbdbd]">
-          {route.name}
-        </p>
-      )}
+      </span>
     </button>
   );
 }
