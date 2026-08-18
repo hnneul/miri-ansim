@@ -4,7 +4,7 @@
 // 안 날아간다. 대신 URL은 사용자가 손으로 고칠 수 있는 입력이므로 값 검증이 필수다 —
 // 여기가 유일한 신뢰 경계다.
 
-import type { DriverProfile } from "./score";
+import { EXP_LABEL, type DriverProfile } from "./score.ts";
 import type { LatLng } from "@/app/RouteMap";
 
 /**
@@ -32,7 +32,9 @@ export const OPTIONS = {
  * 값 → 화면에 쓰는 말. 마이 화면(app/profile)이 URL에서 읽은 값을 되읽어 준다.
  */
 export const LABELS = {
-  drivingFrequency: { low: "거의 안 함", medium: "가끔", high: "자주" },
+  /** 익숙함 티어. 점수 가중치와 같은 말을 써야 해서 lib/score.ts 것을 그대로 가져온다 */
+  experienceYears: EXP_LABEL,
+  // drivingFrequency 는 화면에 안 쓴다 — 익숙함 티어가 같은 대답을 이미 보여준다 (app/profile)
   vehicleSize: { compact: "경차", sedan: "중형", suv: "대형" },
   timeOfDay: { day: "주간", night: "야간" },
 };

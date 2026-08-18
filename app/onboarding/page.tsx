@@ -1,11 +1,13 @@
 "use client";
 
-// 프로필 온보딩 — 최종 와이어프레임 ONB 섹션에 그려진 네 장(운전 빈도·제주 경험·차량 크기·부담 유형)이 전부다.
+// 프로필 온보딩 — 와이어프레임 ONB 섹션의 네 장(익숙함·제주 경험·차량 크기·부담 유형)이 전부다.
 // 그려지지 않은 화면을 지어내면 와이어프레임과 앱이 갈라진다.
 //
-// 여기서 묻지 않는 나머지 프로필 값(운전 경력·주행 시간대)은 DEFAULT_PROFILE 로 남는다 —
-// 기본값이 가장 부담 큰 쪽(초보·주간)이라 모르는 값을 안전한 척 계산하지는 않는다.
-// 고정된 값이므로 마이 화면(app/profile)도 경력을 적지 않는다 — 안 바뀌는 줄을 설정처럼 보여줄 수 없다.
+// 첫 장은 원래 "일주일에 며칠 운전하나요"였다. 그걸로는 왕초보/초보/익숙이 안 갈려서 —
+// 매일 모는 사람도 낯선 길은 무섭다 — 자기 인식을 직접 묻는 것으로 바꿨다. 첫 장 주석 참고.
+//
+// 여기서 묻지 않는 주행 시간대는 DEFAULT_PROFILE 로 남는다 —
+// 기본값이 가장 부담 큰 쪽(주간)이라 모르는 값을 안전한 척 계산하지는 않는다.
 //
 // 고른 값은 URL 쿼리로 메인화면(/home)에 넘기고, 거기서 목적지를 붙여 /result 까지 그대로 흘러간다
 // (lib/profile.ts). 저장소가 따로 없어서 새로고침하면 처음부터지만, 네 탭짜리 플로우라
@@ -40,16 +42,31 @@ type Step = {
 
 const STEPS: Step[] = [
   {
-    title: ["일주일에 며칠 정도", "운전하시나요?"],
-    subtitle: "최근 한 달을 떠올려 가장 가까운 횟수를 골라주세요.",
-    hint: "최근 한 달의 평균 운전 일수를 숫자로 골라주세요.",
-    // 점수의 빈도 값은 low/medium/high 셋뿐이라 네 선택지를 접는다.
-    // 경계(1~2일)는 낮은 쪽으로 — 빈도를 높게 잡으면 부담 가중치가 빠져 위험이 과소 계상된다.
+    title: ["운전이 얼마나", "익숙하신가요?"],
+    subtitle: "지금 내 느낌과 가장 가까운 쪽을 골라주세요.",
+    hint: "익숙한 정도는 부담 계산과 길 설명에 함께 쓰여요.",
+    // 전에는 이 자리가 "일주일에 며칠 운전하나요"였다. 빈도는 익숙함의 대리 지표라서 자주 어긋난다 —
+    // 매일 출퇴근만 하는 사람도 낯선 길은 무섭고, 반대도 있다. 그래서 대리 지표 대신 직접 묻는다.
+    //
+    // 한 문항이 두 값을 정한다: 점수용 티어(experienceYears → lib/score.ts EXP_WEIGHT)와
+    // 브리핑 말투용 빈도(drivingFrequency → lib/briefing.ts 조건말). 빈도는 점수에 안 들어간다 —
+    // 같은 대답 하나를 두 번 곱하면 초보만 부풀기 때문이다 (lib/score.ts weight 주석).
     options: [
-      { label: "0일", desc: "거의 운전하지 않아요", patch: { drivingFrequency: "low" } },
-      { label: "1~2일", desc: "주말이나 필요할 때만 해요", patch: { drivingFrequency: "low" } },
-      { label: "3~4일", desc: "일주일의 절반 정도 해요", patch: { drivingFrequency: "medium" } },
-      { label: "5~7일", desc: "거의 매일 운전해요", patch: { drivingFrequency: "high" } },
+      {
+        label: "왕초보",
+        desc: "아직 운전이 무서워요",
+        patch: { experienceYears: 1, drivingFrequency: "low" },
+      },
+      {
+        label: "초보",
+        desc: "낯선 길은 긴장돼요",
+        patch: { experienceYears: 3, drivingFrequency: "medium" },
+      },
+      {
+        label: "익숙",
+        desc: "처음 가는 길도 괜찮아요",
+        patch: { experienceYears: 10, drivingFrequency: "high" },
+      },
     ],
   },
   {
@@ -113,7 +130,7 @@ export default function Onboarding() {
   function goNext() {
     if (step < STEPS.length - 1) return setStep(step + 1);
     // 각 단계의 patch 를 겹쳐 프로필 완성. 다음 버튼이 선택 전엔 잠겨 있어 빠진 단계는 없다.
-    // 여기서 안 묻는 경력·시간대는 DEFAULT_PROFILE 값 그대로 나간다 (파일 첫 주석 참고).
+    // 여기서 안 묻는 시간대는 DEFAULT_PROFILE 값 그대로 나간다 (파일 첫 주석 참고).
     const profile = STEPS.reduce<DriverProfile>(
       (acc, s, idx) => ({ ...acc, ...s.options[picks[idx][0]]?.patch }),
       DEFAULT_PROFILE,
@@ -129,7 +146,8 @@ export default function Onboarding() {
       {/* AppBar/Back — 44px 터치 영역 + 24px 화살표 (피그마 컴포넌트 설명 그대로) */}
       <div className="mx-4 flex h-14 shrink-0 items-center gap-3">
         <button
-          onClick={() => (step === 0 ? router.push("/") : setStep(step - 1))}
+          // 소개 화면으로 돌아간다. 스플래시 없는 주소다 (app/intro/page.tsx)
+          onClick={() => (step === 0 ? router.push("/intro") : setStep(step - 1))}
           aria-label="뒤로"
           className="flex size-11 shrink-0 items-center justify-center"
         >
@@ -176,7 +194,6 @@ export default function Onboarding() {
                 }`}
               >
                 <span className={`text-[14px] leading-[22px] font-bold ${on ? "" : "text-[#1f1f1f]"}`}>
-                  {on && "✓ "}
                   {o.label}
                 </span>
                 <span className={`text-[11px] leading-[17px] ${on ? "" : "text-[#525252]"}`}>{o.desc}</span>

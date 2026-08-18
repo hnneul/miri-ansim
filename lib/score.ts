@@ -118,10 +118,31 @@ export const exposureFactor = (exposure: number) =>
  */
 export const isNovice = (p: DriverProfile) => p.experienceYears <= 1;
 
+/**
+ * 익숙함 티어 — 온보딩 1단계가 묻는 자기 인식이다. 키는 OPTIONS.experienceYears 의 세 값.
+ *
+ * 전에는 이 자리가 isNovice 불리언이라 초보(3)와 익숙(10)이 점수상 완전히 같았다.
+ * 셋으로 나눠 물어놓고 둘로만 계산하면 가운데를 고른 사람은 고른 값이 아무 데도 안 쓰인다.
+ *
+ * **1.0 아래로 내리지 않는다.** 익숙하다고 부담이 사라지는 게 아니라 그 사람이 기준이 될 뿐이다.
+ * 전역 할인을 주면 실제로 위험한 길이 익숙한 사람에게만 조용히 안전해 보인다 —
+ * 경력으로 깎는 건 고속주행 하나뿐이고, 그건 아래에서 요인별로 건다.
+ */
+const EXP_WEIGHT: Record<number, number> = { 1: 1.6, 3: 1.2, 10: 1 };
+
+/** 티어 이름. 근거 카드와 마이 화면(lib/profile.ts LABELS)이 같은 말을 쓰도록 여기 하나만 둔다. */
+export const EXP_LABEL: Record<number, string> = { 1: "왕초보", 3: "초보", 10: "익숙" };
+
+/** 허용값 밖이면 왕초보 쪽으로 (lib/profile.ts characterOf 와 같은 규칙 — 모르면 부담 큰 쪽) */
+const expWeightOf = (p: DriverProfile) => EXP_WEIGHT[p.experienceYears] ?? EXP_WEIGHT[1];
+
+/**
+ * drivingFrequency 는 여기서 안 쓴다. 온보딩이 빈도를 따로 묻지 않고 티어 한 문항에서
+ * 함께 정하므로, 곱하면 같은 대답 하나가 두 번 걸려 맨 아래 티어만 ×1.69 로 부푼다.
+ * 그 값은 이제 브리핑 말투에만 쓴다 (lib/briefing.ts 조건말).
+ */
 function weight(type: RiskType, p: DriverProfile): number {
-  let w = 1;
-  if (isNovice(p)) w *= 1.3;
-  if (p.drivingFrequency === "low") w *= 1.3;
+  let w = expWeightOf(p);
   if (!p.jejuExperience) w *= 1.2;
   if (p.timeOfDay === "night") w *= 1.15;
   if (type === "narrowRoad" && p.vehicleSize === "suv") w *= 1.4;
@@ -132,8 +153,9 @@ function weight(type: RiskType, p: DriverProfile): number {
 /** 근거 카드 머리말용 — 지금 켜져 있는 가중치 조건 목록 */
 export function activeWeights(p: DriverProfile): string[] {
   const out: string[] = [];
-  if (isNovice(p)) out.push("운전경력 1년 이하 ×1.3");
-  if (p.drivingFrequency === "low") out.push("최근 운전빈도 낮음 ×1.3");
+  // 숙련은 ×1 이라 적지 않는다 — 곱해도 안 변하는 줄은 근거가 아니다
+  const ew = expWeightOf(p);
+  if (ew !== 1) out.push(`익숙함 ${EXP_LABEL[p.experienceYears] ?? EXP_LABEL[1]} ×${ew}`);
   if (!p.jejuExperience) out.push("제주 운전경험 없음 ×1.2");
   if (p.timeOfDay === "night") out.push("야간 주행 ×1.15");
   if (p.vehicleSize === "suv") out.push("대형 차량 ×1.4 (좁은 교행로에만)");
