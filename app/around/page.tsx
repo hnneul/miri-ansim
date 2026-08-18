@@ -610,8 +610,10 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  * 그림 자체가 /parking 의 핀과 **같은 값**이다 (거기 PIN·PIN_ON 을 그대로 가져왔다).
  * 두 지도가 같은 문법을 쓰면 한 화면에서 다른 화면으로 넘어가도 눈이 다시 배울 게 없다.
  *
- *   안 고른 것 — **납작하다.** 옅은 주황 채움 + 주황 테두리 + 주황 글자 t, 26px.
+ *   안 고른 것 — **납작하다.** 주황 채움 + 흰 테두리 + 흰 ₩, 26px. 흰 테두리가 있어야
+ *                지도의 주황 글씨(카카오가 가게 이름에 쓴다)와 안 섞이고, 붙은 핀끼리도 갈린다.
  *                여기에 입체를 주면 안 된다 — 스무 개가 다 볼록하면 지도가 단추판이 된다.
+ *                ₩ 인 이유: 탐나는전은 지역화폐라, 스무 개가 한꺼번에 말할 게 "여기서 쓴다" 다.
  *   고른 것   — **물방울 + 입체**, 40x58. 그러데이션(위 밝고 아래 어둡게) + 위쪽 흰 광택 타원
  *                + 발밑 접지 그림자 세 겹이다. 접지 그림자는 도형 둘레를 흐리게 하는 드롭섀도와
  *                다른 물건이라, 공중에 뜬 게 아니라 지도 위에 서 있는 것으로 읽힌다.
@@ -632,9 +634,9 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
 
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
-     <circle cx="13" cy="13" r="9" fill="#ffe0cb" stroke="#fc7f35" stroke-width="1.5"/>
+     <circle cx="13" cy="13" r="10" fill="#fc7f35" stroke="#fff" stroke-width="2"/>
      <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
-           fill="#fc7f35" text-anchor="middle">t</text>
+           fill="#fff" text-anchor="middle">₩</text>
    </svg>`,
 );
 
