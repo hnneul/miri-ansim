@@ -953,10 +953,15 @@ function RouteCard({
     작고(147x98) 흰 바탕이다 — 크기 자체가 "이쪽을 권한다"는 말이라, 배지 하나로 알리던
     것보다 훨씬 먼저 읽힌다. 글자 크기도 한 벌씩 다르다 (점수 37 대 27, 이름 17.5 대 13).
 
-    고른 표시(picked)는 테두리로만 낸다. 크기까지 바뀌면 누를 때마다 두 카드가 서로 자리를
-    뺏어 목록이 덜컹인다 — 와이어프레임의 크기 차이는 "추천"이 기준이지 "고름"이 아니다.
+    **큰 카드는 "고른 카드"다.** 와이어프레임에서는 추천 = 고름이라 둘이 겹쳐 보이지만, 기준을
+    추천으로 잡으면 두 길 차이가 무의미할 때(score.ts recommendedRoute === "single") 추천이 아예
+    안 붙어서 이 비대칭 배치가 화면에 안 나온다. 고름을 기준으로 하면 늘 한 장은 크다 —
+    처음 들어올 때 추천 길이 이미 골라져 있어(setPicked) 첫 화면은 와이어프레임과 똑같다.
+
+    덤으로 카드를 누르면 크기가 옮겨가서, 지도의 굵은 선이 바뀐 걸 못 본 사람도 뭘 골랐는지 안다.
+    자리가 움직이는 건 transition-all 이 200ms 로 늘여 덜컹거리지 않게 한다.
   */
-  const big = recommended;
+  const big = picked;
   return (
     <button
       onClick={onPick}
@@ -965,7 +970,7 @@ function RouteCard({
         flex 가 필요하다 — <button> 은 안쪽 내용을 세로 가운데로 몰아넣는 기본 동작이 있어서,
         그냥 두면 위에 붙어야 할 제목이 카드 한가운데로 내려와 아래 절대배치 줄과 겹친다.
       */
-      className={`relative flex min-w-0 flex-col items-start rounded-[7px] text-left transition ${
+      className={`relative flex min-w-0 flex-col items-start rounded-[7px] text-left transition-all duration-200 ${
         big ? "h-[132px] flex-[202] px-[14px] pt-[16px]" : "h-[98px] flex-[147] px-[11px] pt-[14px]"
       } ${
         picked
