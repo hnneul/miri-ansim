@@ -14,7 +14,15 @@ declare global {
 
 export type LatLng = [number, number]; // [위도, 경도]
 /** label 을 주면 경로 중간에 말풍선이 붙는다 (카카오맵 "OO로 55분"과 같은 자리). */
-export type MapRoute = { path: LatLng[]; color: string; weight?: number; opacity?: number; label?: string };
+export type MapRoute = {
+  path: LatLng[];
+  color: string;
+  weight?: number;
+  opacity?: number;
+  label?: string;
+  /** 말풍선 색. 선을 회색으로 눕힌 경로도 라벨은 제 색이어야 어느 길인지 읽힌다. */
+  labelColor?: string;
+};
 
 /**
  * 마커 아이콘. src 는 data: URI 를 넣는다 — 인라인 SVG면 파일도 외부 요청도 안 늘어난다.
@@ -105,16 +113,23 @@ export default function RouteMap({
     const midLng = (Math.min(...allLng) + Math.max(...allLng)) / 2;
 
     drawn.current.forEach((o) => o.setMap(null));
+    const 선 = (r: MapRoute, color: string, plus = 0, opacity = r.opacity ?? 0.9) =>
+      new kakao.maps.Polyline({
+        path: r.path.map(pt),
+        strokeWeight: (r.weight ?? 6) + plus,
+        strokeColor: color,
+        strokeOpacity: opacity,
+      });
+
     drawn.current = [
-      ...routes.map(
-        (r) =>
-          new kakao.maps.Polyline({
-            path: r.path.map(pt),
-            strokeWeight: r.weight ?? 6,
-            strokeColor: r.color,
-            strokeOpacity: r.opacity ?? 0.9,
-          }),
-      ),
+      /*
+        흰 테두리를 먼저 깔고 그 위에 색선을 얹는다. 기본 지도가 파스텔이라 — 물·강은 파랑,
+        국립공원·곶자왈은 초록 — 경로색이 배경과 같은 계열이면 선이 지도에 묻힌다
+        (제주 지도에서 파란 경로가 강처럼, 초록 경로가 공원 경계처럼 보였다).
+        내비게이션이 다 하는 처리이고, 어떤 색을 쓰든 통한다.
+      */
+      ...routes.map((r) => 선(r, "#fff", 4, 0.85)),
+      ...routes.map((r) => 선(r, r.color)),
       // 라벨은 경로 중간점에 — 두 경로가 갈라진 뒤라 겹칠 일이 거의 없다.
       // ponytail: 겹치면 그때 갈라지는 지점 계산으로 올린다.
       ...routes
@@ -130,7 +145,7 @@ export default function RouteMap({
             content:
               `<div style="padding:5px 10px;border-radius:10px;` +
               // 선은 흐리게 해도 글자는 안 된다 — 추천/대안 구분은 선 굵기가 이미 하고 있다
-              `background:${r.color};color:#fff;font-size:12px;font-weight:700;white-space:nowrap;` +
+              `background:${r.labelColor ?? r.color};color:#fff;font-size:12px;font-weight:700;white-space:nowrap;` +
               `box-shadow:0 2px 6px rgba(0,0,0,.25)">${r.label}</div>`,
           });
         }),

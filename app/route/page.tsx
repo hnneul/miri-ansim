@@ -39,10 +39,20 @@ import { aiRadio, compareRoutes, type Compared } from "./actions";
  * 읽는 중에는 문장이 한 줄 더 붙어 근거 화면에서 내용이 넘칠 수 있다. 그건 원래 설계대로
  * **내용만** 스크롤되고 버튼은 아래 붙어 있다 (아래 시트의 flex 구성).
  */
-const SHEET_H = { compare: 350, why: 520 };
+const SHEET_H = { compare: 320, why: 520 };
 
 /**
- * 부담 구간을 겹쳐 그릴 색. 경로선(fast 주황 #fb923c · safe 하늘 #38bdf8) 위에 올라가므로
+ * 접었을 때 남는 높이 — 요약 한 줄(44) + 버튼(49) + 여백이다.
+ *
+ * **버튼은 같이 안 내린다.** 지도를 크게 보는 동안에도 떠날 결정은 언제든 할 수 있어야 한다.
+ * 그런데 버튼이 남으면 "무엇을 고른 상태인가"도 같이 남아야 한다 — 안 보이는 걸 확정하는
+ * 버튼이 되기 때문이다. 그 줄이 요약 한 줄이고, 동시에 시트를 되올리는 손잡이를 겸한다
+ * (/parking 은 목록이 통째로 사라져서 되올릴 문을 따로 띄웠지만, 여기는 남을 줄이 이미 있다).
+ */
+const STRIP_H = 130;
+
+/**
+ * 부담 구간을 겹쳐 그릴 색. 경로선(fast 파랑 #4A7DFF · safe 초록 #2FA97C, DESIGN.md --color-fast/--color-safe) 위에 올라가므로
  * 둘 다와 구별돼야 한다.
  *
  * **빨강(#dc2626)을 쓰다 되돌렸다.** DESIGN.md 토큰에 "빨강(#FF0000 계열) 사용 금지"가
@@ -219,9 +229,20 @@ function Route() {
     router.replace(`/route?${next}`);
   }
 
+  /**
+   * 시트를 내려 지도를 크게 보고 있는가 (비교 화면에서만).
+   *
+   * 근거 화면은 안 접는다 — 거기는 표와 대본을 읽는 자리라 접으면 화면에 아무것도 안 남는다.
+   */
+  const [collapsed, setCollapsed] = useState(false);
+  // 근거로 넘어갔다 돌아오면 다시 펴 둔다 — 접힌 채로 돌아오면 방금 본 근거의 카드가 안 보인다
+  useEffect(() => {
+    if (view === "why") setCollapsed(false);
+  }, [view]);
+
   const routes = result && !("error" in result) ? result.routes : [];
   const chosen = routes.find((r) => r.id === picked) ?? routes[0] ?? null;
-  const sheetH = SHEET_H[view];
+  const sheetH = view === "compare" && collapsed ? STRIP_H : SHEET_H[view];
 
   /**
    * 지도에 겹쳐 그릴 위험 구간 — **부담이 가장 큰 요인 하나**의 것.
@@ -260,6 +281,22 @@ function Route() {
         .sort((a, b) => b.차 - a.차)[0]?.f ?? null
     );
   })();
+
+  /**
+   * 선 굵기 — 경로선과 그 위에 겹치는 부담 구간이 **같은 값**을 써야 한다.
+   * 따로 두면 부담이 선보다 굵어져 양옆으로 삐져나오고, "이 구간에서 선이 빨개진다"가 아니라
+   * "선 위에 점이 얹혔다"로 읽힌다 (실제로 그랬다 — 선 4px 에 부담 5px).
+   */
+  const 굵기 = (id: string) => (id === picked ? 7 : 4);
+
+  /**
+   * 안 고른 경로의 선 색. **투명도로 눕히지 않는다** — 같은 50% 라도 초록은 지도 풀색으로
+   * 가라앉는데 파랑(#4A7DFF)은 채도가 높아 연보라로 또렷하게 남았다. 색상마다 결과가 다르니
+   * 색을 바꿀 때마다 투명도를 다시 맞춰야 한다.
+   *
+   * 회색으로 눕히면 색상과 무관하게 물러난다. 어느 길인지는 말풍선(제 색 그대로)과 카드가 말한다.
+   */
+  const 흐린색 = "#A3ADBB";
 
   const 위험구간 =
     result && !("error" in result) && chosen
@@ -391,9 +428,10 @@ function Route() {
             routes={[
               ...(view === "why" ? routes.filter((r) => r.id === picked) : routes).map((r) => ({
                 path: r.path,
-                color: r.color,
-                weight: r.id === picked ? 7 : 5,
-                opacity: r.id === picked ? 0.95 : 0.45,
+                color: r.id === picked ? r.color : 흐린색,
+                labelColor: r.color,
+                weight: 굵기(r.id),
+                opacity: r.id === picked ? 0.95 : 0.9,
                 label: `${r.durationMin}분`,
               })),
               /*
@@ -435,7 +473,7 @@ function Route() {
                     (r.risks.find((k) => k.label === 가른요인)?.spans ?? []).map((path) => ({
                       path,
                       color: 부담색,
-                      weight: r.id === picked ? 7 : 5,
+                      weight: 굵기(r.id),
                       opacity: 0.95,
                     })),
                   )
@@ -472,10 +510,22 @@ function Route() {
         /* 지도와 함께 접힌다 — 칸을 고치는 동안 그 자리는 검색 목록 것이다 */
         className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] ${editing ? "hidden" : ""}`}
       >
-        <div
-          aria-hidden
-          className="mx-auto h-1 w-12 shrink-0 rounded-[2px] bg-[#d6d6d6]"
-        />
+        {/*
+          손잡이. 비교 화면에서만 눌린다 — 실제로 끌리지는 않고, 눌러서 되는 걸로 충분하다
+          (/parking 시트와 같은 판단). 보이는 막대는 4px 지만 누르는 자리는 20px 이다.
+        */}
+        {view === "compare" ? (
+          <button
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? "길 비교 펼치기" : "길 비교 접고 지도 크게 보기"}
+            aria-expanded={!collapsed}
+            className="flex h-5 w-full shrink-0 items-center justify-center"
+          >
+            <span aria-hidden className="h-1 w-12 rounded-[2px] bg-[#d6d6d6]" />
+          </button>
+        ) : (
+          <div aria-hidden className="mx-auto h-1 w-12 shrink-0 rounded-[2px] bg-[#d6d6d6]" />
+        )}
 
         {!dest ? (
           <Notice>도착지가 없습니다. 주차장을 다시 골라주세요.</Notice>
@@ -488,7 +538,35 @@ function Route() {
         ) : (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {view === "why" && chosen ? (
+              {view === "compare" && collapsed && chosen ? (
+                /*
+                  접었을 때 남는 한 줄. 이름·시간·점수 셋만 적는다 — 거리와 배지는 뺐다.
+                  여기는 고르는 자리가 아니라 **이미 고른 걸 확인하는 자리**라서,
+                  아래 버튼이 무엇을 확정하는 버튼인지만 말하면 된다.
+
+                  줄 전체가 펼치는 문이다. 위 손잡이와 같은 일을 하지만 누르는 자리가 훨씬 넓어,
+                  4px 막대를 정확히 노리지 않아도 된다.
+                */
+                <button
+                  onClick={() => setCollapsed(false)}
+                  aria-label="길 비교 펼치기"
+                  className="flex h-[44px] w-full items-center gap-2 px-4 text-left transition active:bg-black/[0.03]"
+                >
+                  <span className="truncate text-[15px] font-bold text-[#1f1f1f]">
+                    {titleOf(
+                      chosen,
+                      result.routes.find((r) => r.id !== chosen.id) ?? null,
+                      result.score.recommendedRoute === chosen.id,
+                    )}
+                  </span>
+                  <span className="shrink-0 text-[13px] text-[#9e9e9e]">
+                    {chosen.durationMin}분 · 추천점수{" "}
+                    {Math.round(
+                      chosen.id === "fast" ? result.score.fastScore : result.score.safeScore,
+                    )}
+                  </span>
+                </button>
+              ) : view === "why" && chosen ? (
                 <Why
                   route={chosen}
                   other={result.routes.find((r) => r.id !== chosen.id) ?? null}
@@ -554,6 +632,7 @@ function Route() {
                       <RouteCard
                         key={r.id}
                         route={r}
+                        title={titleOf(r, result.routes.find((o) => o.id !== r.id) ?? null, result.score.recommendedRoute === r.id)}
                         score={
                           r.id === "fast"
                             ? result.score.fastScore
@@ -817,8 +896,9 @@ function Why({
             추천
           </span>
         )}
+        {/* 근거 화면도 비교 화면과 같은 이름을 쓴다 — 넘어오면서 이름이 바뀌면 같은 길인지 흔들린다 */}
         <span className="min-w-0 truncate text-[16px] font-bold text-[#1f1f1f]">
-          {recommended ? "맞춤 안심 길" : route.name}
+          {titleOf(route, other, recommended)}
         </span>
         {/*
           점수만 주황이다. 비교 화면의 카드에서는 검정인데(거기선 두 값을 나란히 재는 자리라
@@ -931,8 +1011,33 @@ function Why({
   );
 }
 
+/**
+ * 카드에 적는 이름. **도로 이름("516로 경유")이 아니라 그 길의 성격이다** — 초보에게
+ * "남조로"는 아무 정보가 아니고, 두 카드가 답해야 하는 건 "그래서 어느 쪽이 뭔데"다.
+ * 도로 이름은 지도의 말풍선과 근거 화면이 이미 말하고 있다.
+ *
+ * **"빠른 길"은 진짜 빠를 때만 쓴다.** safe 자리는 부담이 가장 낮은 후보가 앉지만(lib/route.ts),
+ * fast 자리는 "나머지 중 가장 빠른 것"이라 safe 보다 빠르다는 보장이 없다 — 실측에서 5.16도로가
+ * 오히려 5분 느렸다(lib/score.ts fastIsQuicker 주석). 그때도 "빠른 길"이라 부르면 화면이
+ * 거짓말을 하게 되므로, 시간이 실제로 짧을 때만 그렇게 부르고 아니면 거리로, 그것도 아니면
+ * 아무 약속도 하지 않는 "다른 길"로 물러난다.
+ */
+function titleOf(route: LiveRoute, other: LiveRoute | null, recommended: boolean): string {
+  const base =
+    route.id === "safe"
+      ? "안심 길"
+      : !other || route.durationMin < other.durationMin
+        ? "빠른 길"
+        : route.distanceKm < other.distanceKm
+          ? "짧은 길"
+          : "다른 길";
+  // 추천 배지가 붙는 쪽만 "맞춤" 을 얹는다 (와이어프레임의 "맞춤 안심 길")
+  return recommended ? `맞춤 ${base}` : base;
+}
+
 function RouteCard({
   route,
+  title,
   score,
   recommended,
   picked,
@@ -940,6 +1045,8 @@ function RouteCard({
   onWhy,
 }: {
   route: LiveRoute;
+  /** 카드에 적을 이름 — 도로 이름이 아니라 성격이다 (아래 titleOf) */
+  title: string;
   score: number;
   recommended: boolean;
   picked: boolean;
@@ -987,7 +1094,7 @@ function RouteCard({
         <span
           className={`min-w-0 truncate font-bold text-[#1f1f1f] ${big ? "text-[17.5px]" : "text-[13px]"}`}
         >
-          {recommended ? "맞춤 안심 길" : route.name}
+          {title}
         </span>
       </span>
 
