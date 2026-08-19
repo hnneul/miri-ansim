@@ -14,13 +14,15 @@ export type DriverProfile = {
   timeOfDay: "day" | "night";
 };
 
-export type RiskType =
-  | "accidentZone"
-  | "sharpCurve"
-  | "narrowRoad"
-  | "steepSlope"
-  | "complexJunction"
-  | "highSpeed";
+/**
+ * 점수에 실리는 위험요인. **여기 있는 것은 전부 실제 경로에서 나온다** (lib/route.ts risksOf).
+ *
+ * 한동안 사고다발지(15) · 급경사(8) · 복잡한 교차로(6)가 여기 함께 적혀 있었다.
+ * 자리만 잡아두고 데이터를 못 채운 값들이라 실제 경로에서는 한 번도 나오지 않았는데,
+ * 점수표·브리핑 문구 네 벌·마이 화면·검증 더미까지 다섯 군데를 따라다녔다.
+ * 폐기 사유는 lib/scenario.ts 머리말에 남겼다 — 되살릴 때 그 판단부터 다시 본다.
+ */
+export type RiskType = "sharpCurve" | "narrowRoad" | "highSpeed";
 
 export type RiskFactor = {
   type: RiskType;
@@ -86,11 +88,8 @@ export type ScoreResult = {
 
 /** 기준 노출(20%)에서의 점수. 실제 노출이 그보다 크면 점수도 커진다. */
 export const BASE_SCORE: Record<RiskType, number> = {
-  accidentZone: 15,
   sharpCurve: 12,
   narrowRoad: 10,
-  steepSlope: 8,
-  complexJunction: 6,
   highSpeed: 5,
 };
 

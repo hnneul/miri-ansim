@@ -46,7 +46,7 @@ export type Compared =
   | { error: string };
 
 /**
- * 도착지 주차장 — 대본 ④칸의 재료.
+ * 도착지 주차장 — 대본 ⑤칸의 재료.
  *
  * 좌표가 정확히 같은 행을 찾는다. 이름으로 찾지 않는 이유는 원본에 이름도 좌표도 똑같은 행이
  * 15쌍 있어서다 (app/parking/detail/page.tsx 와 같은 방식·같은 이유). 이 좌표는 주차장 화면이
@@ -81,7 +81,7 @@ export async function compareRoutes(
   origin: LatLng,
   destination: LatLng,
   profile: DriverProfile,
-  /** 도착지 주차장. 없으면 대본이 ④칸(도착해서 차를 댈 곳)을 쓰지 않는다 */
+  /** 도착지 주차장. 없으면 대본이 ⑤칸(도착해서 차를 댈 곳)을 쓰지 않는다 */
   dest?: { name: string; place: LatLng | null; placeName?: string },
 ): Promise<Compared> {
   // 프로필을 넘긴다 — 후보 셋 중 어느 것이 "안심 길" 자리에 앉을지가 프로필을 탄다 (routesFor 주석)
@@ -111,7 +111,7 @@ export async function compareRoutes(
     live.routes.map((r) => [
       r.id,
       // 목적지 이름은 주차장 이름이 아니라 원래 고른 곳이다 — 대본 ①이 "오늘은 성산일출봉
-      // 가시고" 로 연다. 주차장 이름(dest.name)은 ④칸이 따로 쓴다.
+      // 가시고" 로 연다. 주차장 이름(dest.name)은 ⑤칸이 따로 쓴다.
       radioScript(
         profile,
         score,

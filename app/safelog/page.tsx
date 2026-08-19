@@ -12,7 +12,7 @@
 //
 // **묻지 않는다.** 예전 와이어프레임에는 주행을 마치고 오면 목록 위에 어둠막을 덮고
 // "이번 주행도 기록할까요?"를 묻는 흐름(?done=1)이 있었는데, 지금 디자인에서 빠졌다 —
-// 빈 화면이 "달리기만 하면 자동 등록"이라고 말한다. 등록은 사람이 누르는 일이 아니다.
+// 빈 화면이 "누르면 저절로 담긴다"고 말한다. 등록은 사람이 누르는 일이 아니다.
 // 그래서 여기서 사람이 할 수 있는 건 빼기(✕)와 나만의 길로 담기 둘뿐이다.
 //
 // 메인화면(/home)의 "주행 저장" 칸으로 들어온다.
@@ -30,11 +30,11 @@ import { loadDrives, removeDrive, setMine, type SafeDrive } from "@/lib/safelog"
 /*
  * 기록의 모양(SafeDrive)과 서버 왕래는 lib/safelog.ts 에 있다 — 서버도 같은 검사를 써야 해서다.
  *
- * 거리·시간·경로·"왜 안심 길이었나요?" 네 줄은 **실제 값이다**. score 만 아직 목업인데,
+ * 거리·시간·경로·"왜 안심 길이었나요?" 세 줄은 **실제 값이다**. score 만 아직 목업인데,
  * 진짜 주행이 담기면 길 비교 화면이 매긴 추천점수가 그대로 들어온다 (lib/safelog.ts SafeDrive).
  */
 
-const REASON_LABELS = ["비보호 좌회전 · 유턴", "좁은 교행 구간", "급커브", "사고 잦은 곳"];
+const REASON_LABELS = ["좁은 교행 구간", "급커브", "사고 잦은 곳"];
 
 /**
  * 추천점수 배지 바탕색 — 30 이하 · 60 이하 · 그 위 세 칸이다.
@@ -103,7 +103,7 @@ const SAMPLE: SafeDrive[] = [
     // 애월해안도로 → 협재해수욕장 (카카오 추천 경로 18.7km)
     path: [[33.47812,126.36867],[33.47813,126.3649],[33.4752,126.36525],[33.47353,126.36388],[33.47094,126.36616],[33.46819,126.35993],[33.46701,126.35287],[33.46555,126.34699],[33.46311,126.33995],[33.46247,126.33495],[33.46267,126.33098],[33.46263,126.32882],[33.46202,126.32534],[33.46137,126.32179],[33.46001,126.31435],[33.45844,126.31075],[33.45361,126.30896],[33.44957,126.30857],[33.44767,126.30683],[33.44517,126.3035],[33.44435,126.29955],[33.44347,126.29301],[33.44189,126.28919],[33.44013,126.2835],[33.43771,126.27978],[33.43336,126.27684],[33.42739,126.27736],[33.42388,126.27789],[33.42127,126.278],[33.41673,126.27673],[33.41209,126.27521],[33.40911,126.27363],[33.40452,126.26907],[33.39951,126.2647],[33.39632,126.26053],[33.39373,126.25645],[33.39591,126.2457],[33.3955,126.24259],[33.39312,126.24006],[33.3935,126.23934]],
     parking: "협재해수욕장 공영주차장",
-    reasons: ["확인 안 됨", "20%", "10곳", "확인 안 됨"],
+    reasons: ["20%", "10곳", "확인 안 됨"],
     parkingTags: "입구 넓음 · 지상 · 초보에게 편해요",
   },
   {
@@ -118,7 +118,7 @@ const SAMPLE: SafeDrive[] = [
     // 성산일출봉 → 함덕해수욕장 (카카오 추천 경로 30.9km)
     path: [[33.46221,126.93754],[33.46406,126.93414],[33.46649,126.93018],[33.46857,126.9289],[33.46874,126.92798],[33.46877,126.91973],[33.46547,126.90886],[33.47056,126.90281],[33.47928,126.8982],[33.48924,126.89674],[33.49361,126.89349],[33.49946,126.88623],[33.50512,126.87928],[33.51293,126.86796],[33.51514,126.86512],[33.5183,126.86132],[33.52036,126.85698],[33.52299,126.85233],[33.52536,126.848],[33.52909,126.83943],[33.53908,126.82654],[33.54221,126.81659],[33.54599,126.80441],[33.55038,126.79594],[33.55228,126.78677],[33.54956,126.779],[33.5516,126.76727],[33.55105,126.75231],[33.55117,126.74655],[33.55343,126.7398],[33.55605,126.73078],[33.55212,126.71562],[33.55186,126.70915],[33.55227,126.70364],[33.54812,126.69541],[33.5453,126.68843],[33.54115,126.68099],[33.54005,126.6742],[33.54102,126.66936],[33.54262,126.66924]],
     parking: "함덕해수욕장 주차장",
-    reasons: ["확인 안 됨", "22%", "7곳", "확인 안 됨"],
+    reasons: ["22%", "7곳", "확인 안 됨"],
     parkingTags: "입구 넓음 · 지상 · 초보에게 편해요",
   },
 ];
@@ -411,8 +411,9 @@ function Stat({ value, label }: { value: string; label: string }) {
 /**
  * 담긴 게 없을 때 (2770:2050).
  *
- * 아래 두 줄은 등록 버튼 자리에 들어선 안내다 — 사람이 등록하는 게 아니라 주행이 끝나면
- * 알아서 담긴다는 말이라, 여기서 할 일이 없다는 뜻이기도 하다.
+ * 아래 두 줄은 등록 버튼 자리에 들어선 안내다 — 사람이 등록하는 게 아니라 길 안내로
+ * 넘어갈 때 알아서 담긴다는 말이라, 여기서 할 일이 없다는 뜻이기도 하다.
+ * "달리기만 하면"이라고는 안 한다 — 앱 없이 그냥 달린 길은 담기지 않는다.
  * "나만의 길" 탭이 비었을 때는 담을 것 자체는 있으니 문구가 달라야 한다.
  */
 function Empty({ mineOnly }: { mineOnly: boolean }) {
@@ -442,9 +443,9 @@ function Empty({ mineOnly }: { mineOnly: boolean }) {
           </>
         ) : (
           <>
-            달리기만 하면 자동 등록!
+            홈에서 목적지를 찾아 길 안내를 시작하면
             <br />
-            나만의 특별한 경로를 상세히 알려드려요.
+            여기에 자동으로 담겨요.
           </>
         )}
       </p>
@@ -537,7 +538,7 @@ function RouteCard({
           {!route.mine && (
             <button
               onClick={onDetail}
-              className="h-10 w-[102px] shrink-0 rounded-full border-[1.5px] border-[#cacaca] bg-white text-[14px] leading-[22px] font-bold text-[#aaa] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+              className="h-10 w-[102px] shrink-0 rounded-full border-[1.5px] border-[#cacaca] bg-white text-[14px] leading-[22px] font-bold text-[#aaa] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
             >
               자세히
             </button>
@@ -550,12 +551,18 @@ function RouteCard({
           </button>
         </div>
       ) : (
-        /* Parking Used — 그 주행에서 댄 주차장 */
-        <div className="mt-[10px] flex h-[26px] items-center rounded-[13px] bg-[#f1f1f1] px-[10px]">
-          <span className="truncate text-[10px] leading-none font-medium text-[#6e6e6e]">
-            P&nbsp;&nbsp;{route.parking}
-          </span>
-        </div>
+        /*
+          Parking Used — 그 주행에서 댄 주차장.
+          **주차장을 안 거친 주행은 이 줄이 없다** (관광지로 바로 간 경우). 빈 줄을 두면
+          "P" 만 덩그러니 남아 뭔가 빠진 것처럼 보인다 — 없는 건 자리도 안 만든다.
+        */
+        route.parking && (
+          <div className="mt-[10px] flex h-[26px] items-center rounded-[13px] bg-[#f1f1f1] px-[10px]">
+            <span className="truncate text-[10px] leading-none font-medium text-[#6e6e6e]">
+              P&nbsp;&nbsp;{route.parking}
+            </span>
+          </div>
+        )
       )}
     </div>
   );
@@ -579,10 +586,10 @@ function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
         <div>
           <p className="text-[10px] leading-none text-[#6e6e6e]">{dotted(route.date)} · 완료된 경로</p>
           <p className="mt-[12px] text-[17px] leading-[20px] font-bold text-[#1f1f1f]">{route.title}</p>
-          {/* 추천 경로가 곧 최단시간이면 "빠른 길보다 0분 더"가 된다 — 그때는 그 말을 뺀다 */}
+          {/* 추천 경로가 곧 최단시간이면 "짧은 길보다 0분 더"가 된다 — 그때는 그 말을 뺀다 */}
           <p className="mt-[8px] text-[10px] leading-none text-[#6e6e6e]">
             {route.minutes}분 · {route.km}km
-            {route.slower > 0 && ` · 빠른 길보다 ${route.slower}분 더`}
+            {route.slower > 0 && ` · 짧은 길보다 ${route.slower}분 더`}
           </p>
         </div>
         {/* 와이어프레임은 숫자 밑에 "낮음"을 달았지만 등급 말은 화면 어디에도 안 쓴다 */}
@@ -628,8 +635,8 @@ function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
         왜 안심 길이었나요?
       </h2>
 
-      {/* Burden Reasons — 점수를 깎은 네 가지 */}
-      {/* 위아래 여백이 다르다 (3 / 13). 줄 넷이 28px 씩이라 이렇게 해야 상자가 와이어프레임의 128 이 된다 */}
+      {/* Burden Reasons — 점수를 깎은 것들 */}
+      {/* 위아래 여백이 다르다 (3 / 13). 줄 하나가 28px 이라 셋이면 상자가 100 이 된다 (넷이던 때는 128) */}
       <div className="mt-[22px] mx-[24px] shrink-0 rounded-[16px] border border-[#e5e0db] bg-white px-[15px] pt-[3px] pb-[13px]">
         {REASON_LABELS.map((label, i) => (
           <div
@@ -642,12 +649,20 @@ function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
         ))}
       </div>
 
-      {/* Parking Review — 목록 카드의 P 줄을 펼친 것 */}
-      <div className="mt-[16px] mx-[24px] h-[82px] shrink-0 rounded-[16px] border border-[#e5e0db] bg-white px-[15px] pt-[10px]">
-        <p className="text-[10px] leading-none text-[#6e6e6e]">이용한 주차장</p>
-        <p className="mt-[10px] text-[14px] leading-[17px] font-medium text-[#1f1f1f]">{route.parking}</p>
-        <p className="mt-[7px] text-[10px] leading-none text-[#ff5914]">{route.parkingTags}</p>
-      </div>
+      {/*
+        Parking Review — 목록 카드의 P 줄을 펼친 것.
+        주차장을 안 거친 주행에서는 이 상자째 안 나온다 (카드의 P 줄과 같은 규칙).
+      */}
+      {route.parking && (
+        <div className="mt-[16px] mx-[24px] shrink-0 rounded-[16px] border border-[#e5e0db] bg-white px-[15px] pt-[10px] pb-[12px]">
+          <p className="text-[10px] leading-none text-[#6e6e6e]">이용한 주차장</p>
+          <p className="mt-[10px] text-[14px] leading-[17px] font-medium text-[#1f1f1f]">{route.parking}</p>
+          {/* 한 줄평은 아직 담기지 않는다 — 없으면 그 줄만 빠지고 상자 높이가 줄어든다 */}
+          {route.parkingTags && (
+            <p className="mt-[7px] text-[10px] leading-none text-[#ff5914]">{route.parkingTags}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

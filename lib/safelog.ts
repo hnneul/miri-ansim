@@ -40,8 +40,8 @@ export type SafeDrive = {
   path: LatLng[];
   /** 댄 주차장 (길의 도착지가 곧 주차장이다) */
   parking: string;
-  /** "왜 안심 길이었나요?" 네 줄의 값. 라벨은 화면이 들고 있고 값만 온다 */
-  reasons: [string, string, string, string];
+  /** "왜 안심 길이었나요?" 세 줄의 값. 라벨은 화면이 들고 있고 값만 온다 */
+  reasons: [string, string, string];
   /** 주차장 한 줄평 */
   parkingTags: string;
 };
@@ -101,10 +101,10 @@ export function asDrive(v: unknown): SafeDrive | null {
     : [];
   if (path.length < 2) return null;
 
-  // 네 줄이 아니면 모자란 칸을 "확인 안 됨"으로 채운다 — 라벨은 화면이 넷을 그리고 있어서
-  // 값이 셋만 오면 마지막 줄이 빈칸으로 남는다. 모르는 것은 모른다고 적는 게 이 화면 규칙이다.
+  // 세 줄이 아니면 모자란 칸을 "확인 안 됨"으로 채운다 — 라벨은 화면이 셋을 그리고 있어서
+  // 값이 둘만 오면 마지막 줄이 빈칸으로 남는다. 모르는 것은 모른다고 적는 게 이 화면 규칙이다.
   const raw = Array.isArray(d.reasons) ? d.reasons : [];
-  const reasons = Array.from({ length: 4 }, (_, i) => str(raw[i]) ?? "확인 안 됨") as SafeDrive["reasons"];
+  const reasons = Array.from({ length: 3 }, (_, i) => str(raw[i]) ?? "확인 안 됨") as SafeDrive["reasons"];
 
   return {
     id: d.id,

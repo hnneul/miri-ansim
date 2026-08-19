@@ -35,7 +35,7 @@ const 주행 = (id: number, title: string, extra = {}) =>
     slower: 0,
     path: 경로,
     parking: "협재해수욕장 공영주차장",
-    reasons: ["확인 안 됨", "20%", "10곳", "확인 안 됨"],
+    reasons: ["20%", "10곳", "확인 안 됨"],
     parkingTags: "입구 넓음 · 지상",
     ...extra,
   })!;
@@ -56,7 +56,7 @@ try {
 
   // 모자란 네 줄은 "확인 안 됨"으로 채운다 — 화면이 네 줄을 그리고 있다
   const 모자란 = asDrive({ id: 1, title: "가 → 나", path: 경로, reasons: ["2번"] })!;
-  assert.deepEqual(모자란.reasons, ["2번", "확인 안 됨", "확인 안 됨", "확인 안 됨"]);
+  assert.deepEqual(모자란.reasons, ["2번", "확인 안 됨", "확인 안 됨"]);
   assert.equal(모자란.slower, 0, "안 준 값은 0 이다");
   assert.equal(모자란.mine, false, "mine 은 true 일 때만 true 다");
 

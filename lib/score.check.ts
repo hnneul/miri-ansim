@@ -16,12 +16,25 @@ const dummy = (type: RiskFactor["type"], label: string, exposure = 0.2): RiskFac
   source: "검증용 더미 (실데이터 아님)",
 });
 
+/*
+  더미 노출이 0.3(배수 1.5)인 이유 — **초보 부담이 COMFORT_THRESHOLD(50)를 넘어야** 아래
+  "실시간 역전" 분기가 갈린다. 요인이 셋에서 둘로 줄면서(사고다발·급경사 폐기) 기준 노출
+  0.2 로는 부담이 49.9 가 되어 문턱 바로 아래로 떨어졌고, 그러면 초보도 빠른 길을 추천받아
+  검증하려던 자리가 사라진다. 재려는 건 특정 숫자가 아니라 그 분기라 노출로 자리를 잡는다.
+*/
 const FAST = [
-  dummy("accidentZone", "사고다발구간"),
-  dummy("sharpCurve", "연속 급커브"),
-  dummy("steepSlope", "급경사"),
+  dummy("sharpCurve", "연속 급커브", 0.3),
+  dummy("narrowRoad", "좁은 교행 구간", 0.3),
 ];
-const SAFE = [dummy("complexJunction", "복잡 교차로"), dummy("highSpeed", "고속주행 구간")];
+/*
+  두 줄이어야 한다 — 아래 "근거 카드가 비지 않는다" 검증이 경로마다 요인 2개를 요구한다.
+  좁은 길은 노출을 0.05(배수 하한 0.25)로 눌러 저부담 자리를 지킨다: 요인 수만 채우고
+  부담은 안 올려야 이 경로가 계속 "안심 길" 쪽에 남는다.
+*/
+const SAFE = [
+  dummy("highSpeed", "고속주행 구간"),
+  dummy("narrowRoad", "좁은 교행 구간", 0.05),
+];
 
 const 초보: DriverProfile = {
   experienceYears: 1,
@@ -164,8 +177,8 @@ assert.equal(역전.noPick, null, "추천이 있으면 noPick 은 없다");
 // 머무는 값으로 옮긴다 (부담 72 대 60.5 — 무의미 문턱 5% 는 넘고 추천 문턱 0.8 에는 못 미친다).
 const 애매 = scoreRoutes(
   초보,
-  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.5)], durationMin: 60 },
-  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.42)], durationMin: 77 },
+  { risks: [dummy("sharpCurve", "연속 급커브", 0.5)], durationMin: 60 },
+  { risks: [dummy("sharpCurve", "연속 급커브", 0.42)], durationMin: 77 },
 );
 assert.equal(애매.recommendedRoute, "single", `임계값 미달이면 접는다: ${애매.fastScore}/${애매.safeScore}`);
 assert.equal(애매.noPick, "unclear", "부담 차이가 있는데 접었으면 unclear 다");
@@ -181,7 +194,7 @@ assert.ok(
 
 // 대안이 없는 구간 — 같은 경로가 양쪽에 온다 (app/route/actions.ts). 차이가 0이라 tie 로
 // 떨어지던 자리고, 그래서 카드가 한 장인 화면에 "두 길의 부담이 거의 같습니다"가 떴었다.
-const 한장 = { risks: [dummy("accidentZone", "사고 잦은 곳")], durationMin: 41 };
+const 한장 = { risks: [dummy("sharpCurve", "연속 급커브")], durationMin: 41 };
 const 홀로 = scoreRoutes(초보, 한장, 한장);
 assert.equal(홀로.noPick, "alone", "같은 경로를 두 자리에 받으면 alone 이다");
 // 비교 화면은 아무 말도 안 한다 — 고를 것이 없는 자리다. 말하는 건 근거 화면이고
