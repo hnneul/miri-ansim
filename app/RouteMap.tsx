@@ -273,8 +273,16 @@ export default function RouteMap({
     <div className={`relative h-full w-full overflow-hidden bg-slate-100 ${className}`}>
       <div ref={box} className="h-full w-full" />
       {zoomButtons && sdk === "ready" && (
-        /* 오른쪽 아래 — 위는 현위치 버튼, 왼쪽 아래는 카카오 로고·축척자가 이미 쓰는 자리다 */
-        <div className="absolute right-[30px] bottom-[12px] z-10 flex flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_1px_4px_0_rgba(0,0,0,0.1)]">
+        /*
+          오른쪽 아래 — 위는 현위치 버튼, 왼쪽 아래는 카카오 로고·축척자가 이미 쓰는 자리다.
+
+          **현위치 버튼과 같은 세로줄에 선다.** 둘 다 right-[30px] 이었는데도 어긋나 보였다 —
+          현위치는 44px 그림 안에 흰 원이 36px 로 들어 있어(public/home/btn-locate.svg 의
+          rect x=4 w=36) 눈에 보이는 원이 34px 지점에서 끝난다. 그림의 투명 여백만큼 밀린 것이다.
+          그래서 여기는 34 로 맞추고 폭도 36 으로 같이 맞춘다 — 폭이 다르면 오른쪽 끝을 맞춰도
+          가운데가 어긋나 한 줄로 안 읽힌다.
+        */
+        <div className="absolute right-[34px] bottom-[12px] z-10 flex w-9 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_1px_4px_0_rgba(0,0,0,0.1)]">
           {/*
             레벨은 클수록 넓게 보인다 — ＋ 가 빼는 쪽이다. 1·14 밖은 카카오가 알아서 잘라낸다 (확인: 0→1, 30→14).
 
@@ -287,7 +295,7 @@ export default function RouteMap({
               key={label}
               onClick={() => map.current?.setLevel(map.current.getLevel() + step)}
               aria-label={label}
-              className="size-[32px] text-[16px] leading-none text-[#1f1f1f] transition first:border-b first:border-[#ececec] active:bg-[#fff0e6]"
+              className="h-[32px] w-full text-[16px] leading-none text-[#1f1f1f] transition first:border-b first:border-[#ececec] hover:bg-[#fff0e6] active:bg-[#fff0e6]"
             >
               {step < 0 ? "＋" : "－"}
             </button>
