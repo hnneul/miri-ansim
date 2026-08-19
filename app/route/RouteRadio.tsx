@@ -263,21 +263,41 @@ export default function RouteRadio({
         // 목록을 아직 못 받았으면(있나 === null) 눌러도 헛돈다 — 그동안만 잠근다
         disabled={있나 === null}
         aria-label={읽는칸 !== null || 받는중 ? "안내 멈추기" : "출발 전 안내 듣기"}
-        className="flex w-full items-center gap-[10px] py-1 text-left transition active:scale-[0.99] disabled:opacity-40"
+        /*
+          글씨가 왼쪽, 확성기가 **오른쪽 끝**이다 (와이어프레임 3961:721 + 3926:684 — 확성기가
+          390 을 살짝 넘어간다). 판정 카드 오른쪽에 붙는 좁은 칸이라 아이콘을 왼쪽에 두면
+          글씨가 밀려 잘린다. -mr 로 오른쪽 여백을 먹어 확성기를 화면 가장자리까지 붙인다.
+        */
+        className="-mr-2 flex w-full items-center justify-end gap-[4px] py-1 text-right transition active:scale-[0.99] disabled:opacity-40"
       >
-        {/* 재생 중에는 ■, 그 밖에는 확성기 그대로 — 아이콘 자리가 곧 멈춤 버튼이다 */}
-        <span
-          aria-hidden
-          className={`w-[20px] shrink-0 text-center text-[20px] leading-none ${받는중 ? "animate-pulse" : ""}`}
-        >
-          {읽는칸 !== null || 받는중 ? "■" : "📢"}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[12px] leading-[18px] text-[#949494]">
+        {/*
+          칸이 좁아서 읽는 문장을 그대로 못 얹는다 (여기는 판정 카드 옆 100px 남짓이다).
+          문장 대신 **몇 번째 칸인지**만 남긴다 — 눌렀는데 조용한 게 아니라는 신호가 목적이고
+          그건 진행 숫자로 이룬다. 문장 전체는 `?대본=1` 과 아래 aria-live 몫이다.
+        */}
+        <span className="min-w-0 truncate text-[12px] leading-[18px] text-[#949494]">
           {읽는칸 !== null
-            ? `${읽는칸 + 1}/${script.length} · ${글(script[읽는칸])}`
+            ? `${읽는칸 + 1}/${script.length} 읽는 중`
             : 받는중
               ? "목소리 받는 중…"
               : "경로 설명듣기"}
+        </span>
+        {/*
+          재생 중에는 ■, 그 밖에는 확성기 — 아이콘 자리가 곧 멈춤 버튼이다.
+          확성기는 와이어프레임 3926:684 에서 받은 그림이다 (시스템 이모지 📢 는 기기마다
+          다른 데다 안드로이드에서는 회색이라, 이 화면에서 유일하게 색이 있는 그림이
+          주황 표·주황 버튼과 안 어울렸다). 자리를 둘이 나눠 쓰므로 상자 크기를 고정한다 —
+          안 그러면 누를 때마다 줄 높이가 튄다.
+        */}
+        <span
+          aria-hidden
+          className={`grid size-[36px] shrink-0 place-items-center ${받는중 ? "animate-pulse" : ""}`}
+        >
+          {읽는칸 !== null || 받는중 ? (
+            <span className="text-[20px] leading-none">■</span>
+          ) : (
+            <img src="/route/megaphone.png" alt="" className="size-[36px]" />
+          )}
         </span>
       </button>
 
