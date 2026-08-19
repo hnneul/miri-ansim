@@ -38,9 +38,52 @@ export type MapRoute = {
  * anchor 를 안 주면 이미지 가운데를 좌표에 맞춘다 (핀 모양이면 뾰족한 끝을 직접 지정할 것).
  */
 export type MarkerIcon = { src: string; size: [number, number]; anchor?: [number, number] };
+
+/**
+ * 물방울 핀 하나. 이 앱의 지도 핀은 전부 이걸 쓴다 (길 비교의 출발·도착, 여행 코스의 자리들).
+ *
+ * **흰 테를 두른다** — 핀 색이 경로선·바다와 같은 계열이면 테 없이는 그 위에서 녹아 사라진다.
+ * label 을 주면 핀 **밑에 글자**를 같이 굽는다. 색만으로는 못 가른다: 주황이 출발이라는 걸
+ * 외우고 있는 사람은 없다. 흰 획을 먼저 깔아(paint-order) 바다·들·도로 어디에 떨어져도 읽힌다.
+ *
+ * 파일 대신 data: URI 라 요청도 파일도 안 늘어난다.
+ */
+export const labeledPin = (color: string, label?: string): MarkerIcon => {
+  // 한글 한 자가 12px 남짓. 핀 자체(28)보다는 넓어야 글자가 안 잘린다
+  const w = Math.max(28, (label?.length ?? 0) * 12 + 10);
+  const h = label ? 54 : 37;
+  return {
+    src:
+      "data:image/svg+xml;utf8," +
+      encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">` +
+          // 핀은 폭 28 로 그려두고 가운데로 민다 — 글자 길이에 따라 폭이 달라져서다
+          `<g transform="translate(${w / 2 - 14} 0)">` +
+          `<path d="M14 35C14 35 26 22.4 26 13.6 26 6.6 20.6 1 14 1S2 6.6 2 13.6C2 22.4 14 35 14 35Z" ` +
+          `fill="${color}" stroke="white" stroke-width="2"/>` +
+          `<circle cx="14" cy="13.5" r="4.5" fill="white"/></g>` +
+          (label
+            ? `<text x="${w / 2}" y="50" text-anchor="middle" font-family="sans-serif" font-size="12" ` +
+              `font-weight="700" fill="${color}" stroke="#fff" stroke-width="3" paint-order="stroke">${label}</text>`
+            : "") +
+          `</svg>`,
+      ),
+    size: [w, h],
+    // 좌표를 가리키는 건 그림 가운데가 아니라 **핀 끝**이다 — 안 맞추면 실제보다 위에 찍힌다
+    anchor: [w / 2, 35],
+  };
+};
 export type MapMarker = {
   coord: LatLng;
   label: string;
+  /**
+   * 핀 밑에 **늘 보이는 이름표**. 주면 그린다 — 안 주면 예전처럼 마우스를 얹어야 뜨는
+   * 브라우저 기본 툴팁(title)뿐이다. 손가락에는 호버가 없어서 그것만으로는 아무도 못 읽는다.
+   *
+   * 지도 위 글씨라 흰 테두리(text-shadow)를 두른다. 카카오 기본 지도가 밝은 파스텔이라
+   * 회색 글씨를 그냥 얹으면 도로 이름·지형과 섞여 안 읽힌다.
+   */
+  caption?: string;
   icon?: MarkerIcon;
   risk?: RiskFactor;
   /**
@@ -264,6 +307,28 @@ export default function RouteMap({
         }
         return marker;
       }),
+      // 이름표. 마커와 따로 만든다 — 카카오 Marker 에는 늘 보이는 글자 자리가 없다
+      ...markers
+        .filter((m) => m.caption)
+        .map((m) => {
+          /*
+            좌표에서 그림 **아래끝까지** 남은 길이. 이만큼 내려야 이름표가 그림에 안 겹친다.
+            핀은 앵커가 뾰족한 끝이라 0 이지만, 가운데를 좌표에 맞추는 점(경유지)은 반지름만큼 남는다.
+          */
+          const 아래 = m.icon ? m.icon.size[1] - (m.icon.anchor?.[1] ?? m.icon.size[1] / 2) : 0;
+          return new kakao.maps.CustomOverlay({
+            position: pt(m.coord),
+            zIndex: 4,
+            // 핀 아래에 붙인다 — 위에 두면 핀 끝(좌표)을 가린다. yAnchor 0 이 "글자 윗변이 이 자리"다
+            yAnchor: 0,
+            xAnchor: 0.5,
+            content:
+              `<div style="margin-top:${아래 + 4}px;font-size:10px;line-height:14px;color:#3f4b54;font-weight:500;` +
+              // 긴 이름은 …로 자른다 ("카멜리아힐 용소폭포 · 35분"이 지도 절반을 먹는다)
+              `max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;` +
+              `text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff">${m.caption}</div>`,
+          });
+        }),
     ];
     drawn.current.forEach((o) => o.setMap(map.current));
 

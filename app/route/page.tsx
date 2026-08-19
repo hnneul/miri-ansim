@@ -13,10 +13,10 @@
 // 카카오맵은 **근거 화면의 버튼**이 연다. 턴바이턴 안내를 우리가 만들 이유가 없어서다.
 // 출발지·경유지·도착지를 함께 넘기므로 **여기서 고른 길로 안내된다** (lib/parking.ts navigateTo).
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import RouteMap, { type LatLng } from "../RouteMap";
+import RouteMap, { labeledPin, type LatLng } from "../RouteMap";
 import { parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
 import { isoToday } from "@/lib/record";
@@ -84,42 +84,12 @@ const STRIP_H = 170;
 const 부담색 = "#D9663F";
 
 /**
- * 출발·도착 핀.
- *
- * 색은 위 route-editor 의 점과 **같은 색**이다 (출발 #fc7f35 / 도착 #1f1f1f) — 카드에서 본
- * 색이 지도에 그대로 나와야 두 점이 위 두 칸이라는 게 이어진다.
- *
- * 색만으로는 못 가른다. 주황이 출발이라는 걸 외우고 있는 사람은 없고, 이 화면은 처음 온
- * 사람이 보는 화면이다. 그래서 **핀 밑에 글자를 같이 적는다** — 흰 획을 먼저 깔아
- * (paint-order) 바다·들·도로 어디에 떨어져도 읽힌다 (safelog 핀과 같은 수법).
- *
- * 파일 대신 data: URI 라 요청도 파일도 안 늘어난다 (nearby 핀과 같은 판단).
+ * 출발·도착 핀. 색은 위 route-editor 의 점과 **같은 색**이다 (출발 #fc7f35 / 도착 #1f1f1f) —
+ * 카드에서 본 색이 지도에 그대로 나와야 두 점이 위 두 칸이라는 게 이어진다.
+ * 모양·글자는 RouteMap 의 labeledPin 이 굽는다 (여행 코스 지도와 같은 핀).
  */
-const 끝점핀 = (color: string, label: string) => {
-  // 한글 한 자가 12px 남짓. 핀 자체(28)보다는 넓어야 글자가 안 잘린다
-  const w = Math.max(28, label.length * 12 + 10);
-  return {
-    src:
-      "data:image/svg+xml;utf8," +
-      encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="54">` +
-          // 핀은 폭 28 로 그려두고 가운데로 민다 — 글자 길이에 따라 폭이 달라져서다
-          `<g transform="translate(${w / 2 - 14} 0)">` +
-          `<path d="M14 35C14 35 26 22.4 26 13.6 26 6.6 20.6 1 14 1S2 6.6 2 13.6C2 22.4 14 35 14 35Z" ` +
-          `fill="${color}" stroke="white" stroke-width="2"/>` +
-          `<circle cx="14" cy="13.5" r="4.5" fill="white"/></g>` +
-          `<text x="${w / 2}" y="50" text-anchor="middle" font-family="sans-serif" font-size="12" ` +
-          `font-weight="700" fill="${color}" stroke="#fff" stroke-width="3" paint-order="stroke">${label}</text>` +
-          `</svg>`,
-      ),
-    size: [w, 54] as [number, number],
-    // 좌표를 가리키는 건 그림 가운데가 아니라 **핀 끝**이다 — 안 맞추면 실제보다 위에 찍힌다
-    anchor: [w / 2, 35] as [number, number],
-  };
-};
-
-const 출발핀 = 끝점핀("#fc7f35", "출발");
-const 도착핀 = 끝점핀("#1f1f1f", "도착");
+const 출발핀 = labeledPin("#fc7f35", "출발");
+const 도착핀 = labeledPin("#1f1f1f", "도착");
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function RoutePage() {
@@ -210,7 +180,7 @@ function Route() {
       dest,
       profile,
       /*
-       * 대본 ④칸(도착해서 차를 댈 곳)의 재료다. dest 는 **주차장** 좌표고, destLat/destLng 는
+       * 대본 ⑤칸(도착해서 차를 댈 곳)의 재료다. dest 는 **주차장** 좌표고, destLat/destLng 는
        * 원래 고른 **목적지** 좌표라 둘 사이가 걸어갈 거리다 — /destination → /parking 을 거쳐
        * 오면서 쿼리에 그대로 실려 있다 (routeQuery 가 URLSearchParams 를 통째로 복사한다).
        *
@@ -266,7 +236,7 @@ function Route() {
    * 다시 계산된다. replace 라 히스토리는 안 늘어난다: 고친 건 이 화면이지 다음 화면이 아니다.
    *
    * 도착지를 고치면 **주차장을 거쳐 온 흐름이 아니게 된다.** 그래서 원래 목적지(dest·destLat·destLng)를
-   * 지운다 — 안 지우면 대본 ④칸이 "새 도착지에서 옛 관광지까지" 걸어가는 시간을 말하고,
+   * 지운다 — 안 지우면 대본 ⑤칸이 "새 도착지에서 옛 관광지까지" 걸어가는 시간을 말하고,
    * ①칸은 "오늘은 (옛 목적지) 가시고" 로 엉뚱한 곳을 부른다.
    */
   function pick(place: Place) {
@@ -308,6 +278,24 @@ function Route() {
   const routes = result && !("error" in result) ? result.routes : [];
   const chosen = routes.find((r) => r.id === picked) ?? routes[0] ?? null;
   const sheetH = collapsed ? STRIP_H : SHEET_H[view];
+
+  /*
+   * 지도가 아래로 비워 둘 높이 — **상한이 아니라 시트가 실제로 차지한 높이**다.
+   *
+   * sheetH 를 그대로 넘겼더니 지도가 손해를 봤다. 그 값은 상한이고(시트의 maxHeight) 시트는
+   * 내용만큼만 차지하므로, 근거 화면에서 상한 545 대 실제 515 로 30px 이 빈다. 그만큼 지도가
+   * 좁은 영역에 경로를 우겨넣어 축척이 한 단계 물러나 있었다 — 재보니 148 자리에 그리고
+   * 있었고 실제로 보이는 건 178 이었다.
+   *
+   * **화면이 바뀔 때만 잰다.** 전에 ResizeObserver 로 계속 쟀다가 값이 흔들릴 때마다 지도가
+   * 축척을 다시 맞춰 출렁였다. 시트 높이는 화면(view)과 접힘 말고는 안 변하고, 그 둘이
+   * 바뀔 때는 어차피 지도가 다시 그려진다. 페인트 전에 재야 한 프레임 깜빡이지 않는다.
+   */
+  const 시트 = useRef<HTMLDivElement>(null);
+  const [지도여백, set지도여백] = useState(sheetH);
+  useLayoutEffect(() => {
+    set지도여백(시트.current?.offsetHeight ?? sheetH);
+  }, [view, collapsed, result, sheetH]);
 
 
   /**
@@ -470,9 +458,21 @@ function Route() {
        * 카드에 제목과 같은 말이 "P" 줄에 한 번 더 적힌다. 비워두면 화면이 그 줄을 아예 안 그린다.
        */
       parking: query.dest && to !== query.dest ? to : "",
+      /*
+        세 줄이고 라벨은 화면이 들고 있다 (app/safelog/page.tsx REASON_LABELS) — 여기는 값만 준다.
+        순서가 곧 라벨이라 칸을 넣고 빼면 양쪽을 같이 고쳐야 한다.
+
+        맨 앞에 좌회전 줄이 있었다. 처음엔 "그 중 몇 번이 비보호인가"였는데, 세는 쪽
+        (lib/analyze.ts guideKind)이 안내문에 "좌회전"이 있어야만 세서 카카오가 비스듬한
+        교차로를 부르는 "왼쪽 10시 방향"을 놓쳤다 — 굳혀둔 경로에서만 15건이다. 그 지점은
+        turnPoints 에 안 실려 "모르면 null" 방어를 못 타고 조용히 0 이 됐고, 실제로 비보호인
+        길에 "없음"이 찍힐 수 있었다. 판독표(data/unprotected-left.json)와 조회 코드
+        (lib/unprotected.ts)는 남겨 뒀다 — 안내문 종류를 다 덮으면 되살릴 값이다.
+
+        비보호를 뺀 자리에 좌회전 횟수만 남겼다가 그 줄도 뺐다. 조작 횟수는 언제나 값이
+        있지만, 이 상자가 답하는 건 "왜 안심 길이었나"라 부담의 근거가 아닌 값은 자리만 먹는다.
+      */
       reasons: [
-        // 0 과 null 을 가른다 — null 은 판독표에 없는 좌회전을 지났다는 뜻이다 (lib/route.ts RouteStats)
-        picked.stats.unprotected == null ? "확인 안 됨" : `${picked.stats.unprotected}번`,
         `${Math.round(picked.stats.narrow * 100)}%`,
         `${picked.stats.sharpCurveKm}km`,
         "확인 안 됨", // 사고 잦은 곳 — 공개 데이터가 경로를 구분 못 해 이 앱이 안 쓴다 (lib/scenario.ts)
@@ -682,13 +682,7 @@ function Route() {
               ...(origin ? [{ coord: origin, label: "출발", icon: 출발핀 }] : []),
               ...(dest ? [{ coord: dest, label: "도착", icon: 도착핀 }] : []),
             ]}
-            /*
-              시트가 실제로 차지한 높이가 아니라 **상한**을 넘긴다. 재서 넘겨 봤는데, 그 값이
-              바뀔 때마다 지도가 축척을 다시 맞춰서 화면이 출렁였다 — 시트가 264 인데 320 을
-              비워 두는 건 마커가 좀 더 위에 몰릴 뿐이고, 이 값이 하는 일(마커가 시트에 안 걸리기)은
-              넉넉한 쪽으로 틀려야 이룬다.
-            */
-            padBottom={sheetH}
+            padBottom={지도여백}
             /* 지도 빈 곳을 눌렀다 = 지도를 보겠다는 뜻이다 — 손잡이를 다시 찾게 하지 않는다 */
             onBlank={() => setCollapsed(true)}
           />
@@ -702,12 +696,15 @@ function Route() {
         지도에 넘기는 padBottom 도 같은 값을 써야 마커가 시트에 안 걸린다.
       */}
       {/*
-        근거 화면 시트만 아래로 갈수록 옅은 파랑이다 (와이어프레임 2153:1992 배경).
-        그 위에 얹히는 흰 카드(tradeoff-card)가 테두리 없이 떠 보이게 하는 장치다 —
-        시트가 통째로 흰색이면 카드도 같이 사라진다. 비교 화면은 카드 두 장이 이미
-        테두리를 갖고 있어서 흰 바탕 그대로 둔다.
+        시트는 두 화면 다 **흰 바탕**이다.
+
+        근거 화면만 아래로 갈수록 옅은 파랑을 깔았었다 (와이어프레임 2153:1992). 그 위에
+        얹히는 흰 카드(tradeoff-card)가 테두리 없이 떠 보이게 하려던 장치인데, 그 카드를
+        없애면서(판정·시간·듣기를 상자 없이 세로로 쌓았다) 띄울 것이 사라졌다. 남은 건
+        표 아래가 까닭 없이 푸르스름한 것뿐이라 걷어낸다.
       */}
       <div
+        ref={시트}
         style={{
           /*
             **높이가 아니라 상한이다.** 고정 높이였을 때, 판정 문장이 없는 화면(길이 두 갈래라
@@ -716,9 +713,6 @@ function Route() {
             버튼이 카드 바로 밑에 붙는다 — 긴 화면(근거 표)은 예전처럼 여기서 걸려 스크롤된다.
           */
           maxHeight: sheetH,
-          ...(view === "why" && {
-            backgroundImage: "linear-gradient(180deg, #ffffff 55%, #d2eafe 100%)",
-          }),
         }}
         /* 지도와 함께 접힌다 — 칸을 고치는 동안 그 자리는 검색 목록 것이다 */
         className={`absolute inset-x-0 bottom-0 z-20 flex flex-col rounded-t-[20px] bg-white pt-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.14)] ${editing ? "hidden" : ""}`}
@@ -1111,12 +1105,13 @@ function Notice({ children, tone }: { children: string; tone?: "error" }) {
  * **"사고 잦은 곳"은 아직 뺐다** — 채울 데이터가 없다 (도로교통공단 사고다발지역을 따로 받아야
  * 한다). 모르는 걸 0이나 "없음"으로 적으면 확인한 사실처럼 읽힌다.
  *
- * **"비보호 좌회전"은 되살렸다.** 한동안 신호 데이터가 없어 못 채우고 "좌회전·유턴" 횟수만
- * 적었는데, 제주는 신호현시를 주는 출처가 없어서(제주 C-ITS API가 2026-04-01 종료) 로드뷰로
- * 직접 판독해 표를 만들었다 (lib/unprotected.ts). 좌회전 **횟수**는 뺐다 — 초보에게 무서운 건
- * 좌회전 자체가 아니라 아무도 안 지켜주는 좌회전이라, 둘을 같이 적으면 요지가 흐려진다.
+ * **좌회전이 비보호인지도 뺐다.** 로드뷰 판독표(lib/unprotected.ts · data/unprotected-left.json)를
+ * 만들어 한동안 이 표에 적었는데, 세는 쪽이 놓치는 안내문이 있어 내렸다 — 카카오가 비스듬한
+ * 교차로를 "왼쪽 10시 방향"이라 부르면 lib/analyze.ts guideKind 가 좌회전으로 안 세고,
+ * 그러면 그 지점은 "모르면 null" 방어를 못 타고 조용히 0 이 된다. 안 본 길에 "없음"이 찍힌다.
  *
- * 판독표에 없는 좌회전을 지나면 "확인 안 됨"이 된다. **0(봤더니 없다)과 구분해서 적는다.**
+ * 표와 조회 코드는 남겨 뒀다. 안내문 종류를 다 덮으면 되살릴 값이지 틀린 값이 아니다
+ * (reasons 자리 주석에 자세히).
  */
 function Why({
   route,
@@ -1152,9 +1147,6 @@ function Why({
   */
   const 한줄 = tradeoff(pick, route, other, other ? 기본이름(other) : "");
   const rows: { label: string; mine: string; theirs: string }[] = [
-    row("비보호 좌회전", (s) =>
-      s.unprotected === null ? "확인 안 됨" : s.unprotected ? `${s.unprotected}번` : "없음",
-    ),
     row("회전교차로", (s) => (s.roundabouts ? `${s.roundabouts}곳` : "없음")),
     row("연속 급커브", (s) => (s.sharpCurveKm ? `${s.sharpCurveKm}km` : "없음")),
     row("좁은 교행 구간", (s) =>
@@ -1166,8 +1158,8 @@ function Why({
     /*
       보이는 값이 죄다 "확인 안 됨"인 줄은 뺀다.
 
-      비보호 좌회전은 판독한 구간에만 값이 있어서(lib/unprotected.ts), 아직 안 본 구간에서는
-      양쪽 다 빈 값이 된다 — 그 줄은 표의 맨 위를 차지하고서 아무것도 안 알려준다.
+      값이 없으면 그 줄은 표에서 사라진다. "없음"과는 다르다: 없음은 확인해서 없다는 사실이고,
+      확인 안 됨은 사실이 아니라 공백이다. 한쪽이라도 값이 있으면 남긴다.
       "없음"과는 다르다: 없음은 확인해서 없다는 사실이고, 확인 안 됨은 사실이 아니라 공백이다.
       한쪽이라도 값이 있으면 남긴다. 그때는 "확인 안 됨 → 3번"이 비교로 읽힌다.
     */
