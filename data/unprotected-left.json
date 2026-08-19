@@ -44895,14 +44895,14 @@
   "confidence": null
  },
  "33.49996,126.53094,244": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-03",
   "label": "시청용두암-DISTANCE",
   "guidance": null,
   "kind": "left",
   "bearing": 244,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.83
  },
  "33.49972,126.53109,335": {
   "verdict": "판단불가",
@@ -44915,14 +44915,14 @@
   "confidence": null
  },
  "33.53955,126.67004,7": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-11",
   "label": "함덕-DISTANCE",
   "guidance": null,
   "kind": "left",
   "bearing": 7,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.95
  },
  "33.31790,126.59846,102": {
   "verdict": "판단불가",
@@ -44935,14 +44935,14 @@
   "confidence": null
  },
  "33.25840,126.62351,89": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-22",
   "label": "쇠소깍-DISTANCE",
   "guidance": null,
   "kind": "left",
   "bearing": 89,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.95
  },
  "33.25839,126.62421,184": {
   "verdict": "무신호",
@@ -44965,14 +44965,14 @@
   "confidence": null
  },
  "33.54216,126.66464,32": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-12",
   "label": "함덕-RECOMMEND",
   "guidance": null,
   "kind": "left",
   "bearing": 32,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.92
  },
  "33.25030,126.41063,147": {
   "verdict": "무신호",
@@ -44985,34 +44985,34 @@
   "confidence": null
  },
  "33.30143,126.61396,157": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-17",
   "label": "쇠소깍-DISTANCE",
   "guidance": null,
   "kind": "left",
   "bearing": 157,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.97
  },
  "33.28493,126.61988,116": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-17",
   "label": "쇠소깍-DISTANCE",
   "guidance": null,
   "kind": "left",
   "bearing": 116,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.94
  },
  "33.39692,126.24402,214": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-20",
   "label": "협재-RECOMMEND",
   "guidance": null,
   "kind": "left",
   "bearing": 214,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.95
  },
  "33.23243,126.30875,40": {
   "verdict": "무신호",
@@ -45045,13 +45045,13 @@
   "confidence": null
  },
  "33.36217,126.36423,214": {
-  "verdict": "판단불가",
+  "verdict": "무신호",
   "shotAt": "2026-03-04",
   "label": "새별오름-DISTANCE",
   "guidance": null,
   "kind": "left",
   "bearing": 214,
-  "basis": "사람판독",
-  "confidence": null
+  "basis": "AI판독-추가사진",
+  "confidence": 0.92
  }
 }

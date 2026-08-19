@@ -32,9 +32,11 @@ NODES = "https://rv.map.kakao.com/roadview-search/v2/nodes"
 TILE = "http://map.daumcdn.net/map_roadview{}_cube/{}_1200.jpg"
 ORDER = ["front", "right", "back", "left"]  # 시계방향 90° 간격. front 면의 방위가 응답의 angle 이다.
 
-PANOS = 3      # 지점당 볼 파노라마 수. 한 자리에서 표지가 안 보여도 다른 자리에서 보인다 —
-               # 1개만 쓰던 때 15곳 중 4곳이 "교차로가 프레임 밖"으로 판독 불가였다.
-RADIUS = 70    # m. 파노라마는 교차로 한복판이 아니라 진입 도로 위에 있어서 여유가 필요하다.
+# 지점당 볼 파노라마 수. 한 자리에서 표지가 안 보여도 다른 자리에서 보인다 —
+# 1개만 쓰던 때 15곳 중 4곳이 "교차로가 프레임 밖"으로 판독 불가였다.
+# 판단불가로 남은 지점만 다시 볼 때는 환경변수로 늘린다 (PANOS=6 RADIUS=120).
+PANOS = int(os.environ.get("PANOS", 3))
+RADIUS = int(os.environ.get("RADIUS", 70))  # m. 파노라마는 교차로 한복판이 아니라 진입 도로 위에 있다.
 SLEEP = 0.3    # 호출 간격 (초) — 순차 경로용
 WORKERS = 8    # 동시 실행 수. 지점당 HTTP 13회라 순차로는 몇 시간이다.
 
