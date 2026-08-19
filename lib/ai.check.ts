@@ -32,9 +32,9 @@ const risk = (type: RiskFactor["type"], label: string, exposure: number): RiskFa
 // 좌회전 12번 → 3번이 "굽은 길이 많다"보다 훨씬 구체적인 이유다 (lib/ai.ts RouteFacts.비교).
 const 경로 = [
   { name: "5.16도로 경유", badge: "내비 최단거리", durationMin: 63, distanceKm: 43, risks: [risk("sharpCurve", "연속 급커브", 0.29)],
-    stats: { turns: 12, unprotected: 2, roundabouts: 2, sharpCurves: 17, narrow: 0.31, highSpeedKm: 0 } },
+    stats: { turns: 12, unprotected: 2, roundabouts: 2, sharpCurveKm: 2.5, narrow: 0.31, highSpeedKm: 0 } },
   { name: "평화로 경유", badge: "맞춤 저부담", durationMin: 58, distanceKm: 52.8, risks: [risk("highSpeed", "고속주행 구간", 0.48)],
-    stats: { turns: 3, unprotected: 0, roundabouts: 0, sharpCurves: 0, narrow: 0.03, highSpeedKm: 25.4 } },
+    stats: { turns: 3, unprotected: 0, roundabouts: 0, sharpCurveKm: 0, narrow: 0.03, highSpeedKm: 25.4 } },
 ];
 const result = scoreRoutes(초보, 경로[0], 경로[1]);
 /**

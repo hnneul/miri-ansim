@@ -34,7 +34,7 @@ export type SafeDrive = {
   score: number;
   minutes: number;
   km: number;
-  /** 빠른 길보다 몇 분 더 걸렸나. 0 이면 화면이 그 말을 뺀다 */
+  /** 짧은 길보다 몇 분 더 걸렸나 (화면이 부르는 이름 — app/route/page.tsx 기본이름). 0 이면 화면이 그 말을 뺀다 */
   slower: number;
   /** 그 주행에서 실제로 달린 길. 상세 화면 지도가 이걸 그린다 */
   path: LatLng[];

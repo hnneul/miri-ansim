@@ -225,7 +225,7 @@ function 비교표(s: RouteStats): NonNullable<RouteFacts["비교"]> {
   return {
     좌회전유턴: s.turns ? `${s.turns}번` : "없음",
     회전교차로: s.roundabouts ? `${s.roundabouts}곳` : "없음",
-    연속급커브: s.sharpCurves ? `${s.sharpCurves}곳` : "없음",
+    연속급커브: s.sharpCurveKm ? `${s.sharpCurveKm}km` : "없음",
     좁은교행: s.narrow ? `${Math.round(s.narrow * 100)}%` : "없음",
     고속주행: s.highSpeedKm ? `${s.highSpeedKm}km` : "없음",
   };

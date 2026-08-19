@@ -188,6 +188,11 @@ function 위치(byRoad: Record<string, number>): string {
 /**
  * 분석 → 근거 카드용 위험요인 목록. 값이 0인 요인은 넣지 않는다 —
  * "0km 구간이 있습니다"는 근거가 아니고, 계획서 원칙(확인된 것만)에도 어긋난다.
+ *
+ * **spans 를 같이 옮긴다.** analyze 가 구간 좌표를 다 계산해 두는데(spansOf) 여기서 안 실으면
+ * 화면까지 도달을 못 한다 — 지도에 경로선 위로 겹칠 빨간 구간도, 그 구간이 무엇인지 대는
+ * 잔글씨 줄도, 근거 화면 표의 빨간 점도 전부 `spans?.length` 를 보고 그릴지 정하므로
+ * 통째로 안 그려진다 (app/route/page.tsx 가른요인·위험구간).
  */
 export function risksOf(a: Analysis): RiskFactor[] {
   const out: RiskFactor[] = [];
@@ -204,6 +209,7 @@ export function risksOf(a: Analysis): RiskFactor[] {
       value: `급커브 ${a.sharpCurve.sections}곳 (최소 반경 ${a.sharpCurve.minRadiusM}m) · 굽은 구간 ${a.sharpCurve.windingKm}km`,
       exposure: a.sharpCurve.exposure,
       source: 곡률출처,
+      spans: a.sharpCurve.spans,
     });
   }
 
@@ -216,6 +222,7 @@ export function risksOf(a: Analysis): RiskFactor[] {
       value: `차로수 1 구간 ${a.narrow.km}km`,
       exposure: a.narrow.exposure,
       source: 노드링크출처,
+      spans: a.narrow.spans,
     });
   }
 
@@ -228,6 +235,7 @@ export function risksOf(a: Analysis): RiskFactor[] {
       value: `제한속도 80km/h 구간 ${a.highSpeed.km}km`,
       exposure: a.highSpeed.exposure,
       source: 노드링크출처,
+      spans: a.highSpeed.spans,
     });
   }
 
@@ -253,8 +261,18 @@ export type RouteStats = {
   unprotected: number | null;
   /** 회전교차로 (곳) */
   roundabouts: number;
-  /** 연속 급커브 (곳) */
-  sharpCurves: number;
+  /**
+   * 굽은 구간 연장 (km). **개수가 아니라 길이다.**
+   *
+   * 곳 수(sharpCurve.sections)를 적었었는데, 그 숫자는 이 앱이 부담을 매길 때 안 쓰는 값이다 —
+   * 점수는 연장 비율(lib/score.ts exposureFactor)로 매기고, 지도에 칠하는 것도 굽은 구간
+   * 자체다(lib/analyze.ts 의 winding). 표만 개수를 세니 셋이 서로 다른 말을 했다:
+   * "17곳"이라 적힌 길의 지도에는 덩어리가 둘뿐이라 "왜 이렇게 많다는 거냐"가 된다.
+   *
+   * 개수는 밀도를 못 말한다는 문제도 있다. 48곳 대 17곳은 3배로 읽히지만 연장은
+   * 12.5km 대 2.5km 로 5배다 — 흩어진 17곳과 몰린 48곳의 차이가 개수에서는 지워진다.
+   */
+  sharpCurveKm: number;
   /** 좁은 교행 구간이 경로에서 차지하는 비율 (0~1) */
   narrow: number;
   /** 고속주행(제한속도 80↑) 구간 (km) */
@@ -292,7 +310,16 @@ export type LiveRoutes =
       error: string;
     };
 
-const 색 = { fast: "#fb923c", safe: "#38bdf8" };
+/*
+ * 경로선 색 — **DESIGN.md --color-fast / --color-safe 그대로다.**
+ *
+ * 한동안 주황(#fb923c) · 하늘(#38bdf8) 이었다. 고른 색이 아니라 이 파일이 생길 때 박힌
+ * 값인데(f6ae676, 화면 배선 전이라 눈으로 볼 수 없었다) 그게 남아서 **부담색과 계열이 겹쳤다** —
+ * 지도에 주황 경로선, 주황 말풍선, 그 위에 테라코타 부담 구간이 한꺼번에 있으면 뜻이 다른
+ * 색 셋이 같은 색으로 읽힌다. DESIGN.md 가 색을 둘로 나눈 이유(경로의 성격 / 부담의 정도)가
+ * 그 자리에서 무너진다.
+ */
+const 색 = { fast: "#4A7DFF", safe: "#2FA97C" };
 
 function toRoute(
   id: "fast" | "safe",
@@ -315,7 +342,7 @@ function toRoute(
       turns: a.guides.left + a.guides.uTurn,
       unprotected: unprotectedCount(a.turnPoints),
       roundabouts: a.guides.roundabout,
-      sharpCurves: a.sharpCurve.sections,
+      sharpCurveKm: a.sharpCurve.windingKm,
       narrow: a.narrow.exposure,
       highSpeedKm: a.highSpeed.km,
     },
