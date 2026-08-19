@@ -40,6 +40,9 @@ export const BODY_MAX = 500;
 /** "임시 저장" — 저장을 누르기 전의 초안. 기록과 따로 둬야 목록이 초안에 안 오염된다 */
 const DRAFT_KEY = "miri-ansim.record-draft";
 
+/** 한 기록에 붙는 사진 (기기 저장). 기록 본문과 키를 나눠야 사진 없는 기기에서도 목록이 그대로 뜬다 */
+const PHOTO_KEY = (id: number) => `miri-ansim.photos.${id}`;
+
 /* ─────────────────────────────── 날짜 ─────────────────────────────── */
 
 /** YYYY-MM-DD. 로컬 시간 기준이다 — toISOString 은 UTC 라 밤 9시 이후 하루 밀린다 */
@@ -181,10 +184,89 @@ export async function saveRecord(tier: number, record: TripRecord): Promise<Trip
   }
 }
 
+/** 목록에서 뺀다 (카드의 ✕). 새 목록을 돌려주고, 못 지웠으면 null 이다 — saveRecord 와 같은 규칙 */
+export async function removeRecord(tier: number, id: number): Promise<TripRecord[] | null> {
+  try {
+    const res = await fetch(`${API}?t=${tier}&id=${id}`, { method: "DELETE" });
+    if (!res.ok) return null;
+    const raw: unknown = await res.json();
+    return Array.isArray(raw) ? raw.map(asRecord).filter((r): r is TripRecord => r !== null) : null;
+  } catch {
+    return null;
+  }
+}
+
+/* ─────────────────────────────── 사진 (기기에만) ─────────────────────────────── */
+
+/**
+ * **사진은 서버에 안 올린다.** 기록 본문은 티어 버킷으로 모두가 함께 보지만(위 첫 주석),
+ * 사진은 올릴 자리도 용량 제한도 정해진 게 없다 — 지금은 찍은 기기에만 남는다.
+ * 그래서 다른 기기에서 열면 사진 없는 기록으로 보인다. 아는 대가다.
+ *
+ * localStorage 는 5MB 안팎이라 원본을 그대로 넣으면 두 장에 찬다. shrinkImage 로 줄여서 넣고,
+ * 그래도 넘치면 savePhotos 가 false 를 돌려준다 (화면이 그때 사실대로 말한다).
+ */
+export function loadPhotos(id: number): string[] {
+  try {
+    const raw: unknown = JSON.parse(globalThis.localStorage?.getItem(PHOTO_KEY(id)) ?? "null");
+    return Array.isArray(raw) ? raw.filter((u): u is string => typeof u === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 사진을 기기에 담는다. 자리가 없으면 false — 부르는 쪽이 "다 못 담았다"고 말해야 한다 */
+export function savePhotos(id: number, photos: string[]): boolean {
+  try {
+    if (!photos.length) return true;
+    globalThis.localStorage?.setItem(PHOTO_KEY(id), JSON.stringify(photos));
+    return true;
+  } catch {
+    return false; // QuotaExceededError 등
+  }
+}
+
+/** 기록을 지울 때 사진도 같이 (기기에 유령이 남지 않게) */
+export function clearPhotos(id: number): void {
+  try {
+    globalThis.localStorage?.removeItem(PHOTO_KEY(id));
+  } catch {
+    /* 지울 게 없거나 못 지운다 */
+  }
+}
+
+/**
+ * 사진 한 장을 줄여 data URL 로. 긴 변 720px · JPEG 0.6 —
+ * 폰 사진 한 장이 3~5MB 라 원본으로는 localStorage 에 한 장도 안 들어간다.
+ * 104px 썸네일과 목록 카드가 쓰는 크기라 720 이면 화면에서 뭉개지지 않는다.
+ */
+export async function shrinkImage(file: File, max = 720): Promise<string | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return canvas.toDataURL("image/jpeg", 0.6);
+  } catch {
+    return null; // 이미지가 아니거나 브라우저가 못 읽는 형식
+  }
+}
+
 /* ─────────────────────────────── 임시 저장 (초안) ─────────────────────────────── */
 
 /** 작성 화면이 들고 있는 값. 저장을 누르기 전까지의 모습 그대로다. */
-export type Draft = { course: string; route: string[]; places: string[]; title: string; body: string };
+export type Draft = {
+  course: string;
+  route: string[];
+  places: string[];
+  title: string;
+  body: string;
+  /** 아직 저장 안 누른 사진. 초안이 사진을 안 들면 임시 저장 뒤 돌아왔을 때 사진만 사라진다 */
+  photos: string[];
+};
 
 export function saveDraft(draft: Draft): void {
   try {
@@ -206,6 +288,7 @@ export function loadDraft(): Draft | null {
       body: d.body.slice(0, BODY_MAX),
       route: Array.isArray(d.route) ? d.route.filter((n): n is string => typeof n === "string") : [],
       places: Array.isArray(d.places) ? d.places.filter((n): n is string => typeof n === "string") : [],
+      photos: Array.isArray(d.photos) ? d.photos.filter((n): n is string => typeof n === "string") : [],
     };
   } catch {
     return null;
