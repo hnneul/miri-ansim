@@ -11,9 +11,11 @@
 // .phone 높이가 노트북에서 844 보다 낮아질 수 있다). 아래 두 줄(안내·버전)은 flex-1 로 바닥에 붙인다.
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import { CONCERNS, LABELS, parseProfile, parseConcerns } from "@/lib/profile";
+import { TOPICS } from "@/lib/serviceinfo";
+import { CONCERNS, LABELS, characterOf, parseProfile, parseConcerns } from "@/lib/profile";
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function ProfilePage() {
@@ -29,17 +31,6 @@ export default function ProfilePage() {
  * 경력에 따라 씨앗 → 새싹 → 감귤로 자라지만 이름은 그대로다 — 자라는 건 같은 캐릭터다.
  */
 const MASCOT = "귤이";
-
-/**
- * 서비스 정보 네 줄. 와이어프레임에 대응 화면이 아직 없다.
- * ponytail: 화면이 생기면 여기 href 를 채우고 div → Link 로 바꾼다.
- */
-const MENU = [
-  { title: "추천점수 계산 기준", desc: "길 근거와 가중치 보기" },
-  { title: "데이터 출처 6종", desc: "출처와 갱신일 보기" },
-  { title: "개인정보 처리방침", desc: "수집 항목 확인" },
-  { title: "이용약관", desc: "서비스 이용 기준" },
-];
 
 function Profile() {
   const router = useRouter();
@@ -73,19 +64,16 @@ function Profile() {
       {/*
         driver-profile — 온보딩이 받아간 값을 사람 말로 되돌려 준다.
 
-        프로필 사진은 와이어프레임 그대로 한 장이다(마이페이지 Figma 2770:1896, 공원의 귤이).
-        전에 쓰던 풋귤(초록) 컷은 와이어프레임에 없는 그림이었다 — 다른 화면 아바타(avatar-my)와
-        얼굴이 갈려서 같은 사람의 프로필로 안 읽혔다. 지금은 둘이 같은 원본에서 잘라낸 같은 그림이고,
-        avatar-my 를 그대로 쓰지 않은 건 그게 176px 짜리라 94px 원에 담으면 성기게 보여서다.
+        프로필 사진은 익숙함 티어마다 갈린다 (Figma "프로필 별 이미지" 4122:596, lib/profile.ts CHARACTERS):
+        왕초보는 라바콘 옆에서 겁먹은 풋귤, 초보는 핸들을 잡은 감귤, 익숙은 열쇠를 든 노란 귤.
+        전에는 한 장(profile.png)이라 프로필을 바꿔도 얼굴이 그대로였다 — "내 운전 설정"을 보여주는
+        자리인데 정작 그 설정이 그림에 안 비쳤다.
         배경이 그려진 그림이라 원을 꽉 채우게 object-cover 로 담는다 — 뒤에 색을 깔 필요가 없다.
-        ponytail: 이 한 장이라 여기서는 경력이 자라는 게 안 보인다 (다른 화면 아바타는 여전히
-        씨앗 → 새싹 → 감귤로 바뀐다, lib/profile.ts CHARACTERS). 여기서도 자라게 하려면
-        같은 화풍으로 단계별 세 장이 있어야 한다.
       */}
       <div className="mt-3 flex shrink-0 items-start gap-6 px-7">
         <img
-          src="/character/profile.png"
-          alt="내 프로필 사진"
+          src={characterOf(profile.experienceYears).src}
+          alt={characterOf(profile.experienceYears).alt}
           className="size-[94px] shrink-0 rounded-full object-cover"
         />
         <div className="min-w-0 pt-1">
@@ -129,19 +117,20 @@ function Profile() {
       <h2 className="mt-[52px] shrink-0 px-10 text-[18px] leading-normal font-bold text-[#1f1f1f]">서비스 정보</h2>
 
       <div className="mt-2 flex shrink-0 flex-col gap-2.5 px-9">
-        {MENU.map((m) => (
-          <div
-            key={m.title}
-            className="flex h-[68px] items-center justify-between rounded-[12px] border border-[#e6e6e6] bg-white pr-4 pl-[13px]"
+        {TOPICS.map((t) => (
+          <Link
+            key={t.slug}
+            href={`/profile/${t.slug}?${searchParams}`}
+            className="flex h-[68px] items-center justify-between rounded-[12px] border border-[#e6e6e6] bg-white pr-4 pl-[13px] transition active:scale-[0.99] active:bg-[#f5f5f5]"
           >
             <div className="min-w-0">
-              <p className="text-[15px] leading-normal font-medium text-[#1f1f1f]">{m.title}</p>
-              <p className="mt-[5px] text-[12px] leading-normal text-[#616161]">{m.desc}</p>
+              <p className="text-[15px] leading-normal font-medium text-[#1f1f1f]">{t.title}</p>
+              <p className="mt-[5px] text-[12px] leading-normal text-[#616161]">{t.desc}</p>
             </div>
             <span aria-hidden className="text-[22px] leading-none font-bold text-[#616161]">
               ›
             </span>
-          </div>
+          </Link>
         ))}
       </div>
 

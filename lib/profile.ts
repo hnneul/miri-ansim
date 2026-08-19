@@ -41,17 +41,23 @@ export const LABELS = {
 
 /**
  * 프로필 아바타. 파일명이 experienceYears 값(OPTIONS)이라 매핑이 표 하나로 끝난다 —
- * 경력이 씨앗(1년 이하) → 새싹(2~5년) → 감귤(5년 이상)로 자란다.
- * 메인화면 히어로(app/home)와 결과 화면 프로필 메뉴(app/ProfileMenu.tsx)가 같이 쓴다.
- * 배경을 지운 PNG라(scripts/cutout.swift) 원 안에서 캐릭터만 뜬다 — 비율이 서로 달라 object-contain 으로 담는다.
+ * 익숙함 티어(EXP_LABEL 왕초보·초보·익숙)마다 그림이 갈린다: 풋귤이 겁먹은 얼굴로 라바콘 옆에 앉아 있고,
+ * 다음은 감귤이 핸들을 잡고, 마지막은 노란 귤이 열쇠를 들고 선다 (Figma "프로필 별 이미지" 4122:596).
+ * alt 는 티어 이름을 그대로 읽어 준다 — 그림이 뜻하는 건 과일 종류가 아니라 운전 익숙함이라
+ * "씨앗/새싹" 같은 별명은 화면 어디에도 안 적혀 있어 스크린리더에서만 겉돈다.
+ * 원형 아바타가 뜨는 세 자리가 같이 쓴다: 마이 화면(app/profile), 메인화면(app/home) 오른쪽 위
+ * 마이 버튼, 여행 기록 머리글(app/trip/record). 한 사람의 프로필이 화면마다 갈리면 안 된다.
+ * 배경이 그려진 정사각 PNG 라 원을 꽉 채우게 object-cover 로 담는다 — 뒤에 색을 깔 필요가 없다.
+ * 배경을 지운 컷(같은 섹션 아래줄)도 있지만 안 쓴다, 세 자리 다 배경 있는 원형 아바타라
+ * 두 벌을 둘 이유가 없다.
  */
 export const CHARACTERS: Record<number, { src: string; alt: string; tier: string }> = {
-  1: { src: "/character/exp1.png", alt: "씨앗 캐릭터", tier: "1년 이하" },
-  3: { src: "/character/exp3.png", alt: "새싹 캐릭터", tier: "2~5년" },
-  10: { src: "/character/exp10.png", alt: "감귤 캐릭터", tier: "5년 이상" },
+  1: { src: "/character/exp1.png", alt: "왕초보 캐릭터", tier: "1년 이하" },
+  3: { src: "/character/exp3.png", alt: "초보 캐릭터", tier: "2~5년" },
+  10: { src: "/character/exp10.png", alt: "익숙 캐릭터", tier: "5년 이상" },
 };
 
-/** 허용값 밖이면 초보 쪽으로 떨어뜨린다 (DEFAULT_PROFILE 과 같은 방향) */
+/** 허용값 밖이면 왕초보 쪽으로 떨어뜨린다 (DEFAULT_PROFILE 과 같은 방향 — 모르면 부담 큰 쪽) */
 export const characterOf = (experienceYears: number) => CHARACTERS[experienceYears] ?? CHARACTERS[1];
 
 /**
