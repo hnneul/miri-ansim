@@ -66,3 +66,9 @@ next-env.d.ts
 
 # 구글 클라우드 TTS 서비스 계정 키 — 절대 커밋 금지
 gcp-tts.json
+
+# 비보호 판독 중간 산출물 — 판독표(data/unprotected-left.json)만 최종 결과물이다.
+# turninfo.csv 는 표준노드링크 배포본에서 뽑는다 (build-left-turn-candidates.mjs 주석 참고).
+# judge-input*.json 은 left-turn-candidates.json 을 수집 스크립트 입력 형식으로 옮긴 것뿐이다.
+/data/turninfo.csv
+/data/judge-input*.json
