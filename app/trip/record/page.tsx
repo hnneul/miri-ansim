@@ -89,6 +89,8 @@ function Record() {
   const [records, setRecords] = useState<TripRecord[]>([]);
   /** 상세로 연 기록. 목록 카드를 누르면 채워진다 (TRIP-09-A) */
   const [opened, setOpened] = useState<TripRecord | null>(null);
+  /** 지울지 묻고 있는 기록. 물음 창(Confirm)이 이걸 보고 뜬다 */
+  const [asking, setAsking] = useState<TripRecord | null>(null);
   /** 고쳐 쓰는 기록 (상세의 "수정"). 새로 쓸 때는 null 이다 */
   const [editing, setEditing] = useState<TripRecord | null>(null);
   /** 임시 저장해둔 글들 (기기에만, lib/record.ts). 목록 맨 위 "작성 중인 기록" 이 이걸 그린다 */
@@ -99,20 +101,37 @@ function Record() {
   // 서버에서 받아온다 — 첫 그림을 그린 뒤다. 실패하면 빈 목록이라 화면은 그대로 뜬다
   useEffect(() => {
     let 살아있나 = true;
-    loadRecords(tier).then((rs) => 살아있나 && setRecords(rs));
+    loadRecords(tier).then((rs) => {
+      if (!살아있나) return;
+      setRecords(rs);
+      /*
+        홈 카드에서 왔으면(open=<id>) 그 기록의 상세를 편다. 목록이 서버에서 온 뒤에야 알 수 있어서
+        여기서 연다 — 그 사이 기록이 지워졌으면 못 찾으니 목록이 그대로 남는다.
+      */
+      const id = Number(searchParams.get("open"));
+      const 열것 = Number.isFinite(id) ? rs.find((r) => r.id === id) : undefined;
+      if (열것) {
+        setOpened(열것);
+        setView("detail");
+      }
+    });
     return () => {
       살아있나 = false; // 티어가 바뀌어 다시 부르면 늦게 온 옛 응답이 새 목록을 덮지 않게
     };
-  }, [tier]);
+  }, [tier, searchParams]);
 
   /*
-    초안은 localStorage 라 첫 그림 뒤에 읽는다. d=<초안 id> 로 들어오면 그 초안을 이어 쓴다 —
+    초안은 localStorage 라 첫 그림 뒤에 읽는다. draft=<초안 id> 로 들어오면 그 초안을 이어 쓴다 —
     코스 추천(/trip)에 다녀오는 길이 그 쿼리를 물고 온다 (app/trip/page.tsx back).
+
+    **"d" 가 아니다** — 그 이름은 기록 날짜가 쓰고 있다 (lib/record.ts toRecordQuery: d=2026-08-20).
+    겹쳐 썼을 때 코스에서 "기록하기"로 들어오면 toRecordQuery 가 d 를 날짜로 덮어써서
+    쓰던 초안 id 가 사라졌다 — 이어 쓰려고 왔는데 빈 작성 화면이 열렸다.
   */
   useEffect(() => {
     const list = loadDrafts();
     setDrafts(list);
-    const id = Number(searchParams.get("d"));
+    const id = Number(searchParams.get("draft"));
     const found = Number.isFinite(id) ? list.find((d) => d.id === id) : undefined;
     if (found) setDraft(found);
   }, [searchParams]);
@@ -124,8 +143,10 @@ function Record() {
    */
   const toTrip = (draftId: number) => {
     const q = new URLSearchParams(searchParams);
-    q.set("from", "record");
-    if (draftId) q.set("d", `${draftId}`); // 돌아왔을 때 이 초안으로 이어 쓴다
+    // "from" 이 아니다 — 거긴 여행 **시작일**이 쓰는 이름이라(lib/trip.ts toTripQuery)
+    // 덮어쓰면 고른 날짜가 "record" 로 바뀌어 기간이 통째로 날아간다
+    q.set("back", "record");
+    if (draftId) q.set("draft", `${draftId}`); // 돌아왔을 때 이 초안으로 이어 쓴다 (위 주석 — "d" 는 날짜다)
     router.push(`/trip?${q}`);
   };
 
@@ -136,7 +157,6 @@ function Record() {
    * 한 번 묻는 이유: 버킷이 티어 공용이라 남의 기록도 지워지고, 되돌릴 문이 없다.
    */
   async function remove(record: TripRecord) {
-    if (!confirm(`"${record.title}" 기록을 지울까요?`)) return;
     const next = await removeRecord(tier, record.id);
     if (next) {
       clearPhotos(record.id); // 사진은 기기에만 있다 — 기록만 지우면 유령이 남는다
@@ -189,23 +209,92 @@ function Record() {
     );
 
   return (
-    <List
-      records={records}
-      drafts={drafts}
-      tier={tier}
-      onHome={home}
-      onOpenDraft={(d) => {
-        setDraft(d);
-        setView("write");
-      }}
-      onRemoveDraft={(id) => setDrafts(removeDraft(id))}
-      onRemove={remove}
-      onWrite={() => setView("write")}
-      onOpen={(r) => {
-        setOpened(r);
-        setView("detail");
-      }}
-    />
+    /* 물음 창이 화면 전체를 덮되 **폰 안에서만** 덮게 — 이 상자가 그 기준점이다 */
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <List
+        records={records}
+        drafts={drafts}
+        tier={tier}
+        onHome={home}
+        onRemove={setAsking}
+        onWrite={() => setView("write")}
+        onOpen={(r) => {
+          setOpened(r);
+          setView("detail");
+        }}
+        onOpenDraft={(d) => {
+          setDraft(d);
+          setView("write");
+        }}
+        onRemoveDraft={(id) => setDrafts(removeDraft(id))}
+      />
+
+      {asking && (
+        <Confirm
+          title={`"${asking.title}" 기록을 지울까요?`}
+          body="지운 기록은 되돌릴 수 없어요."
+          onCancel={() => setAsking(null)}
+          onOk={() => {
+            const 지울것 = asking;
+            setAsking(null);
+            remove(지울것);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * 물음 창. 브라우저 confirm() 대신 쓴다 — 그건 폰 밖(브라우저)에서 뜨고 글꼴·버튼이 앱과 따로 논다.
+ * 여기서는 화면을 어둡게 덮고 가운데 흰 상자로 묻는다.
+ *
+ * 되돌릴 수 없는 일에만 쓴다 (기록 지우기). 초안 지우기까지 물으면 매번 두 번 눌러야 해서
+ * 오히려 성가시다 — 초안은 다시 쓰면 되는 글이다.
+ */
+function Confirm({
+  title,
+  body,
+  onCancel,
+  onOk,
+}: {
+  title: string;
+  body: string;
+  onCancel: () => void;
+  onOk: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-50 grid place-items-center bg-black/35 px-8">
+      {/* 어둠막을 눌러도 닫힌다 — 창 밖을 누르는 건 "아니오"와 같은 뜻이다 */}
+      <button aria-label="닫기" onClick={onCancel} className="absolute inset-0" />
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        className="relative w-full max-w-[280px] rounded-[18px] bg-white px-5 pt-6 pb-4 text-center shadow-[0_12px_32px_0_rgba(0,0,0,0.18)]"
+      >
+        <p className="text-[15px] leading-[22px] font-bold break-keep text-[#262626]">{title}</p>
+        <p className="mt-2 text-[13px] leading-5 text-[#7d7d7d]">{body}</p>
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={onCancel}
+            /*
+              흰 버튼의 호버는 **중립 회색**이다 (#f7f7f7, TIP 상자와 같은 색).
+              옅은 주황으로 하면 옆의 주황 버튼과 같은 무게로 보인다 — 이 앱에서 주황은
+              "이걸 누르세요"라는 뜻이라, 되돌릴 수 없는 쪽(지우기)이 눈에 덜 띄면 안 된다.
+            */
+            className="h-11 flex-1 rounded-[12px] border border-[#eae7e2] bg-white text-[14px] font-medium text-[#262626] transition hover:bg-[#f7f7f7] active:scale-[0.98]"
+          >
+            취소
+          </button>
+          <button
+            onClick={onOk}
+            className="h-11 flex-1 rounded-[12px] bg-[#ff7d32] text-[14px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
+          >
+            지우기
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -228,7 +317,8 @@ function Cta({ label, onClick, ghost }: { label: string; onClick: () => void; gh
     <button
       onClick={onClick}
       className={`mx-6 h-12 shrink-0 rounded-2xl text-[16px] font-medium transition active:scale-[0.98] ${
-        ghost ? "border border-[#c4c4c4] bg-white text-[#262626]" : "bg-[#ff7d32] text-white"
+        // 흰 CTA 도 같은 규칙 — 바로 위에 주황 CTA 가 앉아 있다 (Confirm 의 취소 버튼 주석)
+        ghost ? "border border-[#c4c4c4] bg-white text-[#262626] hover:bg-[#f7f7f7]" : "bg-[#ff7d32] text-white hover:bg-[#ff6114]"
       }`}
     >
       {label}
@@ -397,7 +487,7 @@ function Write({
         제목은 뒤로가기 오른쪽에 붙는다 (와이어프레임이 가운데 정렬이 아니다).
       */}
       <div className="flex h-11 shrink-0 items-center pr-6 pl-[9px]">
-        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center">
+        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90">
           <img src="/icon-arrow-left.svg" alt="" className="size-6" />
         </button>
         <h1 className="flex-1 text-[22px] leading-normal font-bold text-[#262626]">
@@ -689,7 +779,7 @@ function Detail({ record, onBack, onEdit }: { record: TripRecord; onBack: () => 
         뒤로·수정으로 나갈 문이 사라진다. 와이어프레임의 ••• 는 안 단다 (지울 문은 목록 카드의 ✕).
       */}
       <div className="flex h-[44px] shrink-0 items-center bg-white pl-[9px]">
-        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center">
+        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90">
           <img src="/icon-arrow-left.svg" alt="" className="size-6" />
         </button>
         <h1 className="flex-1 text-[21px] leading-normal font-bold text-[#1f1f1f]">여행 기록</h1>

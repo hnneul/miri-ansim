@@ -22,7 +22,7 @@ const plan: TripPlan = {
   end: "2026-08-16",
   origin: "제주국제공항",
   originAt: [33.507, 126.493],
-  theme: 3, // 감성 명소 — 갈래가 둘(카페·전시)이다
+  themes: [3], // 감성 명소 — 갈래가 둘(카페·전시)이다
   musts: ["성산일출봉"],
   driveHours: DRIVE_HOURS_TEST,
 };
@@ -30,7 +30,7 @@ const plan: TripPlan = {
 const { candidates, missing } = await gatherCandidates(plan);
 
 console.log(`\n후보 ${candidates.length}곳 · 좌표 못 찾은 곳 ${missing.length}`);
-const recipes = plan.theme === null ? [] : THEMES[plan.theme].recipes;
+const recipes = plan.themes.length ? THEMES[plan.themes[0]].recipes : [];
 recipes.forEach((recipe, r) => {
   const mine = candidates.filter((c) => c.recipe === r);
   console.log(`  ${recipe.label.padEnd(8)} ${String(mine.length).padStart(2)}곳  ${mine.slice(0, 4).map((c) => c.name).join(", ")}`);

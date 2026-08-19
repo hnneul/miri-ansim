@@ -11,7 +11,8 @@
 import { meters } from "./parking.ts";
 import { searchSpotsNear, type Spot } from "./poi.ts";
 import { geocodePlace } from "./geocode.ts";
-import { THEMES, nightsOf, type TripPlan } from "./trip.ts";
+import { THEMES, nightsOf, recipesFor, type Role, type TripPlan } from "./trip.ts";
+import SPOTS from "../data/spots.json" with { type: "json" };
 import type { LatLng } from "@/app/RouteMap";
 
 /**
@@ -43,6 +44,36 @@ const ANCHORS: LatLng[] = [
 /** 하루에 넣을 장소 수. 3곳이면 이동·관람·식사가 한 낮에 들어간다. */
 const STOPS_PER_DAY = 3;
 
+/**
+ * 하루 운전 예산 중 **왕복에 쓸 몫**. 나머지로 그 지역 안을 돈다.
+ *
+ * 이 값이 없으면 코스가 출발지 코앞에서 끝난다 — 실제로 그랬다. 공항에서 「제주 먹거리」를
+ * 고르니 후보 128곳이 편도 1~86분에 퍼져 있는데도 먹돌고기국수(1분) → 논짓물식당(2분) →
+ * 김희선제주몸국(3분), **3시간 예산에 이동 8분**짜리 "코스"가 나왔다. 가까운 순으로 집으니
+ * 늘 출발지 옆동네가 이긴다. 여러 날일 때는 regionsOf 가 날짜마다 다른 지역을 배정해
+ * 이걸 덮고 있었는데, 하루 코스가 되면서 그 장치가 걷혔다.
+ *
+ * 0.6 인 이유 — 3시간이면 편도 54분(서귀포·성산권)까지 나가고 한 시간 남짓으로 그 근처를 돈다.
+ * 1.0 에 가까우면 제일 먼 곳 하나만 찍고 오는 코스가 되고, 0 에 가까우면 지금 이 버그로 돌아간다.
+ * ponytail: 실제 코스를 눈으로 보며 맞춘 값이다. 손볼 곳이 생기면 여기 하나만 만지면 된다.
+ */
+const ANCHOR_SHARE = 0.6;
+
+/** "시간 상관없음"일 때 자리를 잡는 데 쓸 예산. driveNote 가 쓰는 기본값과 같다. */
+const DEFAULT_CAP_MIN = 180;
+
+/**
+ * 추천 카드끼리 떨어져 있어야 할 거리.
+ *
+ * 첫 자리를 예산 거리(ANCHOR_SHARE)로 잡으면 두 카드가 **같은 동네**로 간다 — 목표 거리가
+ * 출발지를 중심으로 한 고리라, 후보가 몰린 곳에서 둘 다 걸린다. 실제로 공항에서 두 카드가
+ * 금능해수욕장·협재해수욕장을 나눠 가졌다. 장소 이름만 겹치지 않을 뿐 같은 코스다.
+ *
+ * 와이어프레임의 "협재 해수욕장 중심으로 / 월정리 해수욕장 중심으로"가 이 말이다 —
+ * 두 장은 **다른 지역**이어야 고를 값이 있다. 10km 는 제주(동서 73km)에서 옆 동네가 아닌 거리다.
+ */
+const COURSE_GAP_M = 10_000;
+
 /** 추천 코스 개수 (와이어프레임 TRIP-06 이 카드 두 장이다) */
 const COURSE_COUNT = 2;
 
@@ -58,8 +89,10 @@ export const driveMinutes = (m: number) => Math.round(((m * DETOUR) / 1000 / SPE
 
 /** 코스 후보 한 곳. must 는 사용자가 "꼭 가고 싶은 곳"에 직접 넣은 자리다. */
 export type Candidate = Spot & {
-  /** 테마의 몇 번째 갈래(THEMES[t].recipes 인덱스)에서 나왔는지. must 로 들어온 곳은 null */
+  /** 몇 번째 갈래(lib/trip.ts recipesFor 의 인덱스)에서 나왔는지. must 로 들어온 곳은 null */
   recipe: number | null;
+  /** 그 갈래가 테마·계절·기본 중 어디서 왔는지. must 로만 들어온 곳은 null */
+  role: Role | null;
   must: boolean;
 };
 
@@ -106,15 +139,44 @@ export async function gatherCandidates(
   const origin = plan.originAt;
   if (!origin) return { candidates: [], missing: plan.musts };
 
-  const recipes = plan.theme === null ? [] : THEMES[plan.theme].recipes;
+  /*
+    고른 테마 + 그 계절의 검색 조건 (lib/trip.ts recipesFor).
+    ponytail: 테마를 여러 개 골라도 **첫 테마**로만 긁는다 — 날짜별로 테마를 갈라 짜려면
+    하루 코스가 아니라 여러 날 코스로 되돌아가야 한다 (buildCourses 의 하루 주석 참고).
+  */
+  const recipes = recipesFor(plan);
   const fromTheme = await Promise.all(
     recipes.flatMap((recipe, r) =>
-      ANCHORS.map(async (at) => {
-        const found = await searchSpotsNear(at, recipe, 20000);
-        return "error" in found ? [] : found.spots.map((s): Candidate => ({ ...s, recipe: r, must: false }));
-      }),
+      // 기본 갈래는 카카오를 안 부른다 — 아래 fromSpots 가 사람이 고른 목록에서 채운다
+      recipe.role === "staple"
+        ? []
+        : ANCHORS.map(async (at) => {
+            const found = await searchSpotsNear(at, recipe, 20000);
+            return "error" in found
+              ? []
+              : found.spots.map((s): Candidate => ({ ...s, recipe: r, role: recipe.role, must: false }));
+          }),
     ),
   );
+
+  /*
+    제주 대표 관광지 122곳 (data/spots.json — scripts/build-spots.mjs 가 사람 손으로 고른 목록).
+    카카오로 "관광지"를 긁으면 유명세를 못 가려서 못 쓴다 (lib/trip.ts STAPLE 주석).
+    테마·계절 뒤에 붙이므로, 같은 곳이 테마 검색에도 걸렸으면 그쪽 갈래로 남는다 (dedupe).
+  */
+  const stapleAt = recipes.findIndex((r) => r.role === "staple");
+  const fromSpots: Candidate[] =
+    stapleAt < 0
+      ? []
+      : SPOTS.map((s) => ({
+          name: s.name,
+          at: [s.at[0], s.at[1]] as LatLng,
+          addr: s.addr,
+          kind: s.kind,
+          recipe: stapleAt,
+          role: "staple" as const,
+          must: false,
+        }));
 
   const missing: string[] = [];
   const fromMusts = await Promise.all(
@@ -124,13 +186,20 @@ export async function gatherCandidates(
         missing.push(name);
         return null;
       }
-      return { name: found.label, at: found.coord, addr: found.road || found.jibun || null, kind: found.type, recipe: null, must: true };
+      return { name: found.label, at: found.coord, addr: found.road || found.jibun || null, kind: found.type, recipe: null, role: null, must: true };
     }),
   );
 
   // must 를 앞에 둔다 — 뒤의 dedupe 가 먼저 온 쪽을 남기므로, 같은 곳이 관심사 검색에도
   // 걸렸을 때 must 표시가 살아남는다 (must 는 절대 빠지면 안 되는 자리다).
-  return { candidates: dedupe([...fromMusts.filter(Boolean as unknown as (c: Candidate | null) => c is Candidate), ...fromTheme.flat()]), missing };
+  return {
+    candidates: dedupe([
+      ...fromMusts.filter(Boolean as unknown as (c: Candidate | null) => c is Candidate),
+      ...fromTheme.flat(),
+      ...fromSpots,
+    ]),
+    missing,
+  };
 }
 
 /** 같은 장소가 여러 관심사에 걸린다. 이름이 같으면 한 곳으로 본다 — 먼저 온 쪽을 남긴다. */
@@ -168,30 +237,78 @@ export function buildCourses(plan: TripPlan, candidates: Candidate[]): Course[] 
 
   const leads = leadsOf(reachable);
   const courses: Course[] = [];
-  const used = new Set<string>();
+  /** 앞 카드들이 이미 쓴 자리. 이름이 아니라 좌표다 — 다음 카드를 다른 지역으로 보내려면 거리가 필요하다 */
+  const used: LatLng[] = [];
 
   for (let n = 0; n < COURSE_COUNT; n++) {
     const lead = leads[n] ?? null;
-    // 두 번째 코스는 첫 코스가 안 쓴 후보를 먼저 본다. 갈래가 하나뿐일 때 이게 유일한 차이다
-    const pool = n === 0 ? reachable : [...reachable.filter((c) => c.must || !used.has(c.name)), ...reachable];
-    const course = schedule(dedupe(pool), origin, plan.start, period.days, capMin, plan.theme, lead);
+    // 두 번째 카드는 앞 카드가 간 지역을 통째로 피한다 (COURSE_GAP_M).
+    // must 는 예외다 — 사용자가 지목한 자리는 어느 카드에서도 빠지면 안 된다.
+    const pool =
+      n === 0 ? reachable : reachable.filter((c) => c.must || used.every((at) => meters(at, c.at) >= COURSE_GAP_M));
+    if (!pool.length) break;
+    /*
+      **며칠짜리 여행이든 코스는 하루치다.** 2박 3일을 골라도 추천은 하루 동선 하나다 —
+      사흘치를 미리 짜 봐야 첫날 날씨 한 번에 나머지가 다 어긋나고, 화면도 세 배로 길어진다.
+      여행 기간은 그대로 받는다: 계절을 정하는 값이고(recipesFor), 화면이 "2박 3일"로 보여준다.
+
+      ponytail: regionsOf 는 days 가 1 이면 후보를 안 가른다 — 여러 날로 되돌릴 자리를 위해
+      그대로 뒀다. 되돌리려면 이 1 을 period.days 로 바꾸면 된다.
+    */
+    const course = schedule(dedupe(pool), origin, plan.start, 1, capMin, titleOf(plan, lead), lead);
     if (!course.days.some((d) => d.stops.length)) break;
 
     // 앞 코스와 장소가 똑같으면 카드를 하나 더 만들지 않는다
     if (courses.some((c) => sameStops(c, course))) break;
 
-    course.days.flatMap((d) => d.stops).forEach((s) => used.add(s.name));
+    course.days.flatMap((d) => d.stops).forEach((s) => used.push(s.at));
     courses.push(course);
   }
 
   return courses;
 }
 
-/** 후보가 많은 갈래 순. 같으면 표 순서(인덱스)로 — 순서가 흔들리면 코스도 흔들린다. */
+/**
+ * 어느 갈래를 앞세울지 — **한 장은 테마, 한 장은 계절**이 되도록 번갈아 세운다.
+ *
+ * 두 가지를 겪고 이 모양이 됐다:
+ *   · 후보 수로만 세웠더니 겨울에 「조용한 바다」를 고른 사람의 1번 카드가 "겨울 실내 전시"가 됐다
+ *     (박물관 45 > 해변 38). 계절은 우리가 얹은 것이고 테마는 사용자가 고른 것이다 — 고른 쪽이 먼저다.
+ *   · 그렇다고 테마를 전부 앞에 몰면, 갈래가 둘인 테마(자연 속 산책·먹거리·감성)가 카드 두 장을
+ *     다 먹어 **계절이 영영 안 나온다.** 카드는 둘뿐이라(COURSE_COUNT) 앞의 둘이 전부다.
+ *
+ * 그래서 테마 줄과 계절 줄을 따로 세운 뒤 하나씩 번갈아 뽑는다 — 카드가 둘이면 자연히
+ * "내가 고른 테마" 한 장과 "이 계절에 맞는 곳" 한 장이 된다. 한쪽이 비면(날짜를 모르거나
+ * 테마를 안 골랐으면) 남은 줄이 그대로 이어 채운다.
+ *
+ * **기본 갈래(맛집·카페)는 카드를 못 이끈다.** 어디에나 있어서 후보가 제일 많은데, 그걸로
+ * 카드를 세우면 "근처 맛집 코스"가 추천이 된다 — 밥은 하루를 채우는 것이지 하루의 이유가 아니다.
+ *
+ * 같은 줄 안에서는 후보가 많은 순, 같으면 표 순서로 — 순서가 흔들리면 코스도 흔들린다.
+ */
 function leadsOf(candidates: Candidate[]): number[] {
-  const count = new Map<number, number>();
-  for (const c of candidates) if (c.recipe !== null) count.set(c.recipe, (count.get(c.recipe) ?? 0) + 1);
-  return [...count.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).map(([i]) => i);
+  const count = new Map<number, { n: number; role: Role | null }>();
+  for (const c of candidates) {
+    if (c.recipe === null) continue;
+    const 칸 = count.get(c.recipe) ?? { n: 0, role: c.role };
+    count.set(c.recipe, { n: 칸.n + 1, role: 칸.role });
+  }
+
+  const 줄세우기 = (role: Role) =>
+    [...count.entries()]
+      .filter(([, v]) => v.role === role)
+      .sort((a, b) => b[1].n - a[1].n || a[0] - b[0])
+      .map(([i]) => i);
+
+  const 테마 = 줄세우기("theme");
+  const 계절 = 줄세우기("season");
+
+  const out: number[] = [];
+  for (let i = 0; i < Math.max(테마.length, 계절.length); i++) {
+    if (테마[i] !== undefined) out.push(테마[i]);
+    if (계절[i] !== undefined) out.push(계절[i]);
+  }
+  return out;
 }
 
 /**
@@ -233,7 +350,7 @@ function schedule(
   start: string,
   days: number,
   capMin: number,
-  theme: number | null,
+  title: string,
   lead: number | null,
 ): Course {
   const bands = regionsOf(pool, days, origin);
@@ -258,9 +375,33 @@ function schedule(
       // 같은 자리를 두 번 세우지 않는다 — 카카오는 한 장소를 여러 이름으로 준다
       eligible0 = eligible0.filter((c) => c.must || stops.every((s) => meters(s.at, c.at) > MIN_GAP_M));
 
-      // 이 코스가 앞세우는 갈래가 이 지역에 있으면 그것부터. 없으면 지역에 있는 것으로 채운다
-      const led = eligible0.filter((c) => c.recipe === lead);
-      if (led.length) eligible0 = led;
+      /*
+        앞세우는 갈래는 **첫 자리만** 잡는다 — 그 갈래가 코스의 중심이지 전부가 아니다.
+
+        예전에는 매 자리에 이 필터를 걸어서 코스가 통째로 한 갈래가 됐다: 「조용한 바다」면
+        해변만 셋, 「제주 먹거리」면 국수집·식당·몸국 셋. 하루에 밥을 세 번 먹는 코스다.
+        와이어프레임의 "협재 해수욕장 **중심으로**"도 해변만 돌라는 말이 아니다.
+        첫 자리가 그 코스가 무엇인지 정하고, 나머지는 그 근처에 있는 것으로 채운다.
+      */
+      if (!stops.length) {
+        const led = eligible0.filter((c) => c.recipe === lead);
+        if (led.length) eligible0 = led;
+      } else {
+        /*
+          **이미 넣은 갈래는 뒤로 미룬다.** 첫 자리를 풀어준 것만으로는 모자랐다 —
+          채우기가 최근접이라 그 지역에 많은 유형이 그대로 다시 뽑힌다. 실제로 동부로 보낸
+          카드가 월정리 → 행원 → 평대리, 해변 셋이었다 (와이어프레임 메모의 "코난해변 →
+          월정리해수욕장 → 함덕해수욕장"과 같은 모양이다).
+
+          아직 안 쓴 갈래가 있으면 그중 가장 가까운 곳으로, 없으면 원래대로 아무 갈래나.
+          "여행 같이"가 이 한 줄이다 — 밥 한 번, 바다 한 번, 시장 한 번.
+        */
+        const 새갈래 = eligible0.filter((c) => c.must || !stops.some((s) => s.recipe === c.recipe));
+        if (새갈래.length) eligible0 = 새갈래;
+
+        // 기본 갈래는 하나뿐이라 위 "같은 갈래 두 번 안 넣기"가 하루 한 곳으로 묶어준다 —
+        // 따로 막을 게 없다 (lib/trip.ts STAPLE).
+      }
 
       /*
         하루의 첫 자리는 남은 must 중 가장 가까운 곳으로 연다.
@@ -275,7 +416,11 @@ function schedule(
 
       if (!eligible.length) break;
 
-      const next = nearest(at, eligible);
+      /*
+        첫 자리는 **예산만큼 나간 곳**으로 연다 (anchorOf). 그 뒤부터는 거기서 가까운 순이다.
+        must 가 남아 있으면 그쪽이 먼저다 — 사용자가 지목한 자리가 하루의 중심이어야 한다.
+      */
+      const next = stops.length || mustsLeft.length ? nearest(at, eligible) : anchorOf(eligible, origin, capMin);
       const legM = meters(at, next.at);
       const legMin = driveMinutes(legM);
       const homeMin = driveMinutes(meters(next.at, origin));
@@ -305,11 +450,30 @@ function schedule(
 
   return {
     lead,
-    title: titleOf(theme, lead),
+    title,
     days: out,
     totalM: out.reduce((s, d) => s + d.driveM, 0),
     totalMin: out.reduce((s, d) => s + d.driveMin, 0),
   };
+}
+
+/**
+ * 하루를 열 자리. 예산의 ANCHOR_SHARE 만큼을 왕복에 쓰는 거리에 **가장 가까운** 후보다.
+ *
+ * "가장 먼 곳"이 아니다 — 3시간 예산에 편도 86분짜리를 집으면 왕복만 172분이라 한 곳 보고
+ * 돌아오는 코스가 된다. 목표 거리에 붙는 곳을 고르면 나가는 데 절반, 그 지역을 도는 데 절반이 남는다.
+ *
+ * 거리가 같으면 이름순 — nearest 와 같은 이유다 (순서가 흔들리면 코스도 흔들린다).
+ */
+function anchorOf(list: Candidate[], origin: LatLng, capMin: number): Candidate {
+  const budget = Number.isFinite(capMin) ? capMin : DEFAULT_CAP_MIN;
+  const target = (budget * ANCHOR_SHARE) / 2; // 편도 기준
+  const 벗어남 = (c: Candidate) => Math.abs(driveMinutes(meters(origin, c.at)) - target);
+  return list.reduce((best, c) => {
+    const d = 벗어남(c);
+    const b = 벗어남(best);
+    return d < b || (d === b && c.name < best.name) ? c : best;
+  });
 }
 
 /** 지금 자리에서 가장 가까운 후보. 거리가 같으면 이름순 — 순서가 흔들리지 않게 한다. */
@@ -328,12 +492,15 @@ function dayAfter(start: string, add: number): string {
 
 /**
  * AI 가 이름을 못 지었을 때 남는 이름. 없는 감상 대신 무엇 중심인지만 말한다.
- * 갈래가 둘인 테마에서는 갈래까지 붙여야 두 카드가 구분된다 ("제주 먹거리 여행 · 시장").
+ * 갈래를 붙여야 두 카드가 구분된다 ("제주 먹거리 여행 · 시장" / "조용한 바다 여행 · 겨울 동백") —
+ * 계절 갈래가 붙으면서 갈래는 늘 둘 이상이지만, 계절을 모르는 날짜면 하나일 수도 있다.
  */
-function titleOf(theme: number | null, lead: number | null): string {
-  if (theme === null) return "가볍게 도는 코스";
-  const { label, recipes } = THEMES[theme];
-  return recipes.length > 1 && lead !== null ? `${label} · ${recipes[lead].label}` : label;
+function titleOf(plan: TripPlan, lead: number | null): string {
+  const theme = plan.themes[0] ?? null;
+  const recipes = recipesFor(plan);
+  const base = theme === null ? "가볍게 도는 코스" : THEMES[theme].label;
+  const branch = lead !== null ? recipes[lead]?.label : undefined;
+  return recipes.length > 1 && branch ? `${base} · ${branch}` : base;
 }
 
 /* ─────────────────────────── 화면 문구 ─────────────────────────── */
