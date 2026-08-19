@@ -29,16 +29,34 @@ export type TripRecord = CourseSummary & {
   /** 저장 시각(ms). 목록 정렬 키 겸 id */
   id: number;
   title: string;
+  /** 이야기 소제목 ("좁은 해안도로에서 마주친 뜻밖의 정체"). 안 적으면 빈 문자열이다 */
+  episode: string;
   body: string;
   /** 방문 장소 칩. route 에서 출발지를 뺀 값으로 시작하고, 작성 화면에서 더할 수 있다 */
   places: string[];
 };
 
-/** 여행 이야기 글자 수 상한 (와이어프레임 "52 / 500") */
-export const BODY_MAX = 500;
+/**
+ * 여행 이야기 글자 수 상한.
+ *
+ * 와이어프레임은 "52 / 500" 이지만 1000 으로 올렸다 — 상세(TRIP-09-A)의 예시 글이 이미 700자쯤이라
+ * 500 이면 그 화면을 채울 수 없다. 한글 1자가 3바이트라 1000자는 3KB 안팎이고,
+ * 서버 몸통 상한 8KB(app/api/records/route.ts) 안에 제목·경로·장소를 더해도 넉넉히 들어간다.
+ */
+export const BODY_MAX = 1000;
 
-/** "임시 저장" — 저장을 누르기 전의 초안. 기록과 따로 둬야 목록이 초안에 안 오염된다 */
-const DRAFT_KEY = "miri-ansim.record-draft";
+/** 소제목 상한. 상세에서 한 줄로 놓이는 자리라(와이어프레임 244px) 길면 두 줄로 접힌다 */
+export const EPISODE_MAX = 40;
+
+/**
+ * "임시 저장" — 저장을 누르기 전의 초안들. 기록과 따로 둬야 목록이 초안에 안 오염된다.
+ * 예전에는 한 벌만 눌러뒀는데(miri-ansim.record-draft) 그러면 다음 글을 쓸 때 지난 초안이
+ * 화면에 저절로 올라왔다. 이제 여러 벌을 모아두고 **고른 것만** 이어 쓴다.
+ */
+const DRAFTS_KEY = "miri-ansim.drafts";
+
+/** 초안 보관 개수. 사진까지 들고 있어 한 벌이 수백 KB 라 localStorage(5MB 안팎)가 금방 찬다 */
+const DRAFT_MAX = 5;
 
 /** 한 기록에 붙는 사진 (기기 저장). 기록 본문과 키를 나눠야 사진 없는 기기에서도 목록이 그대로 뜬다 */
 const PHOTO_KEY = (id: number) => `miri-ansim.photos.${id}`;
@@ -126,7 +144,9 @@ export function asRecord(v: unknown): TripRecord | null {
     date: /^\d{4}-\d{2}-\d{2}$/.test(str(r.date) ?? "") ? (r.date as string) : isoToday(),
     course,
     title,
-    // 화면은 500자에서 막지만 API 는 공개라 그 상한을 여기서 다시 건다 (초안 loadDraft 와 같은 자리)
+    // 옛 기록에는 없던 칸이라 없으면 빈 문자열이다 — 그 기록은 상세에서 소제목 없이 그려진다
+    episode: (str(r.episode) ?? "").slice(0, EPISODE_MAX),
+    // 화면은 BODY_MAX 에서 막지만 API 는 공개라 그 상한을 여기서 다시 건다 (초안 loadDraft 와 같은 자리)
     body: (str(r.body) ?? "").slice(0, BODY_MAX),
     route: r.route.filter((n): n is string => typeof n === "string"),
     places: r.places.filter((n): n is string => typeof n === "string"),
@@ -259,46 +279,80 @@ export async function shrinkImage(file: File, max = 720): Promise<string | null>
 
 /** 작성 화면이 들고 있는 값. 저장을 누르기 전까지의 모습 그대로다. */
 export type Draft = {
+  /** 처음 임시 저장한 시각(ms). 같은 초안을 다시 눌러 담을 때의 열쇠이자 목록 정렬 키 */
+  id: number;
   course: string;
   route: string[];
   places: string[];
   title: string;
+  episode: string;
   body: string;
   /** 아직 저장 안 누른 사진. 초안이 사진을 안 들면 임시 저장 뒤 돌아왔을 때 사진만 사라진다 */
   photos: string[];
 };
 
-export function saveDraft(draft: Draft): void {
+/** 저장 시각 표기 ("2026.08.19 21:40"). 초안 카드는 날짜만으로는 어느 게 방금 것인지 안 갈린다 */
+export function savedAt(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => `${n}`.padStart(2, "0");
+  return `${dotted(isoToday(d))} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** 한 칸이 초안인지. 기록(asRecord)과 같은 규칙 — 모양이 안 맞으면 그 칸만 버린다 */
+function asDraft(v: unknown): Draft | null {
+  if (!v || typeof v !== "object") return null;
+  const d = v as Record<string, unknown>;
+  if (typeof d.id !== "number" || !Number.isFinite(d.id)) return null;
+  if (typeof d.title !== "string" || typeof d.body !== "string" || typeof d.course !== "string") return null;
+  const list = (x: unknown) => (Array.isArray(x) ? x.filter((n): n is string => typeof n === "string") : []);
+
+  return {
+    id: d.id,
+    course: d.course,
+    title: d.title,
+    episode: typeof d.episode === "string" ? d.episode.slice(0, EPISODE_MAX) : "",
+    body: d.body.slice(0, BODY_MAX),
+    route: list(d.route),
+    places: list(d.places),
+    photos: list(d.photos),
+  };
+}
+
+/** 초안 목록, 최신순. 기기에만 있다 (기록과 달리 서버로 안 간다) */
+export function loadDrafts(): Draft[] {
   try {
-    globalThis.localStorage?.setItem(DRAFT_KEY, JSON.stringify(draft));
+    const raw: unknown = JSON.parse(globalThis.localStorage?.getItem(DRAFTS_KEY) ?? "null");
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map(asDraft)
+      .filter((d): d is Draft => d !== null)
+      .sort((a, b) => b.id - a.id);
   } catch {
-    /* 임시 저장이 안 되는 환경 — 작성은 계속할 수 있다 */
+    return [];
   }
 }
 
-export function loadDraft(): Draft | null {
+/**
+ * 담고 새 목록을 돌려준다. **못 담았으면 null 이다** (자리 부족 — 사진이 큰 초안이 그렇다).
+ * 같은 id 는 덮어쓰고, DRAFT_MAX 를 넘으면 오래된 것부터 버린다.
+ */
+export function saveDraft(draft: Draft): Draft[] | null {
+  const next = [draft, ...loadDrafts().filter((d) => d.id !== draft.id)].slice(0, DRAFT_MAX);
   try {
-    const raw: unknown = JSON.parse(globalThis.localStorage?.getItem(DRAFT_KEY) ?? "null");
-    if (!raw || typeof raw !== "object") return null;
-    const d = raw as Record<string, unknown>;
-    if (typeof d.title !== "string" || typeof d.body !== "string" || typeof d.course !== "string") return null;
-    return {
-      course: d.course,
-      title: d.title,
-      body: d.body.slice(0, BODY_MAX),
-      route: Array.isArray(d.route) ? d.route.filter((n): n is string => typeof n === "string") : [],
-      places: Array.isArray(d.places) ? d.places.filter((n): n is string => typeof n === "string") : [],
-      photos: Array.isArray(d.photos) ? d.photos.filter((n): n is string => typeof n === "string") : [],
-    };
+    globalThis.localStorage?.setItem(DRAFTS_KEY, JSON.stringify(next));
+    return next;
   } catch {
-    return null;
+    return null; // QuotaExceededError 등 — 작성은 계속할 수 있다
   }
 }
 
-export function clearDraft(): void {
+/** 하나 버린다 (초안 카드의 ✕, 그리고 그 초안을 기록으로 저장했을 때) */
+export function removeDraft(id: number): Draft[] {
+  const next = loadDrafts().filter((d) => d.id !== id);
   try {
-    globalThis.localStorage?.removeItem(DRAFT_KEY);
+    globalThis.localStorage?.setItem(DRAFTS_KEY, JSON.stringify(next));
   } catch {
-    /* 지울 게 없거나 못 지운다 — 다음 작성에서 덮어쓴다 */
+    /* 못 지운다 — 다음 저장에서 덮어쓴다 */
   }
+  return next;
 }

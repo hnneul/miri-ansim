@@ -26,23 +26,35 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../../StatusBar";
 import {
   BODY_MAX,
-  clearDraft,
+  EPISODE_MAX,
   clearPhotos,
   dotted,
   isoToday,
-  loadDraft,
+  loadDrafts,
   loadPhotos,
   loadRecords,
   parseSummary,
+  removeDraft,
   removeRecord,
   saveDraft,
   savePhotos,
   saveRecord,
+  savedAt,
   shrinkImage,
   type CourseSummary,
+  type Draft,
   type TripRecord,
 } from "@/lib/record";
 import { characterOf, parseProfile } from "@/lib/profile";
+
+/**
+ * 코스 셀렉터의 "지난 여행"에 몇 줄까지 보여줄지.
+ *
+ * 기록은 티어당 200개까지 쌓이는데(lib/records.db.ts BUCKET_MAX) 다 펼치면 메뉴가 화면을 아래로
+ * 뚫고 내려가 사진·제목 칸을 덮는다 (8개에서 이미 474px 였다). 코스를 고르는 사람이 찾는 건 최근
+ * 것들이고, 더 옛날 코스를 또 가고 싶으면 그 아래 "여행 하러 가기"가 있다.
+ */
+const PAST_MAX = 5;
 
 /**
  * 사진 한 기록에 최대 몇 장인지.
@@ -68,13 +80,21 @@ function Record() {
   // 기록 버킷은 익숙함 티어다 (lib/records.db.ts). 프로필이 이미 쿼리로 흘러와서 그대로 읽는다
   const tier = parseProfile(Object.fromEntries(searchParams)).experienceYears;
 
-  // 방금 끝낸 코스가 있으면 그 코스로 기록을 쓰러, 없으면 목록만 (위 첫 주석)
-  const [view, setView] = useState<View>(summary ? "write" : "list");
+  /*
+    방금 끝낸 코스가 있으면 그 코스로 기록을 쓰러, 없으면 목록만 (위 첫 주석).
+    write=1 은 코스 추천에서 뒤로 나온 길이다 — 쓰다 만 자리로 돌아와야 해서 작성 화면을 편다
+    (쓰던 글은 초안으로 남겨뒀다, Write 의 goTrip).
+  */
+  const [view, setView] = useState<View>(summary || searchParams.get("write") === "1" ? "write" : "list");
   const [records, setRecords] = useState<TripRecord[]>([]);
   /** 상세로 연 기록. 목록 카드를 누르면 채워진다 (TRIP-09-A) */
   const [opened, setOpened] = useState<TripRecord | null>(null);
   /** 고쳐 쓰는 기록 (상세의 "수정"). 새로 쓸 때는 null 이다 */
   const [editing, setEditing] = useState<TripRecord | null>(null);
+  /** 임시 저장해둔 글들 (기기에만, lib/record.ts). 목록 맨 위 "작성 중인 기록" 이 이걸 그린다 */
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  /** 이어 쓰는 초안. 새로 쓰면 null 이라 화면이 빈 채로 열린다 — 지난 초안이 저절로 올라오지 않는다 */
+  const [draft, setDraft] = useState<Draft | null>(null);
 
   // 서버에서 받아온다 — 첫 그림을 그린 뒤다. 실패하면 빈 목록이라 화면은 그대로 뜬다
   useEffect(() => {
@@ -85,8 +105,29 @@ function Record() {
     };
   }, [tier]);
 
+  /*
+    초안은 localStorage 라 첫 그림 뒤에 읽는다. d=<초안 id> 로 들어오면 그 초안을 이어 쓴다 —
+    코스 추천(/trip)에 다녀오는 길이 그 쿼리를 물고 온다 (app/trip/page.tsx back).
+  */
+  useEffect(() => {
+    const list = loadDrafts();
+    setDrafts(list);
+    const id = Number(searchParams.get("d"));
+    const found = Number.isFinite(id) ? list.find((d) => d.id === id) : undefined;
+    if (found) setDraft(found);
+  }, [searchParams]);
+
   const home = () => router.push(`/home?${searchParams}`);
-  const toTrip = () => router.push(`/trip?${searchParams}`);
+  /**
+   * 코스 추천으로. **어디서 왔는지 알려준다** — 그래야 거기서 뒤로 나올 때 홈이 아니라 여기로 돌아온다
+   * (app/trip/page.tsx back). 잘못 눌렀을 때 되돌아올 길이 없으면 쓰던 기록이 통째로 날아간다.
+   */
+  const toTrip = (draftId: number) => {
+    const q = new URLSearchParams(searchParams);
+    q.set("from", "record");
+    if (draftId) q.set("d", `${draftId}`); // 돌아왔을 때 이 초안으로 이어 쓴다
+    router.push(`/trip?${q}`);
+  };
 
   /*
    * 카드의 ✕. **서버가 준 목록으로 갈아끼운다** — 화면에서 먼저 지우고 나중에 맞추면,
@@ -110,15 +151,27 @@ function Record() {
         summary={summary}
         records={records}
         editing={editing}
+        draft={draft}
         onTrip={toTrip}
+        onDrafts={setDrafts}
+        /*
+          고쳐 쓰다 나가면 **그 기록의 상세로** 되돌린다 — 상세에서 들어온 문이라 목록으로 떨어지면
+          읽던 자리를 다시 찾아 들어가야 한다. 새로 쓰던 중이면 목록이 맞다 (거기서 왔다).
+        */
         onBack={() => {
+          const 고치던 = editing;
           setEditing(null);
-          setView("list");
+          setDraft(null);
+          setView(고치던 ? "detail" : "list");
         }}
         onSaved={(next) => {
           setRecords(next);
+          // 저장까지 마쳤으면 고친 내용이 반영된 기록으로 상세를 다시 연다 (opened 는 고치기 전 값이다)
+          const 고친 = editing ? (next.find((r) => r.id === editing.id) ?? null) : null;
+          if (고친) setOpened(고친);
           setEditing(null);
-          setView("list");
+          setDraft(null);
+          setView(고친 ? "detail" : "list");
         }}
       />
     );
@@ -138,8 +191,14 @@ function Record() {
   return (
     <List
       records={records}
+      drafts={drafts}
       tier={tier}
       onHome={home}
+      onOpenDraft={(d) => {
+        setDraft(d);
+        setView("write");
+      }}
+      onRemoveDraft={(id) => setDrafts(removeDraft(id))}
       onRemove={remove}
       onWrite={() => setView("write")}
       onOpen={(r) => {
@@ -199,7 +258,9 @@ function Write({
   summary,
   records,
   editing,
+  draft,
   onTrip,
+  onDrafts,
   onBack,
   onSaved,
 }: {
@@ -207,17 +268,24 @@ function Write({
   summary: CourseSummary | null;
   records: TripRecord[];
   editing: TripRecord | null;
-  onTrip: () => void;
+  draft: Draft | null;
+  onTrip: (draftId: number) => void;
+  onDrafts: (next: Draft[]) => void;
   onBack: () => void;
   onSaved: (next: TripRecord[]) => void;
 }) {
-  const [course, setCourse] = useState(editing?.course ?? summary?.course ?? "");
-  const [route, setRoute] = useState<string[]>(editing?.route ?? summary?.route ?? []);
-  const [places, setPlaces] = useState<string[]>(editing?.places ?? summary?.route.slice(1) ?? []);
-  const [title, setTitle] = useState(editing?.title ?? "");
-  const [body, setBody] = useState(editing?.body ?? "");
+  const 처음 = editing ?? draft;
+  const [course, setCourse] = useState(처음?.course ?? summary?.course ?? "");
+  const [route, setRoute] = useState<string[]>(처음?.route ?? summary?.route ?? []);
+  const [places, setPlaces] = useState<string[]>(처음?.places ?? summary?.route.slice(1) ?? []);
+  const [title, setTitle] = useState(처음?.title ?? "");
+  /** 이야기 소제목 (와이어프레임 상세의 "좁은 해안도로에서 마주친 뜻밖의 정체"). 안 적어도 된다 */
+  const [episode, setEpisode] = useState(처음?.episode ?? "");
+  const [body, setBody] = useState(처음?.body ?? "");
+  /** 지금 이어 쓰는 초안의 id. 임시 저장을 처음 누르는 순간 생긴다 */
+  const [draftId, setDraftId] = useState<number | null>(draft?.id ?? null);
   /** 오늘의 사진. **기기에만** 남는다 (lib/record.ts 사진 절 주석) */
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<string[]>(draft?.photos ?? []);
   useEffect(() => {
     if (editing) setPhotos(loadPhotos(editing.id));
   }, [editing]);
@@ -228,25 +296,11 @@ function Write({
   const [draftName, setDraftName] = useState("");
   const [saved, setSaved] = useState(false);
 
-  // 임시 저장해둔 초안이 있으면 되읽는다. 요약(방금 다녀온 코스)이 초안보다 우선이다 —
-  // 지난주 초안 때문에 오늘 코스가 안 골라져 있으면 그게 더 이상하다.
-  useEffect(() => {
-    if (editing) return; // 고쳐 쓰는 중엔 초안을 안 읽는다 (위 주석)
-    const draft = loadDraft();
-    if (!draft) return;
-    setTitle(draft.title);
-    setBody(draft.body);
-    setPhotos(draft.photos);
-    if (summary) return;
-    setCourse(draft.course);
-    setRoute(draft.route);
-    setPlaces(draft.places);
-  }, [summary]);
-
   /** 지난 여행 — 지금 고른 코스와 방금 다녀온 코스는 위에 이미 있으므로 뺀다 */
   const past = records
     .filter((r) => r.course !== summary?.course)
-    .filter((r, i, all) => all.findIndex((o) => o.course === r.course) === i);
+    .filter((r, i, all) => all.findIndex((o) => o.course === r.course) === i)
+    .slice(0, PAST_MAX);
 
   /**
    * 고를 코스가 하나도 없다 — 목록의 "여행 기록하기"로 들어왔는데 기록도 없는 사람이다.
@@ -289,37 +343,71 @@ function Write({
       route,
       places,
       title: title.trim() || "제목 없는 기록",
+      episode: episode.trim(),
       body: body.trim(),
       km: editing?.km ?? summary?.km ?? 0,
     };
     const next = await saveRecord(tier, record);
     // 사진은 이 기기에만 남는다. 자리가 없으면 기록은 남고 사진만 빠지므로 그 사실을 말해준다
     if (!savePhotos(record.id, photos)) alert("사진이 많아 이 기기에 다 담지 못했어요. 기록은 저장됐어요.");
-    clearDraft();
+    // 기록이 됐으니 초안 자리는 비운다 — 안 지우면 목록 위에 같은 글이 초안으로 남는다
+    if (draftId !== null) onDrafts(removeDraft(draftId));
     // 서버가 안 받아줬으면(null) 이번 화면에서만 보여준다 — 목록이 통째로 비는 것보다 낫다.
     // 새로고침하면 사라지는데, 그게 저장 안 됐다는 사실과 맞다 (lib/record.ts saveRecord 주석).
     onSaved(next ?? [record, ...records]);
   }
+
+  /**
+   * 지금 쓰던 걸 초안으로 담는다. 처음이면 id 를 만들고, 이어 쓰는 중이면 그 자리에 덮어쓴다.
+   * 담긴 id 를 돌려준다 — "여행 하러 가기"가 그 id 를 물고 나가야 돌아왔을 때 이어 쓸 수 있다.
+   */
+  function keepDraft(): number {
+    const id = draftId ?? Date.now();
+    setDraftId(id);
+    const next = saveDraft({ id, course, route, places, title, episode, body, photos });
+    if (next) onDrafts(next);
+    else alert("임시 저장할 자리가 부족해요. 사진을 몇 장 빼고 다시 눌러주세요.");
+    return id;
+  }
+
+  /*
+    "여행 하러 가기" — 라벨 줄 오른쪽 끝에 앉는다. 목록에 없는 길로 가는 유일한 문이라(직접 추가를
+    없앴다) 메뉴를 열자마자 보여야 하고, 제 줄을 하나 차지하면 목록이 그만큼 밀린다.
+  */
+  const goTrip = (
+    <button
+      onClick={() => {
+        // 쓰던 글을 초안으로 눌러두고 나간다 — 돌아오면 그 초안으로 이어 쓴다 (부모의 d 쿼리).
+        // 고쳐 쓰는 중이면 안 남긴다 (초안은 아직 저장 안 한 새 기록의 것이다)
+        onTrip(editing ? 0 : keepDraft());
+      }}
+      className="flex h-[26px] shrink-0 items-center rounded-[13px] bg-[#ff7d32] px-3 text-[12px] font-medium text-white transition active:scale-95"
+    >
+      여행 하러 가기
+    </button>
+  );
 
   const heading = "shrink-0 px-6 text-[14px] leading-normal font-medium text-[#262626]";
   const field = "w-full rounded-[10px] border-[1.5px] bg-white px-[13px] text-[14px] text-[#262626] outline-none";
 
   return (
     <Frame>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-6">
-        {/* AppBar — 제목은 뒤로가기 오른쪽에 붙는다 (와이어프레임이 가운데 정렬이 아니다) */}
-        <div className="flex h-11 shrink-0 items-center pr-6 pl-[9px]">
-          <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center">
-            <img src="/icon-arrow-left.svg" alt="" className="size-6" />
-          </button>
-          <h1 className="flex-1 text-[22px] leading-normal font-bold text-[#262626]">
-            여행 기록 {editing ? "수정" : "남기기"}
-          </h1>
-          {/* 눌린 걸 알려주는 자리가 버튼 자신뿐이라 라벨을 잠깐 바꾼다 — 토스트를 띄울 자리가 없다 */}
-          {!editing && (
+      {/*
+        AppBar 는 스크롤 밖이다 — 안에 두면 아래로 내려갈수록 뒤로·임시 저장이 화면 위로 사라진다.
+        제목은 뒤로가기 오른쪽에 붙는다 (와이어프레임이 가운데 정렬이 아니다).
+      */}
+      <div className="flex h-11 shrink-0 items-center pr-6 pl-[9px]">
+        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center">
+          <img src="/icon-arrow-left.svg" alt="" className="size-6" />
+        </button>
+        <h1 className="flex-1 text-[22px] leading-normal font-bold text-[#262626]">
+          여행 기록 {editing ? "수정" : "남기기"}
+        </h1>
+        {/* 눌린 걸 알려주는 자리가 버튼 자신뿐이라 라벨을 잠깐 바꾼다 — 토스트를 띄울 자리가 없다 */}
+        {!editing && (
           <button
             onClick={() => {
-              saveDraft({ course, route, places, title, body, photos });
+              keepDraft();
               setSaved(true);
               setTimeout(() => setSaved(false), 1600);
             }}
@@ -327,9 +415,10 @@ function Write({
           >
             {saved ? "저장됨" : "임시 저장"}
           </button>
-          )}
-        </div>
+        )}
+      </div>
 
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-6">
         {/* ── 여행 코스 ── */}
         <h2 className={`${heading} mt-2`}>여행 코스</h2>
         <p className="mt-1 shrink-0 px-6 text-[11px] leading-normal text-[#7d7d7d]">
@@ -359,39 +448,45 @@ function Write({
           </button>
 
           {open && (
-            <div className="mt-2 rounded-[14px] border border-[#eae7e2] bg-white p-[9px] shadow-[0_6px_16px_0_rgba(0,0,0,0.12)]">
+            <div className="mt-2 max-h-[260px] overflow-y-auto rounded-[14px] border border-[#eae7e2] bg-white p-[9px] shadow-[0_6px_16px_0_rgba(0,0,0,0.12)]">
+              {/*
+                "여행 하러 가기"가 목록 **위**다. 아래에 두면 지난 여행이 다섯 줄만 돼도 스크롤 밖으로
+                밀려 안 보인다 — 목록에 없는 길로 가는 유일한 문이라 열자마자 보여야 한다.
+                (＋ 직접 추가를 없앤 자리를 이 버튼이 대신한다.)
+              */}
+
               {noCourse && (
                 <>
-                  <p className="px-1 pt-1 pb-1.5 text-[12px] leading-5 font-bold text-[#7d7d7d]">최근 여행</p>
+                  <MenuLabel text="최근 여행" right={goTrip} />
                   <p className="px-1 py-2 text-center text-[12px] leading-[18px] text-[#7d7d7d]">
                     여행 기록이 없어 여행기록을 남길수가 없어요
                     <br />
                     여행을 다녀오시는건 어떨까요?
                   </p>
-                  <button
-                    onClick={onTrip}
-                    className="mx-auto mb-1 flex h-[30px] items-center rounded-[15px] bg-[#ff7d32] px-4 text-[13px] font-medium text-white transition active:scale-95"
-                  >
-                    여행 하러 가기
-                  </button>
                 </>
               )}
 
               {summary && (
                 <>
-                  <p className="px-1 pt-1 pb-1.5 text-[12px] leading-5 font-bold text-[#7d7d7d]">최근 여행</p>
+                  <MenuLabel text="최근 여행" right={goTrip} />
                   <Option
                     on={course === summary.course}
                     title={summary.course}
                     meta={summary.route.join(" → ")}
-                    onClick={() => pick(summary.course, { route: summary.route, places: summary.route.slice(1) })}
+                    onClick={() =>
+                      pick(summary.course, {
+                        route: summary.route,
+                        places: summary.route.slice(1),
+                      })
+                    }
                   />
                 </>
               )}
 
               {past.length > 0 && (
                 <>
-                  <p className="px-1 pt-2.5 pb-1 text-[12px] leading-5 font-bold text-[#7d7d7d]">지난 여행</p>
+                  {/* 버튼은 첫 라벨 줄에만 — 최근 여행이 위에 있으면 거기 이미 붙어 있다 */}
+                  <MenuLabel text="지난 여행" right={summary ? null : goTrip} top={!!summary} />
                   {past.map((r) => (
                     <Option
                       key={r.id}
@@ -408,6 +503,10 @@ function Write({
                 "＋ 여행 코스 직접 추가"는 뺐다 (피그마 메모: "없어도 될 것 같아요, 저 여행기록에 뜨는 창은
                 갔던 코스만 기록할 수 있게 해놓은 거라서"). 안 다녀온 코스를 손으로 적을 수 있으면
                 이 목록이 기록이 아니라 메모장이 된다.
+
+                대신 "여행 하러 가기"를 **코스가 있든 없든** 둔다. 직접 추가를 없앤 이상 목록에 없는 길은
+                다녀오는 것 말고 방법이 없고, 그 문이 코스가 하나도 없을 때만 열리면 두 번째 기록부터는
+                길이 막힌 것처럼 보인다.
               */}
             </div>
           )}
@@ -425,7 +524,7 @@ function Write({
             {photos.length} / {PHOTO_MAX}
           </span>
         </div>
-        <div className="mt-2 flex shrink-0 gap-[10px] overflow-x-auto px-6 pb-1">
+        <div className="mt-2 flex shrink-0 gap-[10px] overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* 추가 칸이 맨 앞이다 (와이어프레임) — 사진이 늘어도 누를 자리가 안 밀린다 */}
           <label className="grid size-[104px] shrink-0 cursor-pointer place-items-center rounded-[14px] bg-[#fff0e6] transition active:scale-95 has-disabled:opacity-40">
             <input
@@ -472,7 +571,21 @@ function Write({
 
         {/* ── 여행 이야기 ── */}
         <h2 className={`${heading} mt-5`}>여행 이야기</h2>
+        {/*
+          소제목은 안 적어도 되는 칸이다 — 상세에서 "오늘의 에피소드" 아래 굵은 한 줄이 되고,
+          비워두면 그 줄 없이 이야기만 그려진다 (와이어프레임 TRIP-09-A).
+        */}
         <div className="mt-1.5 shrink-0 px-6">
+          <input
+            value={episode}
+            onChange={(e) => setEpisode(e.target.value.slice(0, EPISODE_MAX))}
+            maxLength={EPISODE_MAX}
+            placeholder="소제목 (선택) - 좁은 해안도로에서 마주친 정체"
+            aria-label="이야기 소제목"
+            className={`${field} h-11 border-[#eae7e2] placeholder:text-[#b6b1ab] focus:border-[#ff7d32]`}
+          />
+        </div>
+        <div className="mt-2 shrink-0 px-6">
           <div className="flex h-[116px] flex-col rounded-[12px] border border-[#eae7e2] bg-white px-[13px] pt-3 pb-2.5 focus-within:border-[#ff7d32]">
             <textarea
               value={body}
@@ -529,8 +642,10 @@ function Write({
         </p>
       </div>
 
-      <Cta label="여행 기록 저장하기" onClick={save} />
-      <div className="h-[35px] shrink-0" />
+      <div className="flex shrink-0 flex-col bg-white pt-3">
+        <Cta label="여행 기록 저장하기" onClick={save} />
+        <div className="h-[35px] shrink-0" />
+      </div>
     </Frame>
   );
 }
@@ -550,14 +665,14 @@ function Thumb({ id }: { id: number }) {
   );
 }
 
-
 /* ────────────────────────── TRIP-09-A ────────────────────────── */
 
 /**
  * 기록 상세. 목록 카드를 누르면 열린다 (와이어프레임 "TRIP-09-A | 여행 기록 상세").
  *
- * 와이어프레임의 감성 조각들 — "제주 여행 3일 차", 에피소드 소제목, 맺음 한 줄, 정류장마다 붙은
- * 라벨("잠시 쉼", "노을") — 은 안 그린다. **앱이 모르는 값이다.** 지어내면 사람은 자기가 쓴 줄 안다.
+ * 와이어프레임의 감성 조각들 — "제주 여행 3일 차", 맺음 한 줄, 정류장마다 붙은 라벨("잠시 쉼",
+ * "노을") — 은 안 그린다. **앱이 모르는 값이다.** 지어내면 사람은 자기가 쓴 줄 안다.
+ * 에피소드 소제목만은 작성 화면에서 직접 받는다 (사람이 쓴 값이면 그려도 된다).
  * 대신 아는 것만 그 자리에 넣는다: 날짜·코스·제목·사진·경로·이야기·장소·거리.
  * 출발과 도착만 라벨을 붙인다 — 그건 경로 배열이 이미 아는 사실이다.
  */
@@ -569,22 +684,25 @@ function Detail({ record, onBack, onEdit }: { record: TripRecord; onBack: () => 
 
   return (
     <Frame>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-8">
-        {/* 헤더 — 와이어프레임의 ••• 는 안 단다. 지울 문은 목록 카드의 ✕ 하나로 족하다 */}
-        <div className="flex h-[44px] shrink-0 items-center pl-[9px]">
-          <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center">
-            <img src="/icon-arrow-left.svg" alt="" className="size-6" />
-          </button>
-          <h1 className="flex-1 text-[21px] leading-normal font-bold text-[#1f1f1f]">여행 기록</h1>
-          {/* 와이어프레임의 ••• 자리다. 열어봐야 한 칸뿐이라 메뉴 대신 그 한 칸을 바로 둔다 */}
-          <button
-            onClick={onEdit}
-            className="mr-6 shrink-0 text-[14px] leading-normal font-medium text-[#6b6b6b] transition active:scale-95"
-          >
-            수정
-          </button>
-        </div>
+      {/*
+        헤더는 스크롤 밖이다 — 안에 두면 히어로 사진과 함께 위로 밀려 올라가, 긴 글을 읽는 중에
+        뒤로·수정으로 나갈 문이 사라진다. 와이어프레임의 ••• 는 안 단다 (지울 문은 목록 카드의 ✕).
+      */}
+      <div className="flex h-[44px] shrink-0 items-center bg-white pl-[9px]">
+        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center">
+          <img src="/icon-arrow-left.svg" alt="" className="size-6" />
+        </button>
+        <h1 className="flex-1 text-[21px] leading-normal font-bold text-[#1f1f1f]">여행 기록</h1>
+        {/* 와이어프레임의 ••• 자리다. 열어봐야 한 칸뿐이라 메뉴 대신 그 한 칸을 바로 둔다 */}
+        <button
+          onClick={onEdit}
+          className="mr-6 shrink-0 text-[14px] leading-normal font-medium text-[#6b6b6b] transition active:scale-95"
+        >
+          수정
+        </button>
+      </div>
 
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-8">
         {/* 히어로 — 첫 사진. 사진이 없으면(다른 기기이거나 안 넣었으면) 코스 색만 남는다 */}
         <div className="relative h-[262px] shrink-0 overflow-hidden bg-[#fff0e6]">
           {photos[0] && <img src={photos[0]} alt="" className="size-full object-cover" />}
@@ -602,10 +720,15 @@ function Detail({ record, onBack, onEdit }: { record: TripRecord; onBack: () => 
           </div>
         </div>
 
-        {/* 사진 줄 — 히어로로 쓴 첫 장 다음부터 */}
-        {photos.length > 1 && (
-          <div className="mt-[27px] flex shrink-0 gap-[5px] overflow-x-auto px-6">
-            {photos.slice(1).map((src, i) => (
+        {/*
+          사진 줄 — **히어로로 쓴 첫 장도 같이 넣는다.** 위 사진은 제목에 가려 절반만 보이므로,
+          여기서 원본을 다시 볼 수 있어야 한다. 여러 장이면 아래로 쌓지 않고 옆으로 민다
+          (세로로 쌓으면 사진 스무 장에 화면이 한없이 길어진다). 스크롤 막대는 숨긴다 —
+          폰에는 없는 물건이다 (globals.css 의 .phone 과 같은 이유).
+        */}
+        {photos.length > 0 && (
+          <div className="mt-[27px] flex shrink-0 gap-[5px] overflow-x-auto px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {photos.map((src, i) => (
               <img
                 key={src.slice(-24) + i}
                 src={src}
@@ -643,9 +766,13 @@ function Detail({ record, onBack, onEdit }: { record: TripRecord; onBack: () => 
         )}
 
         {/* 오늘의 에피소드 — 쓴 글 그대로. 줄바꿈을 살려야 쓴 사람이 본 모양으로 보인다 */}
-        {record.body && (
+        {(record.body || record.episode) && (
           <section className="mt-7 shrink-0 px-[34px]">
             <p className="text-[12px] leading-normal font-bold text-[#f04d1a]">오늘의 에피소드</p>
+            {/* 소제목은 안 적었으면 그 줄째 없다 — 빈 줄이 남으면 뭔가 빠진 것처럼 보인다 */}
+            {record.episode && (
+              <p className="mt-1.5 text-[14px] leading-[22px] font-bold text-[#1f1f1f]">{record.episode}</p>
+            )}
             <p className="mt-2.5 text-[14px] leading-[22px] whitespace-pre-wrap text-[#6b6b6b]">{record.body}</p>
           </section>
         )}
@@ -675,19 +802,32 @@ function Detail({ record, onBack, onEdit }: { record: TripRecord; onBack: () => 
   );
 }
 
-/** 코스 선택 메뉴 한 줄. 고른 줄만 배경과 체크가 붙는다. */
+/** 코스 선택 메뉴의 구분 라벨. 오른쪽에 버튼 하나를 같은 줄에 태울 수 있다. */
+function MenuLabel({ text, right, top }: { text: string; right?: React.ReactNode; top?: boolean }) {
+  return (
+    /* 아래 여백을 넉넉히 — 알약 버튼이 라벨 줄에 앉아 줄 자체가 두꺼워졌다. 6px 이면 첫 코스가 버튼에 붙는다 */
+    <div className={`flex items-center justify-between px-1 pb-3 ${top ? "pt-3" : "pt-1.5"}`}>
+      <p className="text-[12px] leading-5 font-bold text-[#7d7d7d]">{text}</p>
+      {right}
+    </div>
+  );
+}
+
+/**
+ * 코스 선택 메뉴 한 줄. 고른 줄은 **배경만** 바뀐다 — 체크 표시는 안 붙인다.
+ * 체크 자리를 비워두면 글이 그만큼 안으로 밀려 위 라벨과 왼쪽 끝이 안 맞는다.
+ */
 function Option({ on, title, meta, onClick }: { on: boolean; title: string; meta: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`flex w-full items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left ${on ? "bg-[#fff0e6]" : "bg-white"}`}
+      className={`flex w-full items-center rounded-[10px] px-2.5 py-1.5 text-left ${on ? "bg-[#fff0e6]" : "bg-white"}`}
     >
-      <span aria-hidden className={`w-4 shrink-0 text-[16px] leading-none font-bold text-[#ff7d32] ${on ? "" : "opacity-0"}`}>
-        ✓
-      </span>
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-[13px] leading-[19px] text-[#262626] ${on ? "font-bold" : "font-medium"}`}>
+        <span
+          className={`block truncate text-[13px] leading-[19px] text-[#262626] ${on ? "font-bold" : "font-medium"}`}
+        >
           {title}
         </span>
         <span className="block truncate text-[10px] leading-4 text-[#7d7d7d]">{meta}</span>
@@ -737,18 +877,24 @@ function NameInput({
  */
 function List({
   records,
+  drafts,
   tier,
   onHome,
   onRemove,
   onWrite,
   onOpen,
+  onOpenDraft,
+  onRemoveDraft,
 }: {
   records: TripRecord[];
+  drafts: Draft[];
   tier: number;
   onHome: () => void;
   onRemove: (record: TripRecord) => void;
   onWrite: () => void;
   onOpen: (record: TripRecord) => void;
+  onOpenDraft: (draft: Draft) => void;
+  onRemoveDraft: (id: number) => void;
 }) {
   const km = records.reduce((n, r) => n + r.km, 0);
   const places = records.reduce((n, r) => n + r.places.length, 0);
@@ -768,11 +914,7 @@ function List({
             </p>
           </div>
           {/* 홈·마이 아바타와 같은 얼굴이다 (lib/profile.ts characterOf) — 한 사람의 프로필이 화면마다 갈리면 안 된다 */}
-          <img
-            src={characterOf(tier).src}
-            alt=""
-            className="mt-1 size-[62px] shrink-0 rounded-full object-cover"
-          />
+          <img src={characterOf(tier).src} alt="" className="mt-1 size-[62px] shrink-0 rounded-full object-cover" />
         </div>
 
         <div className="mx-[23px] mt-5 flex h-[82px] shrink-0 items-center justify-between rounded-[18px] bg-[#fff0e6] pr-[26px] pl-[18px]">
@@ -784,6 +926,48 @@ function List({
             방문 {places}곳 · 사진 {shots}장
           </p>
         </div>
+
+        {/*
+          작성 중인 초안. **기기에만 있는 글**이라 서버 기록과 섞이면 안 된다 — 섹션을 갈라 위에 두고
+          카드도 얇고 회색으로 다르게 그린다. 초안이 없으면 이 자리는 통째로 없다.
+        */}
+        {drafts.length > 0 && (
+          <>
+            <h2 className="mt-7 shrink-0 px-[23px] text-[16px] leading-6 font-medium tracking-[-0.16px] text-[#262626]">
+              작성 중인 기록
+            </h2>
+            <div className="mt-3 flex shrink-0 flex-col gap-2.5 px-[23px]">
+              {drafts.map((d) => (
+                <div
+                  key={d.id}
+                  className="relative flex h-[64px] items-center rounded-[16px] border border-[#eae7e2] bg-[#faf9f8] px-4"
+                >
+                  {/* 카드 전체가 이어 쓰기 문 — ✕ 만 그 위에 얹힌다 (기록 카드와 같은 규칙) */}
+                  <button
+                    onClick={() => onOpenDraft(d)}
+                    aria-label={`${d.title || "제목 없는 초안"} 이어 쓰기`}
+                    className="absolute inset-0 z-10 rounded-[16px]"
+                  />
+                  <div className="min-w-0 flex-1 pr-7">
+                    <p className="truncate text-[14px] leading-5 font-medium text-[#262626]">
+                      {d.title || "제목 없는 초안"}
+                    </p>
+                    <p className="mt-0.5 truncate text-[11px] leading-4 text-[#7d7d7d]">
+                      {d.course || "코스 미정"} · {savedAt(d.id)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onRemoveDraft(d.id)}
+                    aria-label={`${d.title || "제목 없는 초안"} 초안 지우기`}
+                    className="absolute top-[17px] right-[11px] z-20 flex size-[30px] items-center justify-center transition active:scale-[0.9]"
+                  >
+                    <img src="/safelog/icon-close.svg" alt="" className="size-[14px]" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <h2 className="mt-7 shrink-0 px-[23px] text-[16px] leading-6 font-medium tracking-[-0.16px] text-[#262626]">
           최근 기록
@@ -799,20 +983,25 @@ function List({
         ) : (
           <div className="mt-[18px] flex shrink-0 flex-col gap-5 px-[23px] pb-2">
             {records.map((r) => (
-              /* 카드를 누르면 상세로 (TRIP-09-A). ✕ 는 그 위에 얹히므로 눌림이 카드까지 안 내려가게 막는다 */
-              <button
+              <div
                 key={r.id}
-                onClick={() => onOpen(r)}
-                className="relative flex h-[150px] w-full items-start gap-[18px] rounded-[20px] border border-[#eae7e2] bg-white p-4 text-left shadow-[0_4px_12px_0_rgba(0,0,0,0.05)] transition active:scale-[0.99]"
+                className="relative flex h-[150px] items-start gap-[18px] rounded-[20px] border border-[#eae7e2] bg-white p-4 shadow-[0_4px_12px_0_rgba(0,0,0,0.05)] transition active:scale-[0.99]"
               >
+                {/*
+                  카드를 누르면 상세로 (TRIP-09-A). 카드 자체를 button 으로 감싸면 안 된다 —
+                  안에 ✕ 버튼이 있어서 button 안의 button 이 되고, 그건 HTML 이 금지한다
+                  (하이드레이션 오류로 터진다). 대신 카드를 덮는 투명 버튼을 글 위에 깔고 ✕ 를 그 위에 둔다.
+                */}
+                <button
+                  onClick={() => onOpen(r)}
+                  aria-label={`${r.title} 기록 열기`}
+                  className="absolute inset-0 z-10 rounded-[20px]"
+                />
                 {/* ✕ — 주행 저장 카드와 같은 자리·같은 아이콘이다 (app/safelog/page.tsx). 두 목록이 같은 카드라 규칙도 하나여야 한다 */}
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove(r);
-                  }}
+                  onClick={() => onRemove(r)}
                   aria-label={`${r.title} 기록 지우기`}
-                  className="absolute top-[8px] right-[11px] flex size-[30px] items-center justify-center transition active:scale-[0.9]"
+                  className="absolute top-[8px] right-[11px] z-20 flex size-[30px] items-center justify-center transition active:scale-[0.9]"
                 >
                   <img src="/safelog/icon-close.svg" alt="" className="size-[14px]" />
                 </button>
@@ -834,7 +1023,7 @@ function List({
                     {r.places.length}곳{r.km > 0 && ` · ${r.km}km`}
                   </p>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -842,11 +1031,18 @@ function List({
         <div className="min-h-5 flex-1" />
       </div>
 
-      {/* 기록으로 들어가는 문이 여기다 (와이어프레임 "여행 기록하기 버튼 누르면"). 그 아래가 홈으로 */}
-      <Cta label="여행 기록하기" onClick={onWrite} />
-      <div className="h-4 shrink-0" />
-      <Cta label="홈으로 돌아가기" onClick={onHome} ghost />
-      <div className="h-[35px] shrink-0" />
+      {/*
+        하단 버튼은 흰 띠 위에 앉힌다. 띠가 없으면 스크롤하던 카드가 버튼 바로 위에서 칼로 자른 듯
+        끊겨 버튼이 카드 위에 얹힌 것처럼 보인다 — 여기가 화면의 바닥이라는 걸 띠가 말해준다.
+
+        기록으로 들어가는 문이 여기다 (와이어프레임 "여행 기록하기 버튼 누르면"). 그 아래가 홈으로.
+      */}
+      <div className="flex shrink-0 flex-col bg-white pt-3">
+        <Cta label="여행 기록하기" onClick={onWrite} />
+        <div className="h-4 shrink-0" />
+        <Cta label="홈으로 돌아가기" onClick={onHome} ghost />
+        <div className="h-[35px] shrink-0" />
+      </div>
     </Frame>
   );
 }
