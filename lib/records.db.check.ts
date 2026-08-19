@@ -22,6 +22,7 @@ const 기록 = (id: number, title: string) => ({
   route: ["제주공항", "애월"],
   places: ["애월"],
   title,
+  episode: "좁은 길에서 마주친 차",
   body: "좋았다",
   km: 62,
 });

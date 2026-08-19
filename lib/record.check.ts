@@ -5,13 +5,15 @@
 import assert from "node:assert";
 import {
   BODY_MAX,
-  clearDraft,
+  EPISODE_MAX,
+  removeDraft,
   dotted,
   asRecord,
   asTier,
   isoToday,
-  loadDraft,
+  loadDrafts,
   parseSummary,
+  savedAt,
   saveDraft,
   summaryOf,
   toRecordQuery,
@@ -101,7 +103,19 @@ assert.equal(empty.date, isoToday());
 
 // 서버가 돌려준 목록도 손댈 수 있는 입력이다. 화면과 서버가 **같은** asRecord 를 쓴다
 // (app/api/records/route.ts) — 여기가 느슨해지면 양쪽이 같이 느슨해진다.
-const record: TripRecord = { ...summary, id: 2, title: "애월에서 협재까지", body: "좋았다", places: ["애월", "협재", "금능"] };
+const record: TripRecord = {
+  ...summary,
+  id: 2,
+  title: "애월에서 협재까지",
+  episode: "좁은 길에서 마주친 차",
+  body: "좋았다",
+  places: ["애월", "협재", "금능"],
+};
+
+// 소제목은 나중에 생긴 칸이다 — 없는 옛 기록도 그대로 읽혀야 한다 (빈 문자열로)
+const { episode: _, ...옛기록 } = record;
+assert.equal(some(asRecord(옛기록)).episode, "");
+assert.equal(some(asRecord({ ...record, episode: "가".repeat(EPISODE_MAX + 5) })).episode.length, EPISODE_MAX);
 
 assert.deepEqual(asRecord(record), record);
 
@@ -140,22 +154,61 @@ assert.equal(asTier(" 3 "), 3);
 
 /* ─────────────────────────────── 임시 저장 ─────────────────────────────── */
 
-const draft = { course: "바다와 노을 코스", route: ["제주공항", "애월"], places: ["애월"], title: "제목", body: "본문" };
+const draft = {
+  id: 1000,
+  course: "바다와 노을 코스",
+  route: ["제주공항", "애월"],
+  places: ["애월"],
+  title: "제목",
+  episode: "소제목",
+  body: "본문",
+  photos: [],
+};
 
-assert.equal(loadDraft(), null);
+assert.deepEqual(loadDrafts(), []);
 saveDraft(draft);
-assert.deepEqual(loadDraft(), draft);
+assert.deepEqual(loadDrafts(), [draft]);
 
-// 500자를 넘겨 들어온 초안은 잘라서 돌려준다 — 그대로 두면 저장 버튼이 안 눌리는 화면으로 열린다
-saveDraft({ ...draft, body: "가".repeat(BODY_MAX + 10) });
-assert.equal(some(loadDraft()).body.length, BODY_MAX);
+// 같은 id 는 덮어쓴다 — 임시 저장을 두 번 눌러도 초안이 둘로 늘지 않는다
+saveDraft({ ...draft, title: "고친 제목" });
+assert.equal(loadDrafts().length, 1);
+assert.equal(some(loadDrafts()[0]).title, "고친 제목");
 
-clearDraft();
-assert.equal(loadDraft(), null);
+// 여러 벌을 모아두고 최신순으로 돌려준다 (목록 "작성 중인 기록" 순서)
+saveDraft({ ...draft, id: 2000, title: "둘째" });
+assert.deepEqual(
+  loadDrafts().map((d) => d.id),
+  [2000, 1000],
+);
 
-// 초안이 깨져도 작성 화면은 빈 값으로 열린다
-store.set("miri-ansim.record-draft", JSON.stringify({ title: 1 }));
-assert.equal(loadDraft(), null);
+// 상한을 넘겨 들어온 초안은 잘라서 돌려준다 — 그대로 두면 저장 버튼이 안 눌리는 화면으로 열린다
+saveDraft({ ...draft, id: 3000, body: "가".repeat(BODY_MAX + 10) });
+assert.equal(some(loadDrafts()[0]).body.length, BODY_MAX);
+
+// 다섯 벌까지만 — 사진까지 든 초안이라 무한히 쌓으면 localStorage 가 찬다. 오래된 것부터 나간다
+for (const id of [4000, 5000, 6000]) saveDraft({ ...draft, id });
+assert.deepEqual(
+  loadDrafts().map((d) => d.id),
+  [6000, 5000, 4000, 3000, 2000],
+);
+
+removeDraft(6000);
+assert.equal(
+  loadDrafts().some((d) => d.id === 6000),
+  false,
+);
+
+// 초안이 깨져도 작성 화면은 빈 값으로 열린다 (그 칸만 버린다)
+store.set("miri-ansim.drafts", JSON.stringify([{ title: 1 }, { ...draft, id: 7000 }]));
+assert.deepEqual(
+  loadDrafts().map((d) => d.id),
+  [7000],
+);
+store.set("miri-ansim.drafts", "깨진 값");
+assert.deepEqual(loadDrafts(), []);
+
+// 저장 시각 표기 — 날짜만으로는 오늘 쓴 초안 둘이 안 갈린다
+assert.equal(savedAt(new Date(2026, 7, 19, 21, 5).getTime()), "2026.08.19 21:05");
 
 /* ─────────────────────────────── 표기 ─────────────────────────────── */
 
