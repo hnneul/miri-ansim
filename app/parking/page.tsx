@@ -632,7 +632,13 @@ function SpotCard({
         <div className="mx-[20px] mb-[20px] flex gap-1">
           <button
             onClick={onOpen}
-            className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+            /*
+              흰 알약의 호버는 **옅은 회색**이다. 옅은 주황(#fff0e6)이었는데, 그건 옆의
+              주황 알약("여기로 갈게요")이 하려던 일을 가리키는 색이라 흰 알약에 얹으면
+              둘이 같은 성격으로 보인다. 목적지 화면의 같은 짝(출발 · 근처 주차장 보기)이
+              이미 회색이라 앱 안에서도 갈려 있었다.
+            */
+            className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
           >
             자세히
           </button>

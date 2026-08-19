@@ -94,7 +94,7 @@ function Calm() {
           // 쿼리를 그대로 실어야 /home 이 프로필을 되읽는다 (/destination 의 ← 와 같은 방식)
           onClick={() => router.push(`/home?${searchParams}`)}
           aria-label="뒤로"
-          className="flex size-11 items-center justify-center"
+          className="flex size-11 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
         >
           <img src="/icon-arrow-left.svg" alt="" className="size-6" />
         </button>

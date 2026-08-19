@@ -149,7 +149,7 @@ export default function Onboarding() {
           // 소개 화면으로 돌아간다. 스플래시 없는 주소다 (app/intro/page.tsx)
           onClick={() => (step === 0 ? router.push("/intro") : setStep(step - 1))}
           aria-label="뒤로"
-          className="flex size-11 shrink-0 items-center justify-center"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
         >
           <img src="/icon-arrow-left.svg" alt="" className="size-6" />
         </button>
