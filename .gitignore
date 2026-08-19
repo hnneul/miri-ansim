@@ -72,3 +72,6 @@ gcp-tts.json
 # judge-input*.json 은 left-turn-candidates.json 을 수집 스크립트 입력 형식으로 옮긴 것뿐이다.
 /data/turninfo.csv
 /data/judge-input*.json
+
+# 파이썬 스크립트 실행 부산물
+__pycache__/
