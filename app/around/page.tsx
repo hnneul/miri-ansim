@@ -358,7 +358,7 @@ function Around() {
             전에는 글자 ◎ 를 흰 원으로 감싸 흉내 냈는데, 글꼴 글리프라 기기마다 굵기가
             달라졌고 메인화면 것과도 굵기·색이 안 맞았다.
           */
-          className={`pointer-events-auto mr-5 size-[44px] shrink-0 self-end transition active:scale-90 ${
+          className={`pointer-events-auto mr-5 size-[44px] shrink-0 self-end transition hover:brightness-95 active:scale-90 ${
             open || selected ? "mb-[calc(62%+12px)]" : "mb-3"
           }`}
         >

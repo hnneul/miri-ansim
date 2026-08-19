@@ -21,7 +21,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
 import { characterOf, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
-import { dotted, loadRecords, type TripRecord } from "@/lib/record";
+import { dotted, loadPhotos, loadRecords, type TripRecord } from "@/lib/record";
 import { hereNow } from "./actions";
 
 /** 위치를 못 받았을 때 지도가 보는 곳. 제주시청이다 — 섬 한복판(한라산)보다 사람이 있는 자리다. */
@@ -228,11 +228,15 @@ function Home() {
           {/*
             그림 파일의 상자는 44 지만 눈에 보이는 동그라미는 그 안 36 이다 (나머지는 그림자 여백).
             상자를 36 으로 줄이면 버튼이 29px 로 쪼그라든다 — 44 로 두고 여백만큼 밀어 자리를 맞춘다.
+
+            그래서 호버도 배경색이 아니라 **그림째 살짝 어둡게**다. 흰 원이 그림 안에 있어서
+            버튼에 bg 를 깔면 원이 아니라 44 짜리 네모가 뜬다. brightness-95 면 원만 옅은 회색이
+            되고, 줌 버튼의 hover:bg-[#f5f5f5] 와 같은 정도로 보인다 (app/RouteMap.tsx).
           */}
           <button
             onClick={locate}
             aria-label="현재 위치로"
-            className="absolute top-[9px] right-[30px] z-10 size-[44px] transition active:scale-90"
+            className="absolute top-[9px] right-[30px] z-10 size-[44px] transition hover:brightness-95 active:scale-90"
           >
             <img src="/home/btn-locate.svg" alt="" className="size-full" />
           </button>
@@ -317,7 +321,8 @@ function Home() {
       */}
       <div className="mt-[14px] flex shrink-0 flex-col gap-[10px] px-[21px]">
         {records.slice(0, 2).map((r) => (
-          <Record key={r.id} record={r} href={`/trip/record?${searchParams}`} />
+          /* 카드를 누르면 **그 기록의 상세**로 (open=<id>). ＋ 칸만 목록으로 간다 */
+          <Record key={r.id} record={r} href={`/trip/record?${searchParams}&open=${r.id}`} />
         ))}
         <Link
           href={`/trip/record?${searchParams}`}
@@ -392,16 +397,39 @@ function Quick({
  * 읽히지 않는다. 사진 대신 옅은 주황 바탕이다 — 기록에 아직 사진 칸이 없다 (기록 목록의 썸네일 자리와 같다).
  */
 function Record({ record, href }: { record: TripRecord; href: string }) {
+  /*
+    첫 사진을 카드에 깐다 — 기록 상세의 히어로와 같은 장이라, 홈에서 본 카드와 열어본 화면이 이어진다.
+    사진은 **기기에만** 있어서(lib/record.ts) 다른 기기에서는 없다. 그때는 옅은 주황 카드로 돌아간다 —
+    빈 회색 상자를 두면 사진을 못 불러온 것처럼 보인다.
+
+    localStorage 는 첫 그림 뒤에 읽는다 (렌더 중에 읽으면 서버가 그린 화면과 달라져 하이드레이션이 어긋난다).
+  */
+  const [shot, setShot] = useState<string | null>(null);
+  useEffect(() => setShot(loadPhotos(record.id)[0] ?? null), [record.id]);
+
+  const 아래 = `${record.course} · ${record.places.length}곳${record.km > 0 ? ` · ${record.km}km` : ""}`;
+
   return (
     <Link
       href={href}
-      className="block h-[84px] overflow-hidden rounded-[11px] bg-[#fff0e6] px-[14px] py-[13px] transition active:scale-[0.98]"
+      className="relative block h-[84px] overflow-hidden rounded-[11px] bg-[#fff0e6] transition active:scale-[0.98]"
     >
-      <p className="text-[10px] leading-none text-[#7d7d7d]">{dotted(record.date)}</p>
-      <p className="mt-[8px] truncate text-[13px] leading-none font-bold text-[#1f1f1f]">{record.title}</p>
-      <p className="mt-[8px] truncate text-[10px] leading-none text-[#7d7d7d]">
-        {record.course} · {record.places.length}곳{record.km > 0 && ` · ${record.km}km`}
-      </p>
+      {shot && (
+        <>
+          <img src={shot} alt="" className="absolute inset-0 size-full object-cover" />
+          {/* 사진 위 흰 글씨라 어둠막을 깐다 — 밝은 하늘 사진이 오면 글자가 사라진다 */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/25 to-black/10" />
+        </>
+      )}
+      <div className="relative px-[14px] py-[13px]">
+        <p className={`text-[10px] leading-none ${shot ? "text-white/80" : "text-[#7d7d7d]"}`}>{dotted(record.date)}</p>
+        <p className={`mt-[8px] truncate text-[13px] leading-none font-bold ${shot ? "text-white" : "text-[#1f1f1f]"}`}>
+          {record.title}
+        </p>
+        <p className={`mt-[8px] truncate text-[10px] leading-none ${shot ? "text-white/85" : "text-[#7d7d7d]"}`}>
+          {아래}
+        </p>
+      </div>
     </Link>
   );
 }

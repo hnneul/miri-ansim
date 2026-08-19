@@ -22,6 +22,15 @@ export type MapRoute = {
   label?: string;
   /** 말풍선 색. 선을 회색으로 눕힌 경로도 라벨은 제 색이어야 어느 길인지 읽힌다. */
   labelColor?: string;
+  /**
+   * 다른 선 **위에 겹쳐 얹는 선**이다 (부담 구간). 흰 테를 안 두른다.
+   *
+   * 테를 두르면 아래 경로선과 사이에 흰 경계가 생겨서, 색이 바뀐 구간이 아니라 위에 올려둔
+   * 딴 물건으로 보인다 — 짧을수록 심해서 흘린 자국처럼 읽혔다. 테 없이 같은 폭으로 얹으면
+   * 아래 선의 흰 테가 그대로 이어지고, **그 자리에서 선 색만 바뀐 것**이 된다
+   * (카카오맵이 정체 구간을 칠하는 방식이 이것이다).
+   */
+  overlay?: boolean;
 };
 
 /**
@@ -53,8 +62,11 @@ type Props = {
    * 덮고 있던 시트를 내린다 (/route 의 collapsed).
    *
    * 카카오의 map "click" 은 마커·선을 눌렀을 때는 안 온다 — 그래서 "빈 곳"이 그냥 성립한다.
+   *
+   * 누른 좌표를 같이 준다 — 출발 위치를 지도에서 직접 고르는 화면(TRIP-04-C)이 이걸 쓴다.
+   * 옵션인 이유는 카카오가 좌표 없는 click 을 줄 수도 있어서다. 안 쓰는 쪽은 그냥 무시하면 된다.
    */
-  onBlank?: () => void;
+  onBlank?: (at?: LatLng) => void;
   /**
    * **휠로** 확대/축소할지. 끄는 건 마우스 휠 하나뿐이다 — 핀치·더블클릭 확대와 끌기는 그대로 산다.
    *
@@ -122,7 +134,7 @@ export default function RouteMap({
   const [selected, setSelected] = useState<RiskFactor | null>(null);
 
   // 배열 prop이 매 렌더 새 참조라 의존성으로 직접 못 쓴다
-  const blank = useRef<(() => void) | undefined>(undefined);
+  const blank = useRef<((at?: LatLng) => void) | undefined>(undefined);
   const blankBound = useRef(false);
 
   const shape = JSON.stringify({ center, level, routes, markers, padBottom });
@@ -152,7 +164,10 @@ export default function RouteMap({
     blank.current = onBlank;
     if (onBlank && !blankBound.current) {
       blankBound.current = true;
-      kakao.maps.event.addListener(map.current, "click", () => blank.current?.());
+      kakao.maps.event.addListener(map.current, "click", (e: any) => {
+        const ll = e?.latLng;
+        blank.current?.(ll ? [ll.getLat(), ll.getLng()] : undefined);
+      });
     }
 
     // 라벨을 어느 쪽으로 붙일지 정하는 기준선 (경로 전체의 동서 한가운데)
@@ -175,7 +190,7 @@ export default function RouteMap({
         (제주 지도에서 파란 경로가 강처럼, 초록 경로가 공원 경계처럼 보였다).
         내비게이션이 다 하는 처리이고, 어떤 색을 쓰든 통한다.
       */
-      ...routes.map((r) => 선(r, "#fff", 4, 0.85)),
+      ...routes.filter((r) => !r.overlay).map((r) => 선(r, "#fff", 4, 0.85)),
       ...routes.map((r) => 선(r, r.color)),
       // 라벨은 경로 중간점에 — 두 경로가 갈라진 뒤라 겹칠 일이 거의 없다.
       // ponytail: 겹치면 그때 갈라지는 지점 계산으로 올린다.
@@ -295,7 +310,8 @@ export default function RouteMap({
               key={label}
               onClick={() => map.current?.setLevel(map.current.getLevel() + step)}
               aria-label={label}
-              className="h-[32px] w-full text-[16px] leading-none text-[#1f1f1f] transition first:border-b first:border-[#ececec] hover:bg-[#fff0e6] active:bg-[#fff0e6]"
+              /* 회색이다 — 주황은 이 앱에서 "고르는 것"의 색인데(검색바·강조) 줌은 지도를 보는 손짓이지 고르는 게 아니다 */
+            className="h-[32px] w-full text-[16px] leading-none text-[#1f1f1f] transition first:border-b first:border-[#ececec] hover:bg-[#f5f5f5] active:bg-[#ececec]"
             >
               {step < 0 ? "＋" : "－"}
             </button>
