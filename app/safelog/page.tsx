@@ -12,7 +12,7 @@
 //
 // **묻지 않는다.** 예전 와이어프레임에는 주행을 마치고 오면 목록 위에 어둠막을 덮고
 // "이번 주행도 기록할까요?"를 묻는 흐름(?done=1)이 있었는데, 지금 디자인에서 빠졌다 —
-// 빈 화면이 "주행을 하면 자동으로 등록됩니다"라고 말한다. 등록은 사람이 누르는 일이 아니다.
+// 빈 화면이 "달리기만 하면 자동 등록"이라고 말한다. 등록은 사람이 누르는 일이 아니다.
 // 그래서 여기서 사람이 할 수 있는 건 빼기(✕)와 나만의 길로 담기 둘뿐이다.
 //
 // 메인화면(/home)의 "주행 저장" 칸으로 들어온다.
@@ -20,52 +20,19 @@
 // 세로 배치는 좌표가 아니라 흐름으로 쌓는다 — .phone 이 노트북에서 844 보다 낮아질 수 있어
 // 절대배치를 하면 그때 아래쪽이 프레임 밖으로 나간다 (app/home/page.tsx 와 같은 이유).
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import RouteMap, { type LatLng } from "../RouteMap";
+import RouteMap from "../RouteMap";
+import { asTier, dotted } from "@/lib/record";
+import { loadDrives, removeDrive, setMine, type SafeDrive } from "@/lib/safelog";
 
-/**
- * 기록 한 건.
+/*
+ * 기록의 모양(SafeDrive)과 서버 왕래는 lib/safelog.ts 에 있다 — 서버도 같은 검사를 써야 해서다.
  *
- * 거리·시간·경로·"왜 안심 길이었나요?" 네 줄은 **실제 값이다** — 카카오 길찾기로 경로를 받고
- * lib/analyze.ts 에 표준노드링크(data/jeju-link.json)를 물려 계산했다.
- *
- * score 만 아직 목업이다 (와이어프레임의 부담 34·41 을 100 에서 뺀 값). 진짜 주행이 담기면
- * 이 화면이 지어내는 게 아니라 **길 비교 화면과 같은 엔진이 낸 추천점수**가 그대로 들어온다 —
- * risksOf(analyze(경로)) 로 위험요인을 뽑고 burdenOf 로 부담을 매긴 뒤 100 에서 뒤집은 값이다
- * (lib/score.ts). 경로 하나만으로 계산된다 — 후보끼리 견주는 scoreRoutes 는 셋 중 무엇을
- * "안심 길" 자리에 앉힐지 고르는 함수지 점수를 만드는 함수가 아니다.
- *
- * 같은 길도 프로필에 따라 점수가 다르지만(초보는 급커브 가중치가 크다), **점수는 주행 당시
- * 값으로 굳혀 저장한다** — 열 때마다 다시 계산하면 프로필을 바꿨다고 작년에 달린 길이 갑자기
- * 편해졌다고 말하는 화면이 된다. 분·km·주차장이 다 그날 값인데 점수만 오늘 값일 이유가 없다.
- * "지금의 나에게 이 길이 어떤가"는 다시 달릴 때 길 비교 화면이 새로 계산해 답한다.
- * ponytail: 저장소가 붙으면 이 목업 값을 지운다.
+ * 거리·시간·경로·"왜 안심 길이었나요?" 네 줄은 **실제 값이다**. score 만 아직 목업인데,
+ * 진짜 주행이 담기면 길 비교 화면이 매긴 추천점수가 그대로 들어온다 (lib/safelog.ts SafeDrive).
  */
-type SafeRoute = {
-  date: string;
-  /** "출발 → 도착". 상세 화면의 지도 양끝 이름도 여기서 갈라 쓴다 */
-  title: string;
-  /** "나만의 길"에 담아둔 기록인가 — 두 번째 탭은 이것만 추린다 */
-  mine: boolean;
-  score: number;
-  minutes: number;
-  km: number;
-  /** 빠른 길보다 몇 분 더 걸렸나 (상세에만 나온다) */
-  slower: number;
-  /**
-   * 그 주행에서 실제로 달린 길. 상세 화면 지도가 이걸 그린다.
-   * 카카오 길찾기가 준 좌표열을 40점으로 솎은 것이다 (원본은 400~700점) —
-   * 342px 짜리 카드 안 지도라 그보다 촘촘해도 눈에 안 보이고 파일만 길어진다.
-   */
-  path: LatLng[];
-  parking: string;
-  /** 왜 안심 길이었나 — 상세의 네 줄. 라벨은 네 건이 같고 값만 다르다 */
-  reasons: [string, string, string, string];
-  /** 주차장 한 줄평 (상세에만 나온다) */
-  parkingTags: string;
-};
 
 const REASON_LABELS = ["비보호 좌회전 · 유턴", "좁은 교행 구간", "급커브", "사고 잦은 곳"];
 
@@ -104,9 +71,10 @@ const dot = (color: string) => ({
  * 아직 안 담긴 상태다. 둘을 다 만족시킬 수는 없어서 안 담긴 쪽으로 맞췄다. 나만의 길 탭은
  * 비어 있다가 저장을 누르면 채워진다.
  */
-const SAMPLE: SafeRoute[] = [
+const SAMPLE: SafeDrive[] = [
   {
-    date: "2026.08.12",
+    id: 1_755_000_000_000,
+    date: "2026-08-12",
     title: "애월해안도로 → 협재",
     mine: false,
     score: 66,
@@ -120,7 +88,8 @@ const SAMPLE: SafeRoute[] = [
     parkingTags: "입구 넓음 · 지상 · 초보에게 편해요",
   },
   {
-    date: "2026.07.28",
+    id: 1_754_000_000_000,
+    date: "2026-07-28",
     title: "성산일출봉 → 함덕",
     mine: false,
     score: 59,
@@ -148,16 +117,53 @@ function Safelog() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  /** 담긴 주행. 아직 저장소가 없어 **빈 채로 시작한다** (SAMPLE 주석) */
-  const [routes, setRoutes] = useState<SafeRoute[]>(
-    searchParams.get("demo") === "1" ? SAMPLE : [],
-  );
+  /**
+   * 시연용 목업인가 (`?demo=1`). 그때는 서버를 아예 안 부르고 이 화면에서만 담고 뺀다 —
+   * 아직 주행을 담는 문(길 비교 → 외부 내비)이 안 붙어서, 이게 없으면 목록·카드·상세를 볼 길이
+   * 없다. ponytail: 그 문이 붙으면 SAMPLE 과 함께 이 갈래를 지운다.
+   */
+  const demo = searchParams.get("demo") === "1";
+  /** 버킷. 로그인이 없어 익숙함 티어가 곧 "누구 기록인지"다 (lib/records.db.ts 첫 주석) */
+  const tier = asTier(searchParams.get("exp")) ?? 1;
+
+  /** 담긴 주행. 서버에서 읽어 온다 — 못 읽으면 빈 목록이고 화면은 "기록이 없어요"가 된다 */
+  const [routes, setRoutes] = useState<SafeDrive[]>(demo ? SAMPLE : []);
   /** 보고 있는 탭 */
   const [mineOnly, setMineOnly] = useState(false);
-  /** 펼쳐 본 카드의 제목. 한 번에 하나만 펼친다 (와이어프레임 3713:2542) */
-  const [open, setOpen] = useState<string | null>(null);
+  /** 펼쳐 본 카드의 id. 한 번에 하나만 펼친다 (와이어프레임 3713:2542) */
+  const [open, setOpen] = useState<number | null>(null);
   /** 자세히로 들어간 기록. 있으면 상세 화면이다 (2574:418) */
-  const [detail, setDetail] = useState<SafeRoute | null>(null);
+  const [detail, setDetail] = useState<SafeDrive | null>(null);
+
+  // 티어가 바뀌면(프로필을 고쳐 들어오면) 다른 버킷이라 다시 읽는다.
+  // 늦게 온 응답이 새 목록을 덮지 않게 떠난 뒤엔 버린다.
+  useEffect(() => {
+    if (demo) return;
+    let 살아있다 = true;
+    loadDrives(tier).then((list) => {
+      if (살아있다) setRoutes(list);
+    });
+    return () => {
+      살아있다 = false;
+    };
+  }, [demo, tier]);
+
+  /*
+   * 빼기·담기는 **서버가 준 목록으로 갈아끼운다.** 화면에서 먼저 지우고 나중에 맞추면,
+   * 서버가 거절했을 때 지워진 것처럼 보이다가 새로고침에 되살아난다 — 사용자는 자기가
+   * 잘못 본 줄 안다. 실패하면 목록을 그대로 두는 편이 정직하다 (lib/record.ts saveRecord 와 같은 규칙).
+   */
+  async function remove(drive: SafeDrive) {
+    if (demo) return setRoutes((rs) => rs.filter((r) => r.id !== drive.id));
+    const next = await removeDrive(tier, drive.id);
+    if (next) setRoutes(next);
+  }
+
+  async function saveMine(drive: SafeDrive) {
+    if (demo) return setRoutes((rs) => rs.map((r) => (r.id === drive.id ? { ...r, mine: true } : r)));
+    const next = await setMine(tier, drive.id, true);
+    if (next) setRoutes(next);
+  }
 
   const shown = mineOnly ? routes.filter((r) => r.mine) : routes;
 
@@ -171,10 +177,7 @@ function Safelog() {
         앱바. 제목이 화면 한가운데라 좌우 버튼과 같은 줄에 못 놓는다 —
         제목만 절대배치로 띄우고 버튼은 양끝에 둔다 (제목 길이가 가운데를 밀지 않게).
       */}
-      <Header
-        onBack={() => router.push(`/home?${searchParams}`)}
-        right={<span className="text-[20px] leading-none text-[#6e6e6e]">⌕</span>}
-      />
+      <Header onBack={() => router.push(`/home?${searchParams}`)} />
 
       <Summary routes={shown} />
 
@@ -188,25 +191,31 @@ function Safelog() {
         글자 앞머리가 주황 덩어리에 9px 걸친다** — 흰 글자가 주황과 살구를 반씩 깔고 앉아 깨져 보인다.
         16 이면 어느 쪽을 골라도 글자가 한 바탕 위에만 놓이고, 고른 쪽 글자는 덩어리 한가운데에 온다.
 
-        담긴 게 하나도 없으면 "전체" 하나만 남는다 (빈 화면 프레임 2770:2050) — 갈 곳이 없는데
-        칸이 둘이면 저쪽엔 뭐가 있나 싶어 눌러보게 된다. 그때는 알약도 92 로 줄어든다.
+        **담긴 게 없어도 둘 다 보인다.** 빈 화면 프레임(2770:2050)에는 "전체"만 그려져 있지만,
+        칸이 사라졌다 나타나면 같은 화면이 두 모양이 되고 처음 온 사람은 나만의 길이라는 게
+        있는 줄도 모른다. 눌러도 빈 화면이지만 거기 문구가 무엇을 담는 곳인지 말해준다.
       */}
-      <div
-        className={`relative mt-[11px] ml-[24px] h-[34px] shrink-0 rounded-[17px] bg-[#ffcfbc] ${
-          routes.length > 0 ? "w-[168px]" : "w-[92px]"
-        }`}
-      >
-        {/* 고른 쪽을 덮는 주황 덩어리. 76px 을 미끄러진다 (칩 폭 92 - 겹침 16) */}
-        <span
-          aria-hidden
-          className={`absolute top-0 left-0 h-[34px] w-[92px] rounded-[17px] bg-[#ff5914] transition-transform duration-200 ${
-            mineOnly ? "translate-x-[76px]" : "translate-x-0"
-          }`}
-        />
-        <Tab label="전체" left={0} on={!mineOnly} onClick={() => setMineOnly(false)} />
-        {routes.length > 0 && (
+      <div className="mt-[11px] mx-[24px] flex shrink-0 items-center">
+        <div className="relative h-[34px] w-[168px] rounded-[17px] bg-[#ffcfbc]">
+          {/* 고른 쪽을 덮는 주황 덩어리. 76px 을 미끄러진다 (칩 폭 92 - 겹침 16) */}
+          <span
+            aria-hidden
+            className={`absolute top-0 left-0 h-[34px] w-[92px] rounded-[17px] bg-[#ff7d32] transition-transform duration-200 ${
+              mineOnly ? "translate-x-[76px]" : "translate-x-0"
+            }`}
+          />
+          <Tab label="전체" left={0} on={!mineOnly} onClick={() => setMineOnly(false)} />
           <Tab label="나만의 길" left={76} on={mineOnly} onClick={() => setMineOnly(true)} />
-        )}
+        </div>
+        {/*
+          돋보기가 앱바에서 여기로 내려왔다 (4172:705 · 3423:531) — 탭과 같은 줄, 오른쪽 끝이다.
+          와이어프레임은 335~342 사이에서 흔들리는데 본문 오른끝(366)에 맞춘다. 요약 상자도
+          카드도 다 24px 여백을 쓰고 있어서, 이것만 어중간하게 안쪽에 있으면 줄이 안 맞아 보인다.
+          갈 곳은 아직 없다 — 눌리는 척은 안 시킨다.
+        */}
+        <span aria-hidden className="ml-auto text-[20px] leading-none text-[#6e6e6e]">
+          ⌕
+        </span>
       </div>
 
       {shown.length === 0 ? (
@@ -215,14 +224,12 @@ function Safelog() {
         <div className="mt-[23px] flex flex-col gap-[11px] px-[24px]">
           {shown.map((route) => (
             <RouteCard
-              key={route.title}
+              key={route.id}
               route={route}
-              open={open === route.title}
-              onToggle={() => setOpen(open === route.title ? null : route.title)}
-              onRemove={() => setRoutes(routes.filter((r) => r !== route))}
-              onSaveMine={() =>
-                setRoutes(routes.map((r) => (r === route ? { ...r, mine: true } : r)))
-              }
+              open={open === route.id}
+              onToggle={() => setOpen(open === route.id ? null : route.id)}
+              onRemove={() => remove(route)}
+              onSaveMine={() => saveMine(route)}
               onDetail={() => setDetail(route)}
             />
           ))}
@@ -232,19 +239,17 @@ function Safelog() {
   );
 }
 
-function Header({ onBack, right }: { onBack: () => void; right: React.ReactNode }) {
+function Header({ onBack }: { onBack: () => void }) {
   return (
-    <div className="relative flex h-[52px] shrink-0 items-center justify-between px-[10px]">
+    // 오른쪽은 비운다 — 돋보기는 탭 줄로 내려갔고(4172:705), 상세의 ••• 는 갈 곳이 없어 뺐다.
+    // 제목이 absolute 라 오른쪽에 자리를 채우는 빈 칸이 없어도 가운데에 그대로 있다.
+    <div className="relative flex h-[52px] shrink-0 items-center px-[10px]">
       <button onClick={onBack} aria-label="뒤로" className="z-10 flex size-11 items-center justify-center">
         <img src="/icon-arrow-left.svg" alt="" className="size-6" />
       </button>
       <h1 className="pointer-events-none absolute inset-x-0 text-center text-[20px] leading-[24px] font-bold text-[#1f1f1f]">
         주행 저장
       </h1>
-      {/* ⌕ · ••• — 와이어프레임에 자리만 잡혀 있고 갈 곳이 없다. 눌리는 척은 안 시킨다 */}
-      <span aria-hidden className="flex size-11 items-center justify-center">
-        {right}
-      </span>
     </div>
   );
 }
@@ -284,13 +289,17 @@ function Tab({
  * 0건 프레임이 0회 · 0km 인 걸 보면 원래 세려던 값이 맞고, 카드와 어긋나는 총합을
  * 화면에 박아두면 시연 중에 누가 더해본다.
  */
-function Summary({ routes }: { routes: SafeRoute[] }) {
+function Summary({ routes }: { routes: SafeDrive[] }) {
   const km = routes.reduce((sum, r) => sum + r.km, 0);
 
   return (
-    <div className="mt-[30px] mx-[24px] h-[92px] shrink-0 rounded-[17px] px-[16px] pt-[13px]">
+    <div className="mt-[15px] mx-[24px] h-[92px] shrink-0 rounded-[17px] px-[16px] pt-[13px]">
       <p className="text-[11px] leading-none font-medium text-[#ff5914]">귤이와 함께 달린 안심 길</p>
-      <div className="mt-[12px] flex items-center">
+      {/*
+        items-start 여야 한다. 가운데 정렬하면 제일 큰 구분선(54)에 맞춰 숫자가 8px 내려앉는다 —
+        와이어프레임에서는 구분선 **위끝이 숫자 위끝과 나란하고** 아래로 상자 바닥까지 내려간다.
+      */}
+      <div className="mt-[14px] flex items-start">
         <Stat value={`${routes.length}회`} label="이용" />
         <span className="h-[54px] w-px bg-[#e5e0db]" />
         <Stat value={`${km}km`} label="이동" />
@@ -318,25 +327,66 @@ function Stat({ value, label }: { value: string; label: string }) {
  */
 function Empty({ mineOnly }: { mineOnly: boolean }) {
   return (
-    <div className="flex flex-1 flex-col items-center px-[24px] pt-[62px]">
-      <img src="/safelog/character-empty.png" alt="" className="h-[158px] w-[170px] object-contain" />
-      <p className="mt-[14px] text-center text-[15px] leading-[22px] font-medium text-[#b0b0b0]">
-        지금까지의
-        <br />
-        {mineOnly ? "나만의 길이 없어요" : "주행 저장 기록이 없어요"}
-      </p>
-      <p className="mt-[46px] text-center text-[15px] leading-[25px] font-medium text-[#262626]">
+    /*
+      "나만의 길" 탭에는 귤이도 회색 줄도 없다.
+
+      귤이는 "지금까지 하나도 없어요"를 말하는 자리라 두 탭 모두에 세우면 같은 표정이 두 번 나오고,
+      두 번째는 앱이 통째로 빈 것 같은 인상을 준다. 회색 줄은 뻔한 말이다 — 나만의 길 탭에 서 있는데
+      카드가 없으면 없는 게 이미 보이고, 아래 문구가 "담아두세요"라며 그걸 전제하고 있다.
+
+      **나만의 길 문구는 전체 탭의 회색 두 줄과 같은 높이에 온다** (20 + 귤이 132 + 14 = 166).
+      탭을 오갈 때 글이 제자리에 머무는 게 아니라 **한 칸 위(회색 줄)로 갈아끼워지는** 모양이라,
+      귤이만 사라지고 말은 그 자리에서 바뀐 것처럼 읽힌다.
+
+      검은 줄은 전체 탭에만 있고 회색 줄 아래 46 에 붙는다 — 나만의 길에는 그 줄이 없다.
+    */
+    <div className={`flex flex-1 flex-col items-center px-[24px] ${mineOnly ? "pt-[166px]" : "pt-[20px]"}`}>
+      {!mineOnly && (
+        <>
+          <img src="/safelog/character-empty.png" alt="" className="h-[132px] w-[142px] object-contain" />
+          <p className="mt-[14px] text-center text-[15px] leading-[22px] font-medium text-[#b0b0b0]">
+            지금까지의
+            <br />
+            주행 저장 기록이 없어요
+          </p>
+        </>
+      )}
+      {/*
+        위가 이미 "없다"를 말했으니 여기는 **어떻게 채우는지**를 말한다.
+        이 화면에는 누를 것이 하나도 없고, 담는 문은 "전체" 탭 카드 안에 있다 — 그래서
+        나만의 길 쪽 문구는 탭 이름을 그대로 불러 옆을 가리킨다.
+        ⚠️ 탭 이름을 바꾸면 이 글도 같이 고쳐야 한다 (여기서만 조용히 어긋난다).
+      */}
+      {/*
+        같은 자리에 오는 글이지만 두 탭이 다르다.
+
+        전체는 귤이와 회색 두 줄 **아래에** 붙는 작은 검은 글(12px)이다 — 위가 "없다"만 말하고
+        끝나서, 이 줄이 그 화면에서 유일하게 앞일을 말한다.
+        나만의 길은 그 **회색 두 줄 자리에 대신 들어서므로** 크기도 색도 그 줄과 같다 —
+        거기는 탭 자체가 이미 비었다는 걸 말하고 있어 이 글이 화면을 붙들 이유가 없다.
+      */}
+      <p
+        className={`text-center font-medium ${
+          mineOnly
+            ? // 전체 탭의 회색 두 줄이 서던 자리라 크기도 색도 그 줄과 같다 (15/22 · #b0b0b0) —
+              // 탭을 오갈 때 같은 자리에서 말만 갈아끼워지는 것처럼 보인다.
+              // 와이어프레임(4091:627)은 #9e9e9e 지만, 자리를 물려받는 글이 색만 다르면
+              // 맞춰둔 크기가 무색해진다
+              "text-[15px] leading-[22px] text-[#b0b0b0]"
+            : "mt-[46px] text-[12px] leading-[20px] text-[#262626]"
+        }`}
+      >
         {mineOnly ? (
           <>
-            마음에 든 주행을 나만의 길로 담아보세요.
+            마음에 쏙 든 길, 담아두세요!
             <br />
-            담아둔 길은 여기 모여요
+            전체 탭에서 저장하면 여기에 모여요.
           </>
         ) : (
           <>
-            주행을 하면 자동으로 등록됩니다.
+            달리기만 하면 자동 등록!
             <br />
-            나만의 길 등록을 통해 자세한 코스를 알 수 있어요
+            나만의 특별한 경로를 상세히 알려드려요.
           </>
         )}
       </p>
@@ -359,7 +409,7 @@ function RouteCard({
   onSaveMine,
   onDetail,
 }: {
-  route: SafeRoute;
+  route: SafeDrive;
   open: boolean;
   onToggle: () => void;
   onRemove: () => void;
@@ -382,7 +432,8 @@ function RouteCard({
       </button>
 
       <button onClick={onToggle} className="block w-full text-left" aria-expanded={open}>
-        <p className="text-[10px] leading-none text-[#6e6e6e]">{route.date}</p>
+        {/* 저장은 2026-08-12, 화면은 2026.08.12 — 표기 규칙은 여행 기록과 같다 (lib/record.ts dotted) */}
+        <p className="text-[10px] leading-none text-[#6e6e6e]">{dotted(route.date)}</p>
         <p className={`text-[16px] leading-[19px] font-bold text-[#1f1f1f] ${open ? "mt-[18px]" : "mt-[11px]"}`}>
           {route.title}
         </p>
@@ -413,19 +464,22 @@ function RouteCard({
         /*
           펼친 카드의 버튼 줄.
 
-          **값은 목적지·주차장 화면의 "자세히 · 여기로 갈게요" 짝을 그대로 쓴다** (app/parking/page.tsx) —
-          알약 모양 · 높이 40 · 사이 4 · 흰 알약은 #e5e5e5 테두리, 주황 알약은 #ff7b33 에 flex-1.
-          와이어프레임은 102/19/185 에 #cacaca 테두리로 그렸지만, 같은 성격의 버튼 짝이 앱 안에서
-          화면마다 다르게 생기면 방금 누른 것과 지금 누를 것이 다른 물건처럼 보인다.
+          **폭·색은 와이어프레임(3713:2556) 그대로다** — 자세히 102, 사이 19, 흰 알약은 #cacaca
+          1.5px 테두리에 #aaa 글자. 높이 40 과 알약 모양은 목적지·주차장 화면의
+          "자세히 · 여기로 갈게요" 짝과 같다 (app/parking/page.tsx).
+
+          그 짝과 완전히 같지는 않다는 뜻이기도 하다 — 저쪽은 테두리 #e5e5e5 에 검은 글자,
+          자세히 폭이 글자만큼이다. 같은 성격의 버튼이 화면마다 조금 다르게 생기는 셈이라,
+          한쪽으로 통일할 거면 이 카드가 아니라 둘 중 하나를 골라 양쪽을 같이 고쳐야 한다.
 
           이미 나만의 길이면 담을 것이 없어 "자세히" 하나만 남고, 그때는 폭을 다 쓴다 —
           담긴 것과 안 담긴 것은 배지 색이 이미 갈라주고 있어서 빈 칸까지 남길 이유가 없다.
         */
-        <div className="mt-[24px] flex gap-1">
+        <div className="mt-[24px] flex gap-[19px]">
           {!route.mine && (
             <button
               onClick={onDetail}
-              className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+              className="h-10 w-[102px] shrink-0 rounded-full border-[1.5px] border-[#cacaca] bg-white text-[14px] leading-[22px] font-bold text-[#aaa] transition hover:bg-[#fff0e6] active:scale-[0.98]"
             >
               자세히
             </button>
@@ -454,18 +508,18 @@ function RouteCard({
  *
  * 지도는 그 기록의 좌표로 그린 **진짜 경로**다 (아래 Route Map Preview 주석).
  */
-function Detail({ route, onBack }: { route: SafeRoute; onBack: () => void }) {
+function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
   const [start, end] = route.title.split(" → ");
 
   return (
     <div className="flex flex-1 flex-col bg-white pb-[20px]">
       <StatusBar tone="text-[#1f1f1f]" />
-      <Header onBack={onBack} right={<span className="text-[18px] leading-none font-bold text-[#6e6e6e]">•••</span>} />
+      <Header onBack={onBack} />
 
       {/* Record Header — 날짜 · 경로 · 소요, 오른쪽에 추천점수 */}
       <div className="mt-[21px] mx-[24px] flex h-[104px] shrink-0 items-start justify-between rounded-[17px] px-[16px] pt-[12px]">
         <div>
-          <p className="text-[10px] leading-none text-[#6e6e6e]">{route.date} · 완료된 경로</p>
+          <p className="text-[10px] leading-none text-[#6e6e6e]">{dotted(route.date)} · 완료된 경로</p>
           <p className="mt-[12px] text-[17px] leading-[20px] font-bold text-[#1f1f1f]">{route.title}</p>
           {/* 추천 경로가 곧 최단시간이면 "빠른 길보다 0분 더"가 된다 — 그때는 그 말을 뺀다 */}
           <p className="mt-[8px] text-[10px] leading-none text-[#6e6e6e]">
@@ -499,10 +553,20 @@ function Detail({ route, onBack }: { route: SafeRoute; onBack: () => void }) {
           ]}
           className="rounded-[16px]"
         />
-        <span className="pointer-events-none absolute z-10 top-[14px] left-[16px] rounded-full bg-white/85 px-[8px] py-[4px] text-[10px] leading-none font-medium text-[#42a861]">
+        {/*
+          지도를 **고정으로 둔다.** 기록은 지나간 주행이라 여기서 끌거나 확대해 볼 일이 없고,
+          세로로 긴 화면 한가운데 있는 지도는 손가락이 스치기만 해도 딸려 움직여서 화면 스크롤을
+          삼킨다. 투명한 덮개 한 장으로 끌기·휠·핀치·더블클릭을 다 막는다.
+
+          RouteMap 에 옵션을 다는 대신 여기서 덮는 이유: 그 파일은 지금 다른 작업이 물고 있고,
+          이 화면 말고는 고정으로 둘 지도가 없다.
+          ponytail: 고정 지도가 한 군데 더 생기면 그때 RouteMap 쪽 옵션으로 올린다.
+        */}
+        <div aria-hidden className="absolute inset-0 z-10 rounded-[16px]" />
+        <span className="pointer-events-none absolute z-20 top-[14px] left-[16px] rounded-full bg-white/85 px-[8px] py-[4px] text-[10px] leading-none font-medium text-[#42a861]">
           {start}
         </span>
-        <span className="pointer-events-none absolute z-10 right-[16px] bottom-[14px] rounded-full bg-white/85 px-[8px] py-[4px] text-[10px] leading-none font-medium text-[#db403b]">
+        <span className="pointer-events-none absolute z-20 right-[16px] bottom-[14px] rounded-full bg-white/85 px-[8px] py-[4px] text-[10px] leading-none font-medium text-[#db403b]">
           {end}
         </span>
       </div>

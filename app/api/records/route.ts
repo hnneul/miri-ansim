@@ -8,7 +8,7 @@
 // GET 이 새 기록을 못 보고 옛 목록을 돌려주면 안 되므로 그 기본에 기대고 아무것도 안 켠다.
 
 import { asRecord, asTier } from "@/lib/record";
-import { insert, listByTier } from "@/lib/records.db";
+import { insert, listByTier, remove } from "@/lib/records.db";
 
 /**
  * 받는 몸통의 최대 바이트. 기록 하나는 제목·이야기(500자)·장소 몇 개라 넉넉잡아 8KB 다.
@@ -43,4 +43,19 @@ export async function POST(request: Request) {
   if (tier === null || record === null) return new Response(null, { status: 400 });
 
   return Response.json(insert(tier, record));
+}
+
+/**
+ * DELETE /api/records?t=1&id=… — 카드의 ✕ (/api/drives 와 같은 모양이다).
+ *
+ * **버킷이 티어 공용이라 남의 기록도 지워진다.** 로그인이 없어 서버가 주인을 가릴 수단이 없다 —
+ * 화면에서 한 번 묻는 것이 지금 있는 방어의 전부다 (app/trip/record/page.tsx).
+ */
+export async function DELETE(request: Request) {
+  const q = new URL(request.url).searchParams;
+  const tier = asTier(q.get("t"));
+  const id = Number(q.get("id"));
+  if (tier === null || !Number.isFinite(id)) return new Response(null, { status: 400 });
+
+  return Response.json(remove(tier, id));
 }
