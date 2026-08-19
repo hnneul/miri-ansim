@@ -171,7 +171,8 @@ async function directions(origin: LatLng, dest: LatLng, key: string): Promise<Ka
   try {
     const res = await fetch(`${ENDPOINT}?${q}`, {
       headers: { Authorization: `KakaoAK ${key}` },
-      cache: "no-store",
+      // 5분 캐시 — 여기는 화면 한 번에 후보 10곳이라 쿼터를 가장 많이 먹는다 (lib/route.ts 의 같은 줄 주석)
+      next: { revalidate: 300 },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) return null;

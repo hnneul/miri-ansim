@@ -88,7 +88,15 @@ async function directions(
   });
   const res = await fetch(`${ENDPOINT}?${q}`, {
     headers: { Authorization: `KakaoAK ${key}` },
-    cache: "no-store",
+    /*
+     * 같은 출발·도착이면 5분 동안 다시 안 부른다. 카카오 길찾기 무료 쿼터가 **일 10,000건**인데
+     * 이 화면 한 번이 3건(PRIORITIES)이고, dev 는 StrictMode 로 effect 가 두 번 돌아 6건이다 —
+     * no-store 로 두면 같은 구간을 열 때마다 그대로 다시 나간다.
+     *
+     * 5분인 이유는 카카오 실시간 교통이 그 주기로 갱신되기 때문이다. 화면에 찍히는 조회 시각(at)은
+     * 지금 시각이라 캐시가 맞은 회차는 최대 5분 어긋나는데, 교통 갱신 주기 안이라 값의 뜻은 안 바뀐다.
+     */
+    next: { revalidate: 300 },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!res.ok) throw new Error("길찾기 서버에서 응답을 받지 못했습니다");
