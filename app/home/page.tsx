@@ -271,12 +271,19 @@ function Home() {
         운전 TIP 은 팁 화면이 생기면 quick-tip.png 로 되돌리면 된다.
       */}
       <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
+        {/*
+          href 를 뗐다 — 화면(app/nearby)도 lib/spots.ts 도 그대로 있고 이 줄만 되살리면 다시 열린다.
+          이 칸 하나가 유일한 입구라 여기서 막으면 사용자 호출이 0 이 된다.
+
+          뗀 이유는 카카오 길찾기 쿼터다. 관광지를 부담 순으로 세우려면 후보 열 곳까지 가는 길을
+          각각 조회해야 해서(lib/spots.ts BANDS 2+4+4) 화면 한 번에 10건이 나간다 —
+          경로 비교 화면의 3건보다 세 배고, 무료 쿼터가 일 10,000건이다.
+        */}
         <Quick
           icon="/home/quick-traffic.png"
           iconClass="size-[35px]"
           label="대표 관광지"
           sub="운전 편한 순"
-          href={`/nearby?${searchParams}`}
         />
         <Quick
           icon="/home/quick-tamna.png"
