@@ -75,20 +75,29 @@ function Trip() {
   const [view, setView] = useState<View>("intro");
   const [plan, setPlan] = useState<TripPlan>(DEFAULT_TRIP);
 
-  /** 프로필 쿼리(exp·freq…)를 물고 다닌다 — 다음 화면들이 같은 운전자로 계산해야 한다 */
-  const carry = searchParams.toString();
+  /**
+   * 프로필 쿼리(exp·freq…)를 물고 다닌다 — 다음 화면들이 같은 운전자로 계산해야 한다.
+   * from 은 여기서 끝난다 (뒤로 나갈 자리를 정하는 값이라 다음 화면이 물려받을 이유가 없다).
+   */
+  const params = new URLSearchParams(searchParams);
+  const from = params.get("from");
+  params.delete("from");
+  const carry = params.toString();
 
   function back() {
     if (DETAILS.includes(view)) return setView("fields");
     if (view === "fields") return setView("taste");
     if (view === "taste") return setView("intro");
+    // 기록 화면에서 "여행 하러 가기"로 왔으면 **쓰던 자리로** 되돌린다 (write=1 이 작성 화면을 편다).
+    // 잘못 눌렀을 때 홈까지 밀려나거나 목록으로 떨어지면 쓰던 글을 다시 찾아 들어가야 한다
+    if (from === "record") return router.push(`/trip/record?${carry ? `${carry}&` : ""}write=1`);
     router.push(`/home${carry ? `?${carry}` : ""}`);
   }
 
   function makeCourse() {
     // 여행 조건이 먼저, 프로필은 빈 자리에만 — 같은 키가 겹칠 일은 없지만 조건이 이기는 게 맞다
     const q = new URLSearchParams(toTripQuery(plan).slice(1));
-    for (const [k, v] of searchParams) if (!q.has(k)) q.append(k, v);
+    for (const [k, v] of params) if (!q.has(k)) q.append(k, v);
     router.push(`/trip/course?${q}`);
   }
 
