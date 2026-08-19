@@ -20,7 +20,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
-import { parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
+import { characterOf, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
+import { dotted, loadRecords, type TripRecord } from "@/lib/record";
 import { hereNow } from "./actions";
 
 /** 위치를 못 받았을 때 지도가 보는 곳. 제주시청이다 — 섬 한복판(한라산)보다 사람이 있는 자리다. */
@@ -57,6 +58,8 @@ function Home() {
   /** 지금 선 동네 ("제주시 아라이동"). 번지는 일부러 안 받는다 — 이유는 lib/geocode.ts areaAt 주석에. */
   const [area, setArea] = useState<string | null>(null);
   const [sky, setSky] = useState<string | null>(null);
+  /** 여행 기록 칸. 서버에서 익숙함 티어 버킷을 읽어온다 (lib/record.ts loadRecords) — 실패하면 빈 배열이라 ＋ 칸만 남는다. */
+  const [records, setRecords] = useState<TripRecord[]>([]);
 
   // 지도 오른쪽 위 버튼도 같은 걸 다시 부른다 — 권한을 뒤늦게 허용한 사람이 쓸 문 하나는 있어야 한다.
   const locate = useCallback(() => {
@@ -85,6 +88,15 @@ function Home() {
   }, []);
 
   useEffect(locate, [locate]);
+
+  // 기록 목록 화면(TRIP-09)과 같은 버킷을 읽는다 — 거기서 저장한 기록이 여기 위에 뜬다
+  useEffect(() => {
+    let 살아있나 = true;
+    loadRecords(profile.experienceYears).then((rs) => 살아있나 && setRecords(rs));
+    return () => {
+      살아있나 = false; // 티어가 바뀌어 다시 부르면 늦게 온 옛 응답이 새 목록을 덮지 않게
+    };
+  }, [profile.experienceYears]);
 
   /**
    * 검색바를 누르면 목적지 검색 화면을 연다 (수정 HOME-01 a).
@@ -119,9 +131,8 @@ function Home() {
 
       {/*
         brand/my page — 워드마크와 마이 화면 입구.
-        아바타는 와이어프레임에 박힌 그림 한 장이다 (avatar-my). 이전 버전은 경력에 따라 캐릭터가
-        갈렸지만(lib/profile.ts characterOf) 여기서는 누구에게나 같은 그림이다 — 프로필을 바꿔도
-        아바타는 안 바뀐다. 되살리려면 src 를 characterOf(profile.experienceYears).src 로 되돌리면 된다.
+        아바타는 익숙함 티어마다 갈린다 (lib/profile.ts characterOf). 누르면 열리는 마이 화면(app/profile)이
+        같은 그림을 크게 다시 보여주므로, 여기서 다른 얼굴이 뜨면 그 버튼이 내 프로필로 가는 입구로 안 읽힌다.
       */}
       <div className="flex h-[62px] shrink-0 items-center justify-between pr-5 pl-[29px]">
         <p className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리 안심</p>
@@ -135,8 +146,8 @@ function Home() {
           */
           className="size-[44px] shrink-0 overflow-hidden rounded-full transition hover:ring-2 hover:ring-[#fc7f35] active:scale-95"
         >
-          {/* 원본이 세로로 긴 장면(1086x1448)이라 가운데를 정사각형으로 잘라 넣어뒀다 — 여기서는 그대로 채운다 */}
-          <img src="/character/avatar-my.png" alt="" className="size-full object-cover" />
+          {/* 배경까지 그려진 정사각 그림이라 그대로 원을 채운다 (마이 화면 94px 아바타와 같은 파일) */}
+          <img src={characterOf(profile.experienceYears).src} alt="" className="size-full object-cover" />
         </button>
       </div>
 
@@ -195,6 +206,9 @@ function Home() {
             routes={[]}
             markers={here ? [{ coord: here, label: "현위치", icon: MY_LOCATION }] : []}
             className=""
+            /* 화면 한가운데라 휠이 지도 축소로 새면 안 된다. 핀치·더블클릭 확대는 산다 (RouteMap wheelZoom 주석) */
+            wheelZoom={false}
+            zoomButtons
           />
 
           {/*
@@ -241,18 +255,28 @@ function Home() {
         빠르게 둘러보기 4칸. 갈 화면이 없는 칸은 흐리게 두고 못 누르게 막는다 —
         눌리는데 아무 일도 없으면 시연에서 더 나쁘다.
 
-        첫 칸이 혼잡도에서 운전 TIP 으로 바뀌었다 (와이어프레임 2759:2219). 혼잡도는 실시간 도로
-        API 승인을 기다리는 중이라 화면이 없고, 팁은 만들 화면이 정해져 있다 —
-        둘 다 아직 흐린 칸이지만 나올 순서가 다르다. 되살리려면 quick-traffic.png 가 그대로 있다.
+        첫 칸이 "대표 관광지"다. 와이어프레임(2759:2125)의 혼잡도 자리인데, 혼잡도 자체는
+        만들지 않았다 — 제주ITS 로 재 보니 간선이 하루 종일 제한속도의 77~104% 로 흘러서
+        화면이 1년 내내 원활이 된다. 대신 같은 실시간 값을 관광지에 붙였다: 지금 소요시간과
+        정체를 재고, 거기에 **프로필별 운전 부담**을 얹어 줄 세운다 (app/nearby/page.tsx).
+        혼잡도로 관광지를 세우는 건 지도 앱도 하지만, 초보 기준으로 세우는 건 이 앱뿐이다.
+
+        sub 가 "운전 편한 순"인 이유 — "지금 편한 순"으로 뒀더니 무엇이 편한지 안 읽혔다.
+        가기 편한 건지 주차가 편한 건지 모른다. 이 앱이 재는 건 운전이라 그걸 밝힌다.
+
+        **여기서 카카오를 부르지 않는다.** 1등 관광지 이름을 실어 보이려면 홈을 열 때마다
+        길찾기를 10건 써야 하는데(무료 쿼터 일 10,000건), 도로명 하나 때문에 홈이 느려지고
+        쿼터가 샌다. 실시간 값은 칸을 눌러 들어가서 본다.
+
+        운전 TIP 은 팁 화면이 생기면 quick-tip.png 로 되돌리면 된다.
       */}
       <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
-        <Quick icon="/home/quick-tip.png" iconClass="size-[35px]" label="운전 TIP" sub="초보운전자" />
         <Quick
-          icon="/home/quick-record.png"
-          iconClass="size-[32px]"
-          label="주행 저장"
-          sub="글쓰러 가기"
-          href={`/safelog?${searchParams}`}
+          icon="/home/quick-traffic.png"
+          iconClass="size-[35px]"
+          label="대표 관광지"
+          sub="운전 편한 순"
+          href={`/nearby?${searchParams}`}
         />
         <Quick
           icon="/home/quick-tamna.png"
@@ -260,6 +284,13 @@ function Home() {
           label="탐나는전"
           sub="캐시백 매장"
           href={`/around?${searchParams}`}
+        />
+        <Quick
+          icon="/home/quick-record.png"
+          iconClass="size-[32px]"
+          label="주행 저장"
+          sub="글쓰러 가기"
+          href={`/safelog?${searchParams}`}
         />
         <Quick
           icon="/home/quick-course.png"
@@ -273,17 +304,14 @@ function Home() {
       <h2 className="mt-[17px] shrink-0 pl-[22px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">여행 기록</h2>
 
       {/*
-        와이어프레임이 두 장을 채워 보여주던 걸 한 장 + ＋ 칸으로 줄였다 — 가짜 기록을 두 장
-        쌓아두는 것보다, 한 장으로 어떻게 보이는지만 알려주는 편이 정직하다.
-        record-1.png 는 되살릴 때를 위해 남겨뒀다.
+        실제로 저장한 기록이 최신순으로 뜬다 (서버 버킷, lib/record.ts). 목업 카드는 없앴다 —
+        가짜 기록 한 장이 내가 쓴 기록과 같은 자리에 섞이면 어느 쪽이 진짜인지 구분이 안 된다.
+        두 장까지만 보여준다. 나머지는 ＋ 칸으로 들어가는 목록(TRIP-09)의 몫이다.
       */}
       <div className="mt-[14px] flex shrink-0 flex-col gap-[10px] px-[21px]">
-        <Record photo="/home/record-2.png" title="중문 나들이" count={23} />
-        {/*
-          ＋ 칸은 기록 목록(TRIP-09)으로 들어가는 문이다. 요약 쿼리를 안 붙여야 완료 화면(TRIP-08)을
-          건너뛰고 목록부터 뜬다 — 완료 화면은 방금 다녀온 코스가 있을 때만 나오는 자리다
-          (app/trip/record/page.tsx 첫 주석). 프로필 쿼리는 그대로 물려 보낸다.
-        */}
+        {records.slice(0, 2).map((r) => (
+          <Record key={r.id} record={r} href={`/trip/record?${searchParams}`} />
+        ))}
         <Link
           href={`/trip/record?${searchParams}`}
           aria-label="여행 기록 보기"
@@ -354,25 +382,19 @@ function Quick({
  *
  * 글자 크기는 와이어프레임(9.06px / 6.04px)을 그대로 옮기지 않고 13/10 으로 올렸다 —
  * 저 값은 디자인에서 2배 크기 컴포넌트를 축소해 붙이며 딸려온 숫자로 보이고, 실제 390px 화면에서는
- * 읽히지 않는다. 사진 위 흰 글씨라 아래쪽 어둠막도 함께 깐다 (밝은 하늘 사진이 오면 글자가 사라진다).
+ * 읽히지 않는다. 사진 대신 옅은 주황 바탕이다 — 기록에 아직 사진 칸이 없다 (기록 목록의 썸네일 자리와 같다).
  */
-function Record({ photo, title, count, href }: { photo: string; title: string; count: number; href?: string }) {
-  const inner = (
-    <>
-      <img src={photo} alt="" className="size-full object-cover" />
-      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/55 to-transparent" />
-      <div className="absolute bottom-[10px] left-[14px] flex items-baseline gap-[8px]">
-        <span className="text-[13px] leading-none font-bold text-white">{title}</span>
-        <span className="text-[10px] leading-none text-[#e6e6e6]">사진 {count}장</span>
-      </div>
-    </>
-  );
-  const box = "relative block h-[84px] overflow-hidden rounded-[11px]";
-  return href ? (
-    <Link href={href} className={`${box} transition active:scale-[0.98]`}>
-      {inner}
+function Record({ record, href }: { record: TripRecord; href: string }) {
+  return (
+    <Link
+      href={href}
+      className="block h-[84px] overflow-hidden rounded-[11px] bg-[#fff0e6] px-[14px] py-[13px] transition active:scale-[0.98]"
+    >
+      <p className="text-[10px] leading-none text-[#7d7d7d]">{dotted(record.date)}</p>
+      <p className="mt-[8px] truncate text-[13px] leading-none font-bold text-[#1f1f1f]">{record.title}</p>
+      <p className="mt-[8px] truncate text-[10px] leading-none text-[#7d7d7d]">
+        {record.course} · {record.places.length}곳{record.km > 0 && ` · ${record.km}km`}
+      </p>
     </Link>
-  ) : (
-    <div className={box}>{inner}</div>
   );
 }
