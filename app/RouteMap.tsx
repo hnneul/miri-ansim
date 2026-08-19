@@ -38,7 +38,17 @@ export type MapRoute = {
  * anchor 를 안 주면 이미지 가운데를 좌표에 맞춘다 (핀 모양이면 뾰족한 끝을 직접 지정할 것).
  */
 export type MarkerIcon = { src: string; size: [number, number]; anchor?: [number, number] };
-export type MapMarker = { coord: LatLng; label: string; icon?: MarkerIcon; risk?: RiskFactor };
+export type MapMarker = {
+  coord: LatLng;
+  label: string;
+  icon?: MarkerIcon;
+  risk?: RiskFactor;
+  /**
+   * 마커를 눌렀다. 주면 **누를 수 있는 물건이 된다** — 손이 올라가면 커서가 바뀌고 아이콘이
+   * 살짝 커진다 (아래 마커 만드는 자리). 안 주면 예전처럼 그냥 그림이다.
+   */
+  onClick?: () => void;
+};
 
 type Props = {
   center: LatLng;
@@ -134,6 +144,13 @@ export default function RouteMap({
   const [selected, setSelected] = useState<RiskFactor | null>(null);
 
   // 배열 prop이 매 렌더 새 참조라 의존성으로 직접 못 쓴다
+  /**
+   * 최신 마커 목록. 마커를 다시 만드는 기준(shape)은 JSON 이라 함수가 빠지므로, onClick 만
+   * 바뀐 렌더는 마커를 새로 만들지 않는다 — 리스너가 만들어질 때의 낡은 콜백에 묶이면
+   * 그때의 URL·상태로 움직인다. 눌리는 순간 이 ref 에서 꺼내 쓴다 (blank 와 같은 이유).
+   */
+  const latest = useRef<MapMarker[]>(markers);
+  latest.current = markers;
   const blank = useRef<((at?: LatLng) => void) | undefined>(undefined);
   const blankBound = useRef(false);
 
@@ -211,18 +228,40 @@ export default function RouteMap({
               `box-shadow:0 2px 6px rgba(0,0,0,.25)">${r.label}</div>`,
           });
         }),
-      ...markers.map((m) => {
+      ...markers.map((m, i) => {
         const [w, h] = m.icon?.size ?? [0, 0];
+        const anchor = m.icon?.anchor ?? [w / 2, h / 2];
+        const 그림 = (배: number) =>
+          m.icon &&
+          new kakao.maps.MarkerImage(m.icon.src, new kakao.maps.Size(w * 배, h * 배), {
+            // 앵커도 같이 키운다 — 안 키우면 커지면서 핀 끝이 좌표에서 미끄러진다
+            offset: new kakao.maps.Point(anchor[0] * 배, anchor[1] * 배),
+          });
+        const 기본 = 그림(1);
         const marker = new kakao.maps.Marker({
           position: pt(m.coord),
           title: m.label,
-          image:
-            m.icon &&
-            new kakao.maps.MarkerImage(m.icon.src, new kakao.maps.Size(w, h), {
-              offset: new kakao.maps.Point(...(m.icon.anchor ?? [w / 2, h / 2])),
-            }),
+          image: 기본,
         });
         if (m.risk) kakao.maps.event.addListener(marker, "click", () => setSelected(m.risk!));
+        if (m.onClick) {
+          kakao.maps.event.addListener(marker, "click", () => latest.current[i]?.onClick?.());
+          /*
+            호버. 커서만 바꾸면 마우스를 이미 얹은 사람에게만 보이고, 아이콘만 키우면
+            누를 수 있는 물건인지는 여전히 모른다 — 둘을 같이 한다.
+            손가락에는 호버가 없으므로 여기서 하는 일이 없다 (누르는 건 그대로 된다).
+          */
+          const 커서 = (c: string) => map.current?.setCursor(c);
+          const 큰그림 = 그림(1.25);
+          kakao.maps.event.addListener(marker, "mouseover", () => {
+            커서("pointer");
+            if (큰그림) marker.setImage(큰그림);
+          });
+          kakao.maps.event.addListener(marker, "mouseout", () => {
+            커서("");
+            if (기본) marker.setImage(기본);
+          });
+        }
         return marker;
       }),
     ];
