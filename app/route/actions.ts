@@ -1,5 +1,7 @@
 "use server";
 
+import { areaAt } from "@/lib/geocode";
+
 // 길 비교 — 카카오 길찾기 두 갈래를 받아 분석하고 부담점수를 매긴다.
 //
 // 여기서 새로 하는 계산은 없다. lib 에 이미 다 있고(routesFor → scoreRoutes), 이 파일은
@@ -164,4 +166,17 @@ export async function aiRadio(facts: Facts): Promise<string[][] | null> {
   if (facts.경로.length < 2) return null;
   // 규칙 대본과 같은 이유로 여기도 서명을 붙인다 — 화면이 어느 쪽을 쓰든 주소 모양이 같아야 한다
   return (await aiSentences(facts))?.radio?.map((대본) => 대본.map(붙인칸)) ?? null;
+}
+
+/**
+ * 좌표 → 동네 이름 ("제주시 아라이동"). 주행 저장에 담을 때 출발지 이름으로 쓴다.
+ *
+ * 검색해서 온 사람은 쿼리에 출발지 이름이 실려 있지만, 현위치에서 바로 길을 본 사람은 그게 없다.
+ * 그때 "출발지 → 서귀포매일올레시장"으로 담기면 나중에 목록에서 어디서 떠났는지 알 수 없다.
+ * 키가 없거나 못 찾으면 null 이고, 부르는 쪽이 "현재 위치"로 떨어뜨린다.
+ *
+ * 서버여야 하는 이유는 KAKAO_REST_API_KEY 다 — 브라우저에 내보내면 안 된다 (lib/geocode.ts).
+ */
+export async function areaOf(lat: number, lng: number): Promise<string | null> {
+  return areaAt(lat, lng);
 }

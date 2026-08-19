@@ -179,6 +179,16 @@ assert.ok(
   "부담이 같아서 접은 경우(tie)는 그렇다고 말해야 한다",
 );
 
+// 대안이 없는 구간 — 같은 경로가 양쪽에 온다 (app/route/actions.ts). 차이가 0이라 tie 로
+// 떨어지던 자리고, 그래서 카드가 한 장인 화면에 "두 길의 부담이 거의 같습니다"가 떴었다.
+const 한장 = { risks: [dummy("accidentZone", "사고 잦은 곳")], durationMin: 41 };
+const 홀로 = scoreRoutes(초보, 한장, 한장);
+assert.equal(홀로.noPick, "alone", "같은 경로를 두 자리에 받으면 alone 이다");
+// 비교 화면은 아무 말도 안 한다 — 고를 것이 없는 자리다. 말하는 건 근거 화면이고
+// (briefing.ts tradeoff), 여기서 tie 로 떨어지면 "두 길의 부담이…"가 나왔다.
+const 홀로판정 = verdict(홀로, { id: "safe", risks: [], durationMin: 41 }, { durationMin: 41 });
+assert.equal(홀로판정, "", `길이 한 장이면 비교 화면은 비운다: ${홀로판정}`);
+
 // --- 노출 크기 반영 ---
 // 같은 종류의 요인이라도 노출이 길면 점수가 커야 한다.
 // 실데이터에서 좁은 길 13.1km(31%)와 1.6km(3%)가 똑같이 28.4점으로 나왔던 버그의 회귀 방지.

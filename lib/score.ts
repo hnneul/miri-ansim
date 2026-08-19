@@ -41,8 +41,8 @@ export type RiskFactor = {
    * coord 하나만 있을 때는 지도가 그걸 그리지도 않았고, 그렸어도 "여기 한 군데"로 읽혔다 —
    * 실측에서 좁은 구간은 13.8km 였고 두 도로에 흩어져 있었다. 그래서 점이 아니라 선 여러 개다.
    *
-   * **선택이다.** 급커브는 조각 기하가 달라 아직 안 만든다(lib/analyze.ts sharpCurve).
-   * 검증용 더미 요인에도 없다 — 없으면 지도가 그냥 안 그린다.
+   * **선택이다.** 검증용 더미 요인에는 없다 — 없으면 지도가 그냥 안 그린다.
+   * 실제 경로에서는 세 요인 다 실린다 (lib/route.ts risksOf).
    */
   spans?: [number, number][][];
 };
@@ -52,13 +52,18 @@ export type ScoreResult = {
   /**
    * 추천을 접은 이유. **single 이 성격이 다른 두 경우를 뭉치고 있어서** 필요하다.
    *
+   *   alone   — 비교할 상대가 없다. 대안 경로가 접힌 구간이라 카드가 한 장뿐이다.
    *   tie     — 부담이 사실상 같다 (5% 이내). 고를 것도 없다.
    *   unclear — 차이는 있는데(추천점수로 32 vs 43) 단정할 만큼은 아니다. 시간과 맞바꿔야 한다.
+   *
+   * **alone 을 tie 로 뭉치면 안 된다.** 부르는 쪽이 같은 경로를 양쪽에 넣어 오므로
+   * (app/route/actions.ts) 차이가 0이라 tie 로 떨어지는데, 그러면 화면과 대본이 길이 한 장인
+   * 자리에서 "두 길의 부담이 거의 같습니다"라고 말한다 — 없는 길을 있다고 하는 문장이다.
    *
    * 이걸 안 남기면 화면이 둘을 같은 문장으로 말하게 되고, 실제로 그랬다 —
    * 뚜렷이 다른 두 점수를 두고 "부담이 비슷합니다"라고 적고 있었다. 추천이 있으면 null 이다.
    */
-  noPick: "tie" | "unclear" | null;
+  noPick: "alone" | "tie" | "unclear" | null;
   /** 추천점수 — **높을수록 권할 만한 길**이다. 아래 breakdown 의 요인 점수와 방향이 반대다 */
   fastScore: number;
   safeScore: number;
@@ -278,6 +283,11 @@ export function scoreRoutes(
     safeRoute.durationMin != null &&
     fastRoute.durationMin < safeRoute.durationMin;
 
+  // 양쪽이 **같은 객체**면 비교할 상대가 없는 것이다 — 대안이 접힌 구간에서 부르는 쪽이
+  // 한 장을 두 자리에 넣는다 (app/route/actions.ts). 받은 것만 보고 아는 사실이라
+  // 여기서 판단한다: 값이 같은 두 경로(tie)와 길이 하나인 것(alone)은 다른 말이다.
+  const 홀로 = fastRoute === safeRoute;
+
   const 무의미한차이 =
     Math.abs(fast.total - safe.total) <=
     Math.max(fast.total, safe.total) * TIE_RATIO;
@@ -316,7 +326,9 @@ export function scoreRoutes(
   const fastScore = 추천점수(fast.total);
   const safeScore = 추천점수(safe.total);
 
-  const lead = 무의미한차이
+  const lead = 홀로
+    ? `대안 경로가 없는 구간 (추천점수 ${safeScore})`
+    : 무의미한차이
     ? `두 경로의 추천점수 차이가 작음 (${fastScore} / ${safeScore})`
     : !fastIsQuicker
       ? gap != null
@@ -334,7 +346,13 @@ export function scoreRoutes(
   return {
     recommendedRoute,
     noPick:
-      recommendedRoute !== "single" ? null : 무의미한차이 ? "tie" : "unclear",
+      recommendedRoute !== "single"
+        ? null
+        : 홀로
+          ? "alone"
+          : 무의미한차이
+            ? "tie"
+            : "unclear",
     fastScore,
     safeScore,
     reasons,
