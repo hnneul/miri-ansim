@@ -46,15 +46,34 @@ const badgeColor = (score: number) =>
   score <= 30 ? "#fff0e5" : score <= 60 ? "#e5f5e5" : "#e5eaf5";
 
 /**
- * 상세 지도의 출발·도착 점. 흰 테두리를 둘러야 지도 위 어느 색 위에서도 점이 점으로 보인다
- * (와이어프레임의 ● 두 개와 같은 색이다).
+ * 상세 지도의 출발·도착 표시. **점과 이름을 한 장에 그려** 마커 아이콘으로 넘긴다.
+ *
+ * 이름을 지도 구석에 따로 띄우면 어느 점이 출발인지 색으로만 알 수 있다. 그렇다고 글자를
+ * 따로 얹으려면 RouteMap 에 오버레이 옵션을 달아야 하는데(marker.label 은 툴팁이라 지도에
+ * 안 보인다) 그 파일은 지금 다른 작업이 물고 있다 — 아이콘 한 장이면 여기서 끝난다.
+ *
+ * 점과 글자 모두 흰 테두리를 두른다. 글자는 paint-order 로 획을 먼저 깔아 흰 테를 만드는데,
+ * 바다(파랑)·들(초록)·도로(노랑) 어디에 떨어져도 읽히려면 이게 있어야 한다.
  */
-const dot = (color: string) => ({
-  src: `data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="5" fill="${color}" stroke="#fff" stroke-width="2"/></svg>`,
-  )}`,
-  size: [14, 14] as [number, number],
-});
+const xml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const pin = (color: string, label: string) => {
+  // 한글 한 자가 11px 남짓이라 그만큼 잡고 양옆에 여백을 둔다. 좁으면 글자가 잘린다
+  const w = Math.max(24, label.length * 12 + 12);
+  return {
+    src: `data:image/svg+xml,${encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="30">` +
+        `<circle cx="${w / 2}" cy="7" r="5" fill="${color}" stroke="#fff" stroke-width="2"/>` +
+        `<text x="${w / 2}" y="25" text-anchor="middle" font-family="sans-serif" font-size="11"` +
+        ` font-weight="700" fill="${color}" stroke="#fff" stroke-width="3" paint-order="stroke">` +
+        `${xml(label)}</text>` +
+        `</svg>`,
+    )}`,
+    size: [w, 30] as [number, number],
+    // 좌표에 앉는 건 그림 가운데가 아니라 **점**이다 — 안 맞추면 이름 높이만큼 위로 뜬다
+    anchor: [w / 2, 7] as [number, number],
+  };
+};
 
 /**
  * 와이어프레임 목록에 그려진 네 건.
@@ -130,6 +149,11 @@ function Safelog() {
   const [routes, setRoutes] = useState<SafeDrive[]>(demo ? SAMPLE : []);
   /** 보고 있는 탭 */
   const [mineOnly, setMineOnly] = useState(false);
+  /**
+   * 검색어. null 이면 검색을 안 연 것이고, 빈 문자열이면 열어두고 아직 안 친 것이다 —
+   * 둘을 갈라야 "열었는데 결과가 없다"와 "안 열었다"가 화면에서 구별된다.
+   */
+  const [query, setQuery] = useState<string | null>(null);
   /** 펼쳐 본 카드의 id. 한 번에 하나만 펼친다 (와이어프레임 3713:2542) */
   const [open, setOpen] = useState<number | null>(null);
   /** 자세히로 들어간 기록. 있으면 상세 화면이다 (2574:418) */
@@ -165,7 +189,17 @@ function Safelog() {
     if (next) setRoutes(next);
   }
 
-  const shown = mineOnly ? routes.filter((r) => r.mine) : routes;
+  /*
+   * 탭으로 한 번, 검색어로 한 번 거른다. 찾는 대상은 **출발·도착 이름과 댄 주차장**이다 —
+   * 사람이 기억하는 건 "협재 갔던 거"지 날짜나 점수가 아니다.
+   *
+   * **요약은 탭까지만 따르고 검색은 안 따른다** (아래 Summary 는 tabbed 를 받는다).
+   * "귤이와 함께 달린 안심 길"은 지금까지 달린 것의 총합인데, 검색어를 칠 때마다 회수와 거리가
+   * 줄었다 늘었다 하면 그건 총합이 아니라 검색 결과 개수다. 안 걸리는 말을 치면 0회·0km 까지 간다.
+   */
+  const tabbed = mineOnly ? routes.filter((r) => r.mine) : routes;
+  const q = query?.trim().toLowerCase() ?? "";
+  const shown = tabbed.filter((r) => !q || `${r.title} ${r.parking}`.toLowerCase().includes(q));
 
   if (detail) return <Detail route={detail} onBack={() => setDetail(null)} />;
 
@@ -179,7 +213,7 @@ function Safelog() {
       */}
       <Header onBack={() => router.push(`/home?${searchParams}`)} />
 
-      <Summary routes={shown} />
+      <Summary routes={tabbed} />
 
       {/*
         Tab / 전체 · 나만의 길 (3423:540 · 3678:2011).
@@ -195,7 +229,7 @@ function Safelog() {
         칸이 사라졌다 나타나면 같은 화면이 두 모양이 되고 처음 온 사람은 나만의 길이라는 게
         있는 줄도 모른다. 눌러도 빈 화면이지만 거기 문구가 무엇을 담는 곳인지 말해준다.
       */}
-      <div className="mt-[11px] mx-[24px] flex shrink-0 items-center">
+      <div className="mt-[14px] mx-[24px] flex shrink-0 items-center">
         <div className="relative h-[34px] w-[168px] rounded-[17px] bg-[#ffcfbc]">
           {/* 고른 쪽을 덮는 주황 덩어리. 76px 을 미끄러진다 (칩 폭 92 - 겹침 16) */}
           <span
@@ -209,17 +243,58 @@ function Safelog() {
         </div>
         {/*
           돋보기가 앱바에서 여기로 내려왔다 (4172:705 · 3423:531) — 탭과 같은 줄, 오른쪽 끝이다.
-          와이어프레임은 335~342 사이에서 흔들리는데 본문 오른끝(366)에 맞춘다. 요약 상자도
-          카드도 다 24px 여백을 쓰고 있어서, 이것만 어중간하게 안쪽에 있으면 줄이 안 맞아 보인다.
-          갈 곳은 아직 없다 — 눌리는 척은 안 시킨다.
+          와이어프레임은 335~342 사이에서 흔들리는데 본문 오른끝에 맞춘다: 요약 상자도 카드도
+          다 24px 여백을 쓰고 있어서, 이것만 어중간하게 안쪽에 있으면 줄이 안 맞아 보인다.
+
+          글자 ⌕ 가 아니라 /home·/destination·/around 가 쓰는 같은 자산이다 — 글자로 두면
+          기기 서체에 따라 모양이 달라지고, 이 앱 안에서 혼자 다른 돋보기가 된다.
         */}
-        <span aria-hidden className="ml-auto text-[20px] leading-none text-[#6e6e6e]">
-          ⌕
-        </span>
+        <button
+          onClick={() => setQuery(query === null ? "" : null)}
+          aria-label={query === null ? "기록 검색" : "검색 닫기"}
+          className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+        >
+          <img
+            src={query === null ? "/home/icon-search.svg" : "/home/icon-close.svg"}
+            alt=""
+            // brightness 로 색만 진하게 한다 (#525252 → #252525). 자산을 복사해 색만 바꾸면
+            // 나중에 돋보기 모양이 바뀔 때 여기만 옛 모양으로 남는다
+            className={query === null ? "h-[19px] w-[18px] brightness-[.45]" : "size-[22px]"}
+          />
+        </button>
       </div>
 
+      {/*
+        검색 칸은 돋보기를 눌러야 열린다. 늘 띄워두면 기록이 두어 건일 때도 자리를 먹는데,
+        이 목록은 대개 짧아서 눈으로 훑는 게 빠르다.
+      */}
+      {query !== null && (
+        <div className="mt-[10px] mx-[24px] flex h-[40px] shrink-0 items-center rounded-full border border-[#e5e0db] bg-white px-[14px]">
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="출발·도착 또는 주차장 이름"
+            aria-label="기록 검색"
+            className="min-w-0 flex-1 text-[14px] text-[#1f1f1f] outline-none placeholder:text-[#8a8a8a]"
+          />
+          {query && (
+            <button onClick={() => setQuery("")} aria-label="지우기" className="shrink-0 pl-[8px]">
+              <img src="/home/icon-close.svg" alt="" className="size-[18px]" />
+            </button>
+          )}
+        </div>
+      )}
+
       {shown.length === 0 ? (
-        <Empty mineOnly={mineOnly} />
+        q ? (
+          // 담긴 건 있는데 검색어에 안 걸린 경우 — "기록이 없어요"라고 하면 거짓말이 된다
+          <p className="mt-[60px] text-center text-[15px] leading-[25px] font-medium text-[#262626]">
+            찾는 기록이 없어요.
+          </p>
+        ) : (
+          <Empty mineOnly={mineOnly} />
+        )
       ) : (
         <div className="mt-[23px] flex flex-col gap-[11px] px-[24px]">
           {shown.map((route) => (
@@ -244,7 +319,16 @@ function Header({ onBack }: { onBack: () => void }) {
     // 오른쪽은 비운다 — 돋보기는 탭 줄로 내려갔고(4172:705), 상세의 ••• 는 갈 곳이 없어 뺐다.
     // 제목이 absolute 라 오른쪽에 자리를 채우는 빈 칸이 없어도 가운데에 그대로 있다.
     <div className="relative flex h-[52px] shrink-0 items-center px-[10px]">
-      <button onClick={onBack} aria-label="뒤로" className="z-10 flex size-11 items-center justify-center">
+      {/*
+        아이콘 버튼의 호버는 동그란 옅은 주황이다 — #fff0e6 은 앱이 이미 여러 군데 쓰는 집 색이라
+        새 색을 만들지 않는다 (app/home/page.tsx Quick 과 같은 이유).
+        Tailwind v4 가 hover: 를 @media (hover:hover) 로 감싸므로 폰에서 탭한 뒤 눌어붙지 않는다.
+      */}
+      <button
+        onClick={onBack}
+        aria-label="뒤로"
+        className="z-10 flex size-11 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+      >
         <img src="/icon-arrow-left.svg" alt="" className="size-6" />
       </button>
       <h1 className="pointer-events-none absolute inset-x-0 text-center text-[20px] leading-[24px] font-bold text-[#1f1f1f]">
@@ -299,7 +383,13 @@ function Summary({ routes }: { routes: SafeDrive[] }) {
         items-start 여야 한다. 가운데 정렬하면 제일 큰 구분선(54)에 맞춰 숫자가 8px 내려앉는다 —
         와이어프레임에서는 구분선 **위끝이 숫자 위끝과 나란하고** 아래로 상자 바닥까지 내려간다.
       */}
-      <div className="mt-[14px] flex items-start">
+      {/*
+        숫자 둘은 상자를 반반 나누는 게 아니라 **양끝에 붙는다** (4180:735) — 94px 짜리 칸이
+        좌우 안쪽 여백에 걸리고 구분선이 그 사이 한가운데다. 반씩 나누면 숫자가 가운데로 몰려
+        구분선만 도드라지고 양옆이 빈다.
+        justify-between + 같은 폭이라 구분선은 따로 안 잡아도 정확히 가운데로 온다.
+      */}
+      <div className="mt-[14px] flex items-start justify-between">
         <Stat value={`${routes.length}회`} label="이용" />
         <span className="h-[54px] w-px bg-[#e5e0db]" />
         <Stat value={`${km}km`} label="이동" />
@@ -308,10 +398,10 @@ function Summary({ routes }: { routes: SafeDrive[] }) {
   );
 }
 
-/** 요약 한 칸. 세로줄을 사이에 두고 반씩 나눠 쓴다 */
+/** 요약 한 칸. 폭 94 는 와이어프레임 값이다 — 둘이 같아야 구분선이 가운데로 온다 */
 function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex-1 text-center">
+    <div className="w-[94px] text-center">
       <p className="text-[17px] leading-[20px] font-bold text-[#1f1f1f]">{value}</p>
       <p className="mt-[6px] text-[9px] leading-none text-[#6e6e6e]">{label}</p>
     </div>
@@ -328,54 +418,22 @@ function Stat({ value, label }: { value: string; label: string }) {
 function Empty({ mineOnly }: { mineOnly: boolean }) {
   return (
     /*
-      "나만의 길" 탭에는 귤이도 회색 줄도 없다.
+      빈 화면은 **문구 한 덩어리뿐이다** (4180:728 · 4180:749).
+      귤이도, "지금까지의 / 기록이 없어요" 회색 두 줄도 지금 디자인에서 빠졌다 —
+      탭이 이미 어느 목록인지 말하고 요약이 0회·0km 라 없다는 건 화면이 벌써 다 말하고 있다.
+      그래서 남은 한 줄은 "없다"가 아니라 **어떻게 채워지는지**만 말한다.
 
-      귤이는 "지금까지 하나도 없어요"를 말하는 자리라 두 탭 모두에 세우면 같은 표정이 두 번 나오고,
-      두 번째는 앱이 통째로 빈 것 같은 인상을 준다. 회색 줄은 뻔한 말이다 — 나만의 길 탭에 서 있는데
-      카드가 없으면 없는 게 이미 보이고, 아래 문구가 "담아두세요"라며 그걸 전제하고 있다.
+      두 탭이 같은 자리·같은 모양이라, 탭을 눌러도 글자만 갈아끼워진다.
 
-      **나만의 길 문구는 전체 탭의 회색 두 줄과 같은 높이에 온다** (20 + 귤이 132 + 14 = 166).
-      탭을 오갈 때 글이 제자리에 머무는 게 아니라 **한 칸 위(회색 줄)로 갈아끼워지는** 모양이라,
-      귤이만 사라지고 말은 그 자리에서 바뀐 것처럼 읽힌다.
+      자리는 **폰 한가운데**다. 와이어프레임 값(탭 아래 247)을 그대로 옮기면 아래로 처진다 —
+      우리 머리가 24 더 두껍고(상태바가 목업보다 높다) 폰은 36 더 짧아서, 같은 247 이 남은 자리에서
+      차지하는 몫이 훨씬 크다. 그림의 숫자가 아니라 그림이 노린 자리(가운데쯤)를 옮기는 게 맞다.
 
-      검은 줄은 전체 탭에만 있고 회색 줄 아래 46 에 붙는다 — 나만의 길에는 그 줄이 없다.
+      pb 는 위쪽 머리(앱바 52 + 요약 107 + 탭 45 ≈ 263)만큼 되돌리는 값이다 — 이게 없으면
+      justify-center 가 탭 아래 남은 자리의 가운데를 잡아 또 처진다.
     */
-    <div className={`flex flex-1 flex-col items-center px-[24px] ${mineOnly ? "pt-[166px]" : "pt-[20px]"}`}>
-      {!mineOnly && (
-        <>
-          <img src="/safelog/character-empty.png" alt="" className="h-[132px] w-[142px] object-contain" />
-          <p className="mt-[14px] text-center text-[15px] leading-[22px] font-medium text-[#b0b0b0]">
-            지금까지의
-            <br />
-            주행 저장 기록이 없어요
-          </p>
-        </>
-      )}
-      {/*
-        위가 이미 "없다"를 말했으니 여기는 **어떻게 채우는지**를 말한다.
-        이 화면에는 누를 것이 하나도 없고, 담는 문은 "전체" 탭 카드 안에 있다 — 그래서
-        나만의 길 쪽 문구는 탭 이름을 그대로 불러 옆을 가리킨다.
-        ⚠️ 탭 이름을 바꾸면 이 글도 같이 고쳐야 한다 (여기서만 조용히 어긋난다).
-      */}
-      {/*
-        같은 자리에 오는 글이지만 두 탭이 다르다.
-
-        전체는 귤이와 회색 두 줄 **아래에** 붙는 작은 검은 글(12px)이다 — 위가 "없다"만 말하고
-        끝나서, 이 줄이 그 화면에서 유일하게 앞일을 말한다.
-        나만의 길은 그 **회색 두 줄 자리에 대신 들어서므로** 크기도 색도 그 줄과 같다 —
-        거기는 탭 자체가 이미 비었다는 걸 말하고 있어 이 글이 화면을 붙들 이유가 없다.
-      */}
-      <p
-        className={`text-center font-medium ${
-          mineOnly
-            ? // 전체 탭의 회색 두 줄이 서던 자리라 크기도 색도 그 줄과 같다 (15/22 · #b0b0b0) —
-              // 탭을 오갈 때 같은 자리에서 말만 갈아끼워지는 것처럼 보인다.
-              // 와이어프레임(4091:627)은 #9e9e9e 지만, 자리를 물려받는 글이 색만 다르면
-              // 맞춰둔 크기가 무색해진다
-              "text-[15px] leading-[22px] text-[#b0b0b0]"
-            : "mt-[46px] text-[12px] leading-[20px] text-[#262626]"
-        }`}
-      >
+    <div className="flex flex-1 flex-col items-center justify-center px-[24px] pb-[263px]">
+      <p className="text-center text-[15px] leading-[25px] font-medium text-[#262626]">
         {mineOnly ? (
           <>
             마음에 쏙 든 길, 담아두세요!
@@ -540,16 +598,17 @@ function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
         나오니 "이런 길을 달렸다"는 시늉일 뿐이었고, 도착 이름이 곡선 끝점과 겹쳐 글자가 점에 물렸다.
         기록마다 좌표를 들고 다니게 하고 RouteMap 에 넘긴다 — 축척은 RouteMap 이 경로 전체에 맞춘다.
 
-        이름표는 와이어프레임대로 좌상·우하 구석에 두되 흰 알약을 깐다. 그림 위에서는 맨 글자로도
-        읽혔지만 지도 위에서는 도로·지명과 겹쳐 안 읽힌다.
+        출발·도착 이름은 **점 바로 밑에 붙는다** (pin). 와이어프레임은 구석에 따로 띄웠는데,
+        그림 한 장일 때는 어느 끝이 어디인지 뻔했지만 진짜 지도에서는 점이 매번 다른 자리에
+        찍혀서 색으로만 짝을 지어야 했다.
       */}
       <div className="relative mt-[31px] mx-[24px] h-[253px] shrink-0">
         <RouteMap
           center={route.path[Math.floor(route.path.length / 2)]}
           routes={[{ path: route.path, color: "#ff5914" }]}
           markers={[
-            { coord: route.path[0], label: start, icon: dot("#42a861") },
-            { coord: route.path[route.path.length - 1], label: end, icon: dot("#db403b") },
+            { coord: route.path[0], label: start, icon: pin("#42a861", start) },
+            { coord: route.path[route.path.length - 1], label: end, icon: pin("#db403b", end) },
           ]}
           className="rounded-[16px]"
         />
@@ -563,12 +622,6 @@ function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
           ponytail: 고정 지도가 한 군데 더 생기면 그때 RouteMap 쪽 옵션으로 올린다.
         */}
         <div aria-hidden className="absolute inset-0 z-10 rounded-[16px]" />
-        <span className="pointer-events-none absolute z-20 top-[14px] left-[16px] rounded-full bg-white/85 px-[8px] py-[4px] text-[10px] leading-none font-medium text-[#42a861]">
-          {start}
-        </span>
-        <span className="pointer-events-none absolute z-20 right-[16px] bottom-[14px] rounded-full bg-white/85 px-[8px] py-[4px] text-[10px] leading-none font-medium text-[#db403b]">
-          {end}
-        </span>
       </div>
 
       <h2 className="mt-[19px] mx-[24px] shrink-0 text-[17px] leading-[20px] font-bold text-[#1f1f1f]">
