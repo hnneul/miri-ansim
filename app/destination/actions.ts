@@ -6,6 +6,7 @@
 // 얇게 감싸기만 한다. 검색어 정리·실패 문구는 lib/geocode.ts 가 이미 하고 있어서 그대로 흘린다.
 
 import { geocodePlace, postalOf, searchPlaces, type Geocoded, type Place } from "@/lib/geocode";
+import SPOTS from "@/data/spots.json";
 
 export async function findPlace(query: string): Promise<Geocoded> {
   const q = query.trim();
@@ -35,4 +36,35 @@ export async function suggestPlaces(query: string): Promise<Place[]> {
  */
 export async function findPostal(road: string): Promise<string | null> {
   return postalOf(road);
+}
+
+/**
+ * 검색 패널이 비어 있을 때 띄우는 추천 장소 (HOME-01 a).
+ *
+ * **기준은 거리가 아니라 유명세다.** 거리로 고르는 건 이미 /nearby 가 하고, 거긴 실시간
+ * 소요시간과 프로필별 운전 부담까지 잰다 — 여기서 흉내내면 같은 일을 더 못하게 하는 꼴이다.
+ * 실제로 45km 로 걸러 봐도 제주가 동서 73km 라 공항·중문·성산 어디서 재든 목록이 거의 같았다.
+ * lib/spots.ts 의 pickCandidates 도 안 쓴다 — 그건 카카오를 부를 후보를 거리·종류로 흩는
+ * 함수라 유명도가 계산에 없다. 공항 기준으로 돌리면 별도봉·제주경마공원이 나오고
+ * 함덕도 성산일출봉도 없다. "뭘 검색하지"의 답이 안 된다.
+ *
+ * 유명세는 **data/spots.json 의 순서**다. 카카오도 관광공사도 인기도 신호를 안 줘서
+ * 사람이 카테고리별로 유명한 순서대로 적어둔 목록이다 (scripts/build-spots.mjs SPOTS 주석).
+ * 그 순서를 그대로 쓰되 카테고리를 한 바퀴씩 돈다 — 앞에서 여덟 개를 자르면 전부 해수욕장이다.
+ *
+ * **화면이 쓸 여덟보다 넉넉히 준다.** 최근 검색어와 겹치는 이름은 화면에서 걷어내는데
+ * (한 화면에 같은 이름이 두 번 뜨면 고장으로 읽힌다), 최근 검색어가 최대 열이라
+ * 다 겹쳐도 여덟이 남으려면 열여덟이 필요하다 (lib/recent.ts MAX — 그쪽을 고치면 여기도 같이).
+ *
+ * **이름만 돌려준다.** 좌표는 여기 있지만 주소가 한 줄뿐이라 도로명·지번이 안 갈린다.
+ * 그대로 Place 를 지으면 목적지 시트의 주소 카드가 "도로명: …성산리 78" 처럼 틀린 배지를 단다.
+ * 눌렀을 때 최근 검색어와 똑같이 검색을 태우면 카카오가 제대로 나눠 준 값이 온다 (탭 한 번에 1건).
+ */
+const 통 = new Map<string, string[]>();
+for (const s of SPOTS) 통.set(s.category, [...(통.get(s.category) ?? []), s.name]);
+const 줄 = [...통.values()];
+const 추천 = Array.from({ length: 18 }, (_, i) => 줄[i % 줄.length]?.[(i / 줄.length) | 0]).filter(Boolean);
+
+export async function recommendSpots(): Promise<string[]> {
+  return 추천;
 }

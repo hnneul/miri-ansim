@@ -16,7 +16,7 @@ import RouteMap, { type LatLng } from "../RouteMap";
 import { meters } from "@/lib/parking";
 import type { Place } from "@/lib/geocode";
 import { addRecent, loadRecent, removeRecent } from "@/lib/recent";
-import { findPlace, findPostal, suggestPlaces } from "./actions";
+import { findPlace, findPostal, recommendSpots, suggestPlaces } from "./actions";
 
 /** 목적지를 못 골랐을 때 지도가 보고 있을 곳 — 제주 한가운데(한라산)라 섬이 통째로 담긴다. */
 const JEJU_CENTER: LatLng = [33.38, 126.55];
@@ -70,6 +70,13 @@ function Destination() {
   const [recent, setRecent] = useState<string[]>([]);
   /** 타이핑 중에 뜨는 후보 목록 (HOME-01 a). 비어 있으면 최근 검색어 자리가 그대로 남는다. */
   const [suggest, setSuggest] = useState<Place[]>([]);
+  /** 아직 아무것도 안 적었을 때 띄우는 추천 장소 이름 (./actions.ts recommendSpots). */
+  const [spots, setSpots] = useState<string[]>([]);
+  /*
+    최근 검색어에 이미 있는 이름은 뺀다 — 한 화면에 같은 이름이 두 번 뜨면 둘 중 하나가
+    고장 난 것처럼 읽힌다. 서버가 여덟보다 넉넉히 주므로 걷어내도 여덟 개가 찬다.
+  */
+  const 추천장소 = spots.filter((s) => !recent.includes(s)).slice(0, 8);
   const input = useRef<HTMLInputElement>(null);
 
   // 시트가 지도 아래쪽을 얼마나 덮는지. 지도가 그만큼 위로 잡아야 마커가 시트에 안 걸린다.
@@ -85,6 +92,14 @@ function Destination() {
 
   // localStorage 는 서버에 없다 — 화면이 뜬 뒤에 읽는다 (lib/recent.ts 가 깨진 값까지 막는다)
   useEffect(() => setRecent(loadRecent()), []);
+
+  /*
+    추천 장소는 고정 목록이라 한 번만 받는다. data/spots.json 이 36KB 라 화면으로 직접 들여오면
+    그게 통째로 번들에 실린다 — 여덟 줄 때문에 그럴 값어치가 없어 서버에서 잘라 받는다.
+  */
+  useEffect(() => {
+    recommendSpots().then(setSpots);
+  }, []);
 
   /**
    * 출발지를 손으로 정하고 **도착지를 찾는 중**인가 (시트의 "출발"을 누른 뒤).
@@ -567,10 +582,50 @@ function Destination() {
                   <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
                 )
               ) : (
-                /* 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */
-                recent.length > 0 && (
+                <>
+                  {/*
+                    추천 장소. 여기가 예전에는 **빈 화면**이었다 — 최근 검색어가 없으면(첫 사용자,
+                    지우고 난 뒤) 검색 패널에 아무것도 없어서, 메인화면 검색바를 눌러 들어온 사람이
+                    받는 첫 화면이 백지 한 장이었다. "뭘 검색해야 하나"에 답이 없다.
+
+                    고른 기준은 거리가 아니라 유명세다 (./actions.ts recommendSpots 주석에 이유가 있다).
+                    **최근 검색어 위에 둔다.** 칩 여덟 개는 세 줄로 끝나지만 최근 검색어는 한 줄에 하나라,
+                    열 개가 차면 그것만으로 화면을 넘긴다 — 아래에 두면 추천이 통째로 접힌 밖으로 밀린다.
+                    개수가 0~10 으로 출렁이는 쪽보다 늘 같은 높이인 쪽이 위에 있어야 자리도 안 흔들린다.
+
+                    누르면 최근 검색어와 같은 길로 간다 (setText + search). 좌표를 안고 곧장 넘어가지
+                    않는 이유도 위 주석에 있다 — 주소 배지가 틀리느니 카카오에 한 번 묻는 게 낫다.
+                  */}
+                  {추천장소.length > 0 && (
+                    <>
+                      <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">
+                        제주에서 많이 찾는 곳
+                      </h2>
+                      {/* 칩이라 줄바꿈으로 흐른다 — 이름 길이가 제각각이라(섭지코지 ↔ 제주동문시장) 격자로 두면 빈칸이 남는다 */}
+                      <div className="mt-[10px] flex flex-wrap gap-2">
+                        {추천장소.map((name) => (
+                          <button
+                            key={name}
+                            onClick={() => {
+                              setText(name);
+                              search(name);
+                            }}
+                            /* 호버 색은 빠르게 둘러보기 칸과 같은 #fff0e6 이다 — 이 앱에서 "얹혀 있다"는 뜻으로 이미 쓰는 색이다 */
+                            className="h-[32px] shrink-0 rounded-full border border-[#e5e0db] bg-white px-[13px] text-[13px] leading-none text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-95"
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */}
+                  {recent.length > 0 && (
                   <>
-                    <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
+                    <h2 className={`text-[14px] leading-[22px] font-bold text-[#1f1f1f] ${추천장소.length > 0 ? "mt-6" : ""}`}>
+                      최근 검색어
+                    </h2>
                     <ul className="mt-2">
                       {recent.map((r) => (
                         /*
@@ -611,7 +666,8 @@ function Destination() {
                       ))}
                     </ul>
                   </>
-                )
+                  )}
+                </>
               )}
             </div>
           )}

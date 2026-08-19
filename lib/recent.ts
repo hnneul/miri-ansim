@@ -8,7 +8,11 @@
 // 여기서 다 막는다 — 최근 검색어 때문에 화면이 죽는 일은 없어야 한다.
 
 const KEY = "gilansim:recent";
-const MAX = 5;
+/**
+ * 몇 개까지 기억하는가. 올릴 때 **app/destination/actions.ts 의 recommendSpots 도 같이 봐야 한다** —
+ * 거기서 추천 칩 여덟 개를 채우려고 이 개수만큼 여유분을 얹어 뽑는다 (겹치는 이름을 화면에서 뺀다).
+ */
+const MAX = 10;
 
 /** 저장된 목록. 값이 깨졌거나 못 읽으면 빈 목록으로 시작한다. */
 export function loadRecent(): string[] {
