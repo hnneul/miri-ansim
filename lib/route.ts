@@ -71,13 +71,19 @@ async function directions(
   destination: LatLng,
   priority: (typeof PRIORITIES)[number]["priority"],
   key: string,
-): Promise<KakaoRoute> {
+): Promise<KakaoRoute[]> {
   const q = new URLSearchParams({
     origin: coord(origin),
     destination: coord(destination),
     priority,
     road_details: "true", // 좌표열과 traffic_state 가 이 옵션에 딸려 온다
-    alternatives: "false",
+    /*
+     * 대안까지 받는다. 끄면 priority 셋을 다 불러도 카카오가 매번 자기 1등만 주는데,
+     * 그 1등이 겹치면 후보가 한 장으로 접힌다 — 실측으로 중앙로 566 → 서귀포매일올레시장이
+     * 516로(35km) 한 장만 남았다. 켜면 같은 호출에서 평화로·중산간서로(56.1km)가 따라온다.
+     * 카카오맵 웹이 이 출발지에 보여주는 바로 그 길이다.
+     */
+    alternatives: "true",
     // departure_time 을 주지 않는다 = 현재 시각 교통 (lib/traffic.ts 와 같은 이유)
   });
   const res = await fetch(`${ENDPOINT}?${q}`, {
@@ -86,12 +92,17 @@ async function directions(
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!res.ok) throw new Error("길찾기 서버에서 응답을 받지 못했습니다");
-  const route: KakaoRoute | undefined = (await res.json()).routes?.[0];
-  if (!route) throw new Error("길찾기 결과가 비어 있습니다");
+  const routes: KakaoRoute[] = (await res.json()).routes ?? [];
   // result_msg 는 카카오가 준 한국어 문구다 ("도착 지점 주변의 도로를 탐색할 수 없음")
-  if (route.result_code !== 0)
-    throw new Error(route.result_msg || `길찾기 실패 (${route.result_code})`);
-  return route;
+  // 한 대안만 실패하는 경우가 있어 성공한 것만 걸러 낸다. 전부 실패했을 때만 사유를 올린다.
+  const ok = routes.filter((r) => r.result_code === 0);
+  if (!ok.length)
+    throw new Error(
+      routes[0]
+        ? routes[0].result_msg || `길찾기 실패 (${routes[0].result_code})`
+        : "길찾기 결과가 비어 있습니다",
+    );
+  return ok;
 }
 
 /**
@@ -379,9 +390,12 @@ export async function routesFor(
   const found: { a: Analysis; badge: string }[] = [];
   settled.forEach((s, i) => {
     if (s.status !== "fulfilled") return;
-    const a = analyze(s.value, index);
-    if (!found.some((f) => sameRoute(f.a, a)))
-      found.push({ a, badge: PRIORITIES[i].badge });
+    // 한 priority 가 대안까지 여러 개를 준다 (directions 의 alternatives 주석)
+    s.value.forEach((route) => {
+      const a = analyze(route, index);
+      if (!found.some((f) => sameRoute(f.a, a)))
+        found.push({ a, badge: PRIORITIES[i].badge });
+    });
   });
 
   if (found.length === 1)
