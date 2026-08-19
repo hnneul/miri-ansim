@@ -85,7 +85,7 @@ export function sharpCurves(
   speedLimitAt?: (i: number) => number | null,
   minSpeed = 50,
   mergeGapM = 100,
-): { start: LatLng; count: number; minRadius: number; lengthM: number }[] {
+): { start: LatLng; count: number; minRadius: number; lengthM: number; from: number; to: number }[] {
   const runs: { start: LatLng; end: LatLng; from: number; to: number; count: number; minRadius: number }[] = [];
 
   for (let i = 1; i + 1 < path.length; i++) {
@@ -116,7 +116,9 @@ export function sharpCurves(
     let lengthM = 0;
     for (let i = Math.max(0, from - 1); i < Math.min(path.length - 1, to + 1); i++)
       lengthM += distance(path[i], path[i + 1]);
-    return { start, count, minRadius, lengthM };
+    // from·to 도 같이 낸다 — 지도에 구간을 칠하려면 어느 좌표부터 어디까지인지가 있어야 한다
+    // (lib/analyze.ts 의 범위조각). 길이만으로는 위치를 못 그린다.
+    return { start, count, minRadius, lengthM, from, to };
   });
 }
 
@@ -133,10 +135,29 @@ export function densestCluster(
   return best;
 }
 
+/**
+ * 축약 후 남는 점의 **번호**. 좌표가 아니라 번호를 주는 게 요점이다.
+ *
+ * 경로선과 위험구간을 따로 축약하면 남는 점이 달라져 지도에서 서로 어긋난다.
+ * 번호를 받아 두면 같은 기준으로 자를 수 있다 (lib/analyze.ts 의 spansOf).
+ */
+export function simplifyIdx(path: LatLng[], toleranceM = 30): number[] {
+  if (path.length < 3) return path.map((_, i) => i);
+  const keep = keepMask(path, toleranceM);
+  const out: number[] = [];
+  for (let i = 0; i < path.length; i++) if (keep[i]) out.push(i);
+  return out;
+}
+
 /** 지도 표시용 좌표 축약 (Douglas-Peucker). 곡률 계산에는 원본을 쓴다. */
 export function simplify(path: LatLng[], toleranceM = 30): LatLng[] {
   if (path.length < 3) return [...path];
+  const keep = keepMask(path, toleranceM);
+  return path.filter((_, i) => keep[i]);
+}
 
+/** Douglas-Peucker 로 남길 점 표시. simplify 와 simplifyIdx 가 같은 답을 내도록 여기 한 벌만 둔다. */
+function keepMask(path: LatLng[], toleranceM: number): Uint8Array {
   const perp = (p: LatLng, a: LatLng, b: LatLng) => {
     const k = Math.cos(rad(p[0]));
     const APx = (p[1] - a[1]) * k, APy = p[0] - a[0];
@@ -161,5 +182,5 @@ export function simplify(path: LatLng[], toleranceM = 30): LatLng[] {
     keep[far] = 1;
     stack.push([lo, far], [far, hi]);
   }
-  return path.filter((_, i) => keep[i]);
+  return keep;
 }

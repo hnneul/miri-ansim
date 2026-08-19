@@ -86,9 +86,16 @@ export default function RouteRadio({
   script,
   /** 고른 경로가 바뀌면 읽던 걸 멈춘다 — 화면과 소리가 다른 길을 가리키면 안 된다 */
   routeId,
+  펼침,
 }: {
   script: string[];
   routeId: string;
+  /**
+   * 대본 전체를 글로 편다 (`?대본=1`). 기본은 꺼짐이다 — 아래 주석대로 이 줄이 자라면
+   * 그만큼 지도가 줄어서, 평소에는 위 진행 줄에 한 줄로 잘라 얹는다.
+   * 소리를 못 듣는 자리(시연장·이어폰 없음)에서 내용을 확인할 때만 쿼리로 연다.
+   */
+  펼침?: boolean;
 }) {
   const { voice, 있나 } = useKoreanVoice();
   /** 지금 읽고 있는 칸. null 이면 멈춰 있다 */
@@ -284,8 +291,20 @@ export default function RouteRadio({
         높이가 한 번도 안 변한다 — 들으려고 누른 순간 화면이 흔들리는 것보다 낫다.
 
         ponytail: 전체 문장을 보여줘야 하면 시트를 66 키우고(SHEET_H) 여기 3줄 상자를 되살린다.
-        그만큼 지도가 줄어드는 걸 받아들이는 결정이다.
+        그만큼 지도가 줄어드는 걸 받아들이는 결정이다. `?대본=1` 이 그 문이다 — 높이가 자라는
+        걸 받아들이는 대신, 켠 사람만 본다.
       */}
+      {펼침 && (
+        <ol className="mt-1 space-y-[2px] text-[12px] leading-[18px] text-[#949494]">
+          {script.map((칸, i) => (
+            // 지금 읽는 칸만 진하게 — 어디를 읽는지 소리 없이도 따라갈 수 있어야 편 의미가 있다
+            <li key={i} className={i === 읽는칸 ? "text-[#1a1a1a]" : ""}>
+              {글(칸)}
+            </li>
+          ))}
+        </ol>
+      )}
+
       <span className="sr-only" aria-live="polite">
         {읽는칸 !== null ? script[읽는칸] : ""}
       </span>
