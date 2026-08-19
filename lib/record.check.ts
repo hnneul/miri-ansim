@@ -13,6 +13,7 @@ import {
   isoToday,
   loadDrafts,
   parseSummary,
+  RECORD_KEYS,
   savedAt,
   saveDraft,
   summaryOf,
@@ -216,5 +217,19 @@ assert.equal(dotted("2026-08-14"), "2026.08.14");
 // 로컬 시간 기준이다 — UTC(toISOString)로 잡으면 밤 9시 이후 하루 밀린다
 assert.equal(isoToday(new Date(2026, 7, 14, 23, 30)), "2026-08-14");
 assert.equal(isoToday(new Date(2026, 0, 5)), "2026-01-05");
+
+// RECORD_KEYS 는 toRecordQuery 가 싣는 키와 어긋나면 안 된다 —
+// 빠진 키는 홈으로 나갈 때 안 걷혀서, 홈의 "여행 기록 ＋" 가 목록 대신 작성 화면을 연다
+{
+  const 요약: CourseSummary = { course: "조용한 바다 여행", date: "2026-08-25", km: 62, route: ["공항", "금능해수욕장"] };
+  const 실린키 = [...new Set(new URLSearchParams(toRecordQuery(요약)).keys())].sort();
+  assert.deepEqual(실린키, [...RECORD_KEYS].sort(), "toRecordQuery 가 RECORD_KEYS 밖의 키를 싣는다");
+
+  // 걷어내면 코스 요약이 남지 않는다 — 그래야 홈이 목록을 연다
+  const 나갈쿼리 = new URLSearchParams(toRecordQuery(요약, "exp=1&freq=low"));
+  for (const k of RECORD_KEYS) 나갈쿼리.delete(k);
+  assert.equal(parseSummary(나갈쿼리), null, "걷어냈는데도 코스 요약이 읽힌다");
+  assert.equal(나갈쿼리.get("exp"), "1", "프로필까지 걷어내면 안 된다");
+}
 
 console.log("✅ 여행 기록 URL 왕복 + 저장소 입력 검증 정상");

@@ -97,6 +97,18 @@ export function summaryOf(course: Course, origin: string): CourseSummary {
  *
  * route 는 r=a&r=b 로 하나씩 붙인다. "a,b" 로 이어 붙이면 이름에 쉼표가 든 장소에서 쪼개진다.
  */
+/**
+ * toRecordQuery 가 싣는 키 전부.
+ *
+ * **기록 흐름 밖(홈)으로 나갈 때 걷어내는 데** 쓴다. 안 걷으면 홈 URL 에 눌어붙어 있다가,
+ * 홈의 "여행 기록 ＋" 가 그걸 그대로 돌려줘서 목록 대신 **작성 화면이 열린다** —
+ * 방금 끝낸 코스가 있는 걸로 읽히기 때문이다 (app/trip/record/page.tsx 의 view 초기값).
+ *
+ * toRecordQuery 에 키를 더하면 여기도 같이 더해야 한다 — lib/record.check.ts 가 어긋나면 잡는다.
+ * (lib/trip.ts TRIP_KEYS 와 같은 이유·같은 모양이다.)
+ */
+export const RECORD_KEYS = ["c", "d", "km", "r"] as const;
+
 export function toRecordQuery(s: CourseSummary, keep?: URLSearchParams | string): string {
   const q = new URLSearchParams(keep);
   q.set("c", s.course);

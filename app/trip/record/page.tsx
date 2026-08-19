@@ -41,6 +41,7 @@ import {
   saveRecord,
   savedAt,
   shrinkImage,
+  RECORD_KEYS,
   type CourseSummary,
   type Draft,
   type TripRecord,
@@ -136,7 +137,16 @@ function Record() {
     if (found) setDraft(found);
   }, [searchParams]);
 
-  const home = () => router.push(`/home?${searchParams}`);
+  /**
+   * 홈으로. **기록 흐름의 값을 여기서 끊는다** (lib/record.ts RECORD_KEYS).
+   * 안 끊으면 홈 URL 에 코스 요약이 눌어붙고, 홈의 "여행 기록 ＋" 가 그걸 돌려줘서
+   * 목록 대신 작성 화면이 열린다. write·draft·back 도 같이 뺀다 — 도착지에서 쓸 데가 없다.
+   */
+  const home = () => {
+    const q = new URLSearchParams(searchParams);
+    for (const k of [...RECORD_KEYS, "write", "draft", "back"]) q.delete(k);
+    router.push(`/home?${q}`);
+  };
   /**
    * 코스 추천으로. **어디서 왔는지 알려준다** — 그래야 거기서 뒤로 나올 때 홈이 아니라 여기로 돌아온다
    * (app/trip/page.tsx back). 잘못 눌렀을 때 되돌아올 길이 없으면 쓰던 기록이 통째로 날아간다.
