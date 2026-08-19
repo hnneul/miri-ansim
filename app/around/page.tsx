@@ -352,11 +352,17 @@ function Around() {
           // 눌러서 실패했는데 아무 말도 안 하는 버튼이 된다. 인자 없이 부른다.
           onClick={() => locate()}
           aria-label="현재 위치"
-          className={`pointer-events-auto mr-5 grid size-[46px] shrink-0 place-items-center self-end rounded-full bg-white text-[20px] text-[#2e9c85] shadow-[0_2px_8px_rgba(0,0,0,0.15)] active:bg-black/5 ${
+          /*
+            메인화면의 현위치 버튼과 **같은 그림 한 장**이다 (public/home/btn-locate.svg).
+            흰 원·테두리·그림자까지 그 안에 들어 있어서 여기서는 감쌀 것이 없다 —
+            전에는 글자 ◎ 를 흰 원으로 감싸 흉내 냈는데, 글꼴 글리프라 기기마다 굵기가
+            달라졌고 메인화면 것과도 굵기·색이 안 맞았다.
+          */
+          className={`pointer-events-auto mr-5 size-[44px] shrink-0 self-end transition active:scale-90 ${
             open || selected ? "mb-[calc(62%+12px)]" : "mb-3"
           }`}
         >
-          ◎
+          <img src="/home/btn-locate.svg" alt="" className="size-full" />
         </button>
 
         {/* 목록 보기 — 시트를 여는 유일한 문이다 (/parking 의 "목록으로 보기"와 같다) */}
