@@ -250,3 +250,18 @@ console.log("\n✅ 추천 이유 개인화 + 브리핑 정상");
   assert.ok(구간판정.includes("구간이") || !구간판정.includes("구간가"), `받침 있는 이름에 "가"를 붙였다: ${구간판정}`);
   console.log("판정 문장:", 커브판정, "/", 구간판정);
 }
+
+// 고속주행은 노출이 아무리 커도 상한 1.0 — 큰길을 오래 탔다고 더 깎지 않는다.
+// (실측: 평화로 경유 경로가 경로의 절반을 차지해 노출배수 2.5로 24점씩 깎이고 있었다)
+{
+  const 절반 = scoreRoutes(초보, { risks: [dummy("highSpeed", "고속주행 구간", 0.5)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  const 기준 = scoreRoutes(초보, { risks: [dummy("highSpeed", "고속주행 구간", 0.2)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  assert.equal(절반.fastScore, 기준.fastScore, "고속주행은 노출 50%와 20%가 같은 점수여야 한다");
+
+  // 좁은 길은 반대다 — 오래 노출될수록 더 깎여야 한다
+  const 좁게 = scoreRoutes(초보, { risks: [dummy("narrowRoad", "좁은 교행 구간", 0.5)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  const 좁게기준 = scoreRoutes(초보, { risks: [dummy("narrowRoad", "좁은 교행 구간", 0.2)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  assert.ok(좁게.fastScore < 좁게기준.fastScore, "좁은 길은 노출이 클수록 점수가 낮아야 한다");
+
+  console.log("고속주행 노출 상한 적용:", 기준.fastScore, "=", 절반.fastScore, "/ 좁은 길:", 좁게기준.fastScore, ">", 좁게.fastScore);
+}

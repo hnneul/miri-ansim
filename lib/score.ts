@@ -107,6 +107,13 @@ export const COMFORT_THRESHOLD = 50;
 export const SAFE_MARGIN = 0.8;
 
 /**
+ * 두 경로의 부담이 "사실상 같다"고 볼 차이 (큰 쪽 대비 비율).
+ * 0.1점 차이를 "저부담"이라 부르면 사용자는 없는 차이를 믿고 길을 고른다
+ * (실측: 공항→성산 35.9 vs 36). 마이 화면의 계산 기준 페이지도 이 값을 읽어 적는다.
+ */
+export const TIE_RATIO = 0.05;
+
+/**
  * 화면이 "높음/낮음"을 가르는 값 — **추천점수** 기준이다 (이상이면 높음).
  *
  * 같은 선을 반대편에서 본 것이라 지금은 숫자가 우연히 50으로 같다. 그렇다고 화면에서
@@ -123,8 +130,30 @@ export const EXPOSURE_REFERENCE = 0.2;
 const EXPOSURE_MIN = 0.25;
 const EXPOSURE_MAX = 2.5;
 
-export const exposureFactor = (exposure: number) =>
-  Math.min(EXPOSURE_MAX, Math.max(EXPOSURE_MIN, exposure / EXPOSURE_REFERENCE));
+/**
+ * 요인별 노출 상한. **고속주행만 1.0으로 눌러둔다.**
+ *
+ * 노출 비례는 "오래 노출될수록 더 부담"을 전제한다. 좁은 길·급커브는 그게 맞다 —
+ * 교행 13km가 1.6km보다 확실히 힘들다. 고속주행은 반대다. 큰길은 오래 달릴수록
+ * 오히려 적응하고, 부담은 달린 거리가 아니라 합류하는 횟수에 붙는다.
+ *
+ * 제주에는 고속도로가 없어서 제한속도 80 링크는 657개뿐이고 그게 전부 평화로·애조로·
+ * 중산간서로·한창로다 — 신호도 보행자도 없는 넓은 길이다. 그런데 이 길들을 타면 경로의
+ * 절반을 차지하니 노출배수가 상한 2.5에 붙어, 왕초보 기준 24점이 깎이고 있었다.
+ * 실측에서 평화로 경유 경로들이 그 한 요인 때문에 43~66점까지 떨어졌고, 산방산은
+ * 부담이 COMFORT_THRESHOLD 를 넘겨 추천 배지 자체가 사라졌다.
+ *
+ * **0으로 만들지는 않는다.** 왕초보가 80km/h 흐름에 처음 끼어드는 부담은 실재한다.
+ * 없애면 근거 카드에서 줄이 사라져 "왜 이 경로인지"를 설명하지 못한다.
+ * 상한 1.0 은 "빠른 길을 탄다"는 사실에 기준 노출만큼 한 번 값을 매긴다는 뜻이다.
+ */
+export const EXPOSURE_CAP: Partial<Record<RiskType, number>> = { highSpeed: 1 };
+
+export const exposureFactor = (exposure: number, type: RiskType) =>
+  Math.min(
+    EXPOSURE_CAP[type] ?? EXPOSURE_MAX,
+    Math.max(EXPOSURE_MIN, exposure / EXPOSURE_REFERENCE),
+  );
 
 /**
  * 프로필 가중치(곱). 차량 크기는 좁은 교행로에만 걸린다 — 차가 크다고 급커브가 더 위험하진 않다.
@@ -152,13 +181,13 @@ export const isNovice = (p: DriverProfile) => p.experienceYears <= 1;
  * 전역 할인을 주면 실제로 위험한 길이 익숙한 사람에게만 조용히 안전해 보인다 —
  * 경력으로 깎는 건 고속주행 하나뿐이고, 그건 아래에서 요인별로 건다.
  */
-const EXP_WEIGHT: Record<number, number> = { 1: 1.6, 3: 1.2, 10: 1 };
+export const EXP_WEIGHT: Record<number, number> = { 1: 1.6, 3: 1.2, 10: 1 };
 
 /** 티어 이름. 근거 카드와 마이 화면(lib/profile.ts LABELS)이 같은 말을 쓰도록 여기 하나만 둔다. */
 export const EXP_LABEL: Record<number, string> = { 1: "왕초보", 3: "초보", 10: "익숙" };
 
 /** 허용값 밖이면 왕초보 쪽으로 (lib/profile.ts characterOf 와 같은 규칙 — 모르면 부담 큰 쪽) */
-const expWeightOf = (p: DriverProfile) => EXP_WEIGHT[p.experienceYears] ?? EXP_WEIGHT[1];
+export const expWeightOf = (p: DriverProfile) => EXP_WEIGHT[p.experienceYears] ?? EXP_WEIGHT[1];
 
 /**
  * drivingFrequency 는 여기서 안 쓴다. 온보딩이 빈도를 따로 묻지 않고 티어 한 문항에서
@@ -193,7 +222,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 function scoreRoute(risks: RiskFactor[], p: DriverProfile) {
   const rows = risks.map((r) => {
     const base = BASE_SCORE[r.type];
-    const exposure = round2(exposureFactor(r.exposure));
+    const exposure = round2(exposureFactor(r.exposure, r.type));
     const multiplier = round2(weight(r.type, p));
     return {
       factor: r.label,
@@ -249,11 +278,9 @@ export function scoreRoutes(
     safeRoute.durationMin != null &&
     fastRoute.durationMin < safeRoute.durationMin;
 
-  // 부담이 사실상 같으면 어느 쪽도 추천하지 않는다. 0.1점 차이를 "저부담"이라 부르면
-  // 사용자는 없는 차이를 믿고 길을 고른다 (실측: 공항→성산 35.9 vs 36).
   const 무의미한차이 =
     Math.abs(fast.total - safe.total) <=
-    Math.max(fast.total, safe.total) * 0.05;
+    Math.max(fast.total, safe.total) * TIE_RATIO;
 
   // PLAN.md §5 추천 규칙.
   // 시간 이득이 없으면 부담이 큰 경로를 추천할 근거 자체가 없다 —
