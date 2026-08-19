@@ -37,6 +37,7 @@ ORDER = ["front", "right", "back", "left"]  # 시계방향 90° 간격. front �
 # 판단불가로 남은 지점만 다시 볼 때는 환경변수로 늘린다 (PANOS=6 RADIUS=120).
 PANOS = int(os.environ.get("PANOS", 3))
 RADIUS = int(os.environ.get("RADIUS", 70))  # m. 파노라마는 교차로 한복판이 아니라 진입 도로 위에 있다.
+ZOOM_DEG = int(os.environ.get("ZOOM_DEG", 45))  # zoom 사진의 시야각. 좁힐수록 배율이 오른다.
 SLEEP = 0.3    # 호출 간격 (초) — 순차 경로용
 WORKERS = 8    # 동시 실행 수. 지점당 HTTP 13회라 순차로는 몇 시간이다.
 
@@ -70,9 +71,14 @@ def frames(p, bearing):
 
     im = stitch(p["img_path"])
     wide = im.crop((int(c - 900), 200, int(c + 900), 1100))              # 180° 전경
-    # 신호등·표지는 지평선 위 좁은 띠에 몰려 있다. 잘라 2배로 키운다 —
+    # 신호등·표지는 지평선 위 좁은 띠에 몰려 있다. 잘라 키운다 —
     # "등화 개수를 셀 수 없다"로 판단불가가 나던 걸 이걸로 줄였다.
-    zoom = im.crop((int(c - 450), 260, int(c + 450), 710)).resize((1800, 900))
+    #
+    # ZOOM_DEG 로 시야를 좁힐수록 배율이 오른다 (45° → 40px/°, 20° → 90px/°).
+    # 기본 45°로는 100m 밖 신호등의 등 칸이 몇 픽셀이라 3구·4구가 안 갈린다.
+    # 좁히면 그만큼 교차로 전경을 잃으므로, 그 판정이 필요한 지점에만 좁혀서 다시 받는다.
+    half = int(1200 * ZOOM_DEG / 90 / 2)
+    zoom = im.crop((int(c - half), 260, int(c + half), 710)).resize((1800, 900))
     return wide, zoom
 
 

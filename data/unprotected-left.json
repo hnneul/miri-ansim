@@ -56,8 +56,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 264,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.47111,126.39519,87": {
   "verdict": "보호",
@@ -316,8 +316,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 268,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.29933,126.29397,160": {
   "verdict": "보호",
@@ -900,14 +900,14 @@
   "confidence": 0.93
  },
  "33.23069,126.26217,219": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-19",
   "label": "대정고교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 219,
-  "basis": "AI판독",
-  "confidence": 0.94
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.49309,126.50813,274": {
   "verdict": "보호",
@@ -996,8 +996,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 76,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48068,126.47231,47": {
   "verdict": "보호",
@@ -1206,8 +1206,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 355,
-  "basis": "AI판독",
-  "confidence": 0.88
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.43972,126.32813,195": {
   "verdict": "무신호",
@@ -1360,14 +1360,14 @@
   "confidence": 0.95
  },
  "33.36347,126.86528,9": {
-  "verdict": "무신호",
+  "verdict": "보호",
   "shotAt": "2026-03-16",
   "label": "신풍교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 9,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.50070,126.54381,150": {
   "verdict": "보호",
@@ -1426,8 +1426,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 208,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48876,126.59763,310": {
   "verdict": "보호",
@@ -1950,14 +1950,14 @@
   "confidence": 0.96
  },
  "33.49404,126.43364,338": {
-  "verdict": "무신호",
+  "verdict": "보호",
   "shotAt": "2026-03-06",
   "label": "외도이동324-3",
   "guidance": null,
   "kind": "left",
   "bearing": 338,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.29187,126.28198,1": {
   "verdict": "무신호",
@@ -3240,14 +3240,14 @@
   "confidence": 0.97
  },
  "33.23242,126.24170,119": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-16",
   "label": "일과1교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 119,
-  "basis": "AI판독",
-  "confidence": 0.86
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.46225,126.32649,258": {
   "verdict": "보호",
@@ -4250,14 +4250,14 @@
   "confidence": 0.96
  },
  "33.45182,126.36905,180": {
-  "verdict": "무신호",
+  "verdict": "보호",
   "shotAt": "2026-03-13",
   "label": "용흥교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 180,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48839,126.59798,217": {
   "verdict": "무신호",
@@ -4700,14 +4700,14 @@
   "confidence": 0.91
  },
  "33.27995,126.68602,4": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2024-06-03",
   "label": "위미3리교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 4,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.51026,126.56176,148": {
   "verdict": "무신호",
@@ -7360,14 +7360,14 @@
   "confidence": 0.92
  },
  "33.39635,126.26066,46": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-09",
   "label": "명월사거리",
   "guidance": null,
   "kind": "left",
   "bearing": 46,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.51743,126.57767,360": {
   "verdict": "무신호",
@@ -8270,14 +8270,14 @@
   "confidence": 0.92
  },
  "33.37878,126.22612,247": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-17",
   "label": "새못사거리",
   "guidance": null,
   "kind": "left",
   "bearing": 247,
-  "basis": "AI판독",
-  "confidence": 0.91
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.52984,126.61648,133": {
   "verdict": "보호",
@@ -8296,8 +8296,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 80,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.25857,126.57746,97": {
   "verdict": "무신호",
@@ -8600,14 +8600,14 @@
   "confidence": 0.97
  },
  "33.24448,126.22556,28": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-16",
   "label": "일과2리교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 28,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.53104,126.67643,89": {
   "verdict": "보호",
@@ -9556,8 +9556,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 55,
-  "basis": "AI판독",
-  "confidence": 0.86
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.34105,126.84529,215": {
   "verdict": "보호",
@@ -9566,8 +9566,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 215,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.47836,126.49055,214": {
   "verdict": "무신호",
@@ -9776,8 +9776,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 200,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.28176,126.28175,149": {
   "verdict": "무신호",
@@ -10016,8 +10016,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 80,
-  "basis": "AI판독",
-  "confidence": 0.88
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.40741,126.89736,77": {
   "verdict": "판단불가",
@@ -10416,8 +10416,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 184,
-  "basis": "AI판독",
-  "confidence": 0.89
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48933,126.43257,271": {
   "verdict": "무신호",
@@ -10860,14 +10860,14 @@
   "confidence": 0.96
  },
  "33.26093,126.61903,251": {
-  "verdict": "무신호",
+  "verdict": "판단불가",
   "shotAt": "2026-03-21",
   "label": "하효동 674-1",
   "guidance": null,
   "kind": "left",
   "bearing": 251,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.51550,126.55810,59": {
   "verdict": "판단불가",
@@ -10916,8 +10916,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 333,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.46487,126.46442,90": {
   "verdict": "보호",
@@ -10926,8 +10926,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 90,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.43479,126.90964,168": {
   "verdict": "보호",
@@ -11696,8 +11696,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 352,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.50465,126.56235,25": {
   "verdict": "무신호",
@@ -12840,14 +12840,14 @@
   "confidence": 0.92
  },
  "33.29466,126.33031,341": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-23",
   "label": "서광2교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 341,
-  "basis": "AI판독",
-  "confidence": 0.94
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.28896,126.74442,83": {
   "verdict": "보호",
@@ -15096,8 +15096,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 274,
-  "basis": "AI판독",
-  "confidence": 0.94
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.25843,126.57944,36": {
   "verdict": "보호",
@@ -15126,8 +15126,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 247,
-  "basis": "AI판독",
-  "confidence": 0.92
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.23304,126.26498,49": {
   "verdict": "보호",
@@ -15580,14 +15580,14 @@
   "confidence": 0.87
  },
  "33.46987,126.66425,86": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-10",
   "label": "세미마을입구",
   "guidance": null,
   "kind": "left",
   "bearing": 86,
-  "basis": "AI판독",
-  "confidence": 0.86
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.26761,126.58677,187": {
   "verdict": "비보호",
@@ -16930,14 +16930,14 @@
   "confidence": 0.91
  },
  "33.49405,126.55033,349": {
-  "verdict": "보호",
+  "verdict": "판단불가",
   "shotAt": "2026-03-06",
   "label": "이도이동66-1",
   "guidance": null,
   "kind": "left",
   "bearing": 349,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.50431,126.50384,281": {
   "verdict": "보호",
@@ -17900,14 +17900,14 @@
   "confidence": 0.93
  },
  "33.26097,126.61915,331": {
-  "verdict": "무신호",
+  "verdict": "비보호",
   "shotAt": "2026-03-21",
   "label": "하효동 674-1",
   "guidance": null,
   "kind": "left",
   "bearing": 331,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.51143,126.51355,334": {
   "verdict": "보호",
@@ -18830,14 +18830,14 @@
   "confidence": 0.98
  },
  "33.26241,126.43023,182": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2024-06-02",
   "label": "중문동2774",
   "guidance": null,
   "kind": "left",
   "bearing": 182,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48268,126.48291,2": {
   "verdict": "무신호",
@@ -20606,8 +20606,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 42,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.50178,126.53161,62": {
   "verdict": "보호",
@@ -20760,14 +20760,14 @@
   "confidence": 0.93
  },
  "33.46487,126.46429,171": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-05",
   "label": "해안동804-4",
   "guidance": null,
   "kind": "left",
   "bearing": 171,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.30735,126.78219,189": {
   "verdict": "보호",
@@ -21430,14 +21430,14 @@
   "confidence": 0.95
  },
  "33.29454,126.33036,32": {
-  "verdict": "보호",
+  "verdict": "판단불가",
   "shotAt": "2026-03-23",
   "label": "서광2교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 32,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.51086,126.56288,147": {
   "verdict": "무신호",
@@ -23126,8 +23126,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 265,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.25273,126.49979,6": {
   "verdict": "보호",
@@ -23300,14 +23300,14 @@
   "confidence": 0.93
  },
  "33.36334,126.86526,99": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-16",
   "label": "신풍교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 99,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.49525,126.46020,283": {
   "verdict": "보호",
@@ -25406,8 +25406,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 86,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.25459,126.56774,67": {
   "verdict": "보호",
@@ -26056,8 +26056,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 235,
-  "basis": "AI판독",
-  "confidence": 0.86
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48191,126.89804,82": {
   "verdict": "무신호",
@@ -28060,14 +28060,14 @@
   "confidence": 0.92
  },
  "33.53687,126.65887,350": {
-  "verdict": "보호",
+  "verdict": "비보호",
   "shotAt": "2026-03-09",
   "label": "사장교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 350,
-  "basis": "AI판독",
-  "confidence": 0.91
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.51731,126.57313,88": {
   "verdict": "보호",
@@ -29330,14 +29330,14 @@
   "confidence": 0.96
  },
  "33.46442,126.47632,154": {
-  "verdict": "보호",
+  "verdict": "무신호",
   "shotAt": "2026-03-08",
   "label": "큰내도교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 154,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.53104,126.67631,183": {
   "verdict": "보호",
@@ -31726,8 +31726,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 89,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48175,126.49654,164": {
   "verdict": "보호",
@@ -35166,8 +35166,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 158,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.49043,126.54460,142": {
   "verdict": "보호",
@@ -37516,8 +37516,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 252,
-  "basis": "AI판독",
-  "confidence": 0.89
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.48190,126.47366,226": {
   "verdict": "보호",
@@ -41250,14 +41250,14 @@
   "confidence": 0.89
  },
  "33.26374,126.46720,132": {
-  "verdict": "보호",
+  "verdict": "판단불가",
   "shotAt": "2026-03-19",
   "label": "도순동1247-4",
   "guidance": null,
   "kind": "left",
   "bearing": 132,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.44209,126.28963,256": {
   "verdict": "보호",
@@ -44370,14 +44370,14 @@
   "confidence": 0.93
  },
  "33.55116,126.75045,2": {
-  "verdict": "보호",
+  "verdict": "판단불가",
   "shotAt": "2026-03-12",
   "label": "김녕중학교앞교차로",
   "guidance": null,
   "kind": "left",
   "bearing": 2,
-  "basis": "AI판독",
-  "confidence": 0.95
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.51517,126.51693,129": {
   "verdict": "보호",
@@ -44466,8 +44466,8 @@
   "guidance": null,
   "kind": "left",
   "bearing": 88,
-  "basis": "AI판독",
-  "confidence": 0.93
+  "basis": "사람판독",
+  "confidence": null
  },
  "33.50120,126.56256,337": {
   "verdict": "보호",

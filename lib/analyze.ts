@@ -310,6 +310,7 @@ function countGuides(
   const out = { left: 0, uTurn: 0, roundabout: 0, turnPoints: [] as TurnPoint[] };
   const all = sections.flatMap((s) => (s.guides ?? []).map((g) => ({ g, s })));
   const 끝 = all[all.length - 1]?.g;
+  const 처음 = all[0]?.g;
 
   for (const { g, s } of all) {
     const kind = guideKind(g.guidance ?? "");
@@ -317,7 +318,7 @@ function countGuides(
     out[kind]++;
     // 좌표가 없는 응답(굳혀둔 폴백 데이터 등)에서는 좌표 없이 횟수만 센다
     if (kind === "roundabout" || typeof g.x !== "number" || typeof g.y !== "number") continue;
-    if (목적지진입(g, 끝)) continue;
+    if (양끝회전(g, 처음) || 양끝회전(g, 끝)) continue;
     out.turnPoints.push({
       at: [g.y, g.x],
       bearing: 진입방위(s.roads?.[g.road_index ?? -1]),
@@ -327,26 +328,26 @@ function countGuides(
 }
 
 /**
- * 목적지 코앞의 회전인가 — 그렇다면 판독 대상이 아니다.
+ * 경로 양 끝 코앞의 회전인가 — 그렇다면 판독 대상이 아니다.
  *
- * 목적지가 주차장이라 경로 마지막 몇 개 안내가 주차장 진입 동작이다. 맞은편 직진 흐름을
- * 끊고 들어가는 좌회전이 아니라 **비보호라는 말 자체가 성립하지 않는다.** 실측(굳혀둔 경로
- * 71개)에서 미판정 30곳 중 10곳이 이것이었고, 로드뷰를 열어보면 교차로가 아니라 주차장이
- * 찍혀 있었다 (신제주 경로: 안내 7개 중 6번째 "좌회전", 25m 뒤가 목적지).
+ * 출발지도 목적지도 주차장·건물이라 첫/마지막 몇 개 안내가 그 부지를 드나드는 동작이다.
+ * 맞은편 직진 흐름을 끊고 들어가는 좌회전이 아니라 **비보호라는 말 자체가 성립하지 않는다.**
+ * 로드뷰를 열어보면 교차로가 아니라 주차장이나 정문이 찍혀 있다
+ * (신제주: 안내 7개 중 6번째, 25m 뒤가 목적지 / 시청용두암: 2번째, 출발지에서 4m).
  *
- * **이걸 빼지 않으면 그 주차장을 목적지로 하는 모든 경로가 영원히 "확인 안 됨"이 된다** —
+ * **이걸 빼지 않으면 그 장소를 드나드는 모든 경로가 영원히 "확인 안 됨"이 된다** —
  * 판독표에 절대 안 들어갈 지점 하나가 경로 전체를 null 로 만든다.
  *
  * 횟수(out[kind])에서는 빼지 않는다. 운전자는 그 좌회전도 실제로 하고, 화면의
  * "좌회전 N번"은 조작 횟수를 말하는 것이라 맞다. 비보호를 묻지 않을 뿐이다.
  */
-const 목적지코앞_M = 300;
-function 목적지진입(
+const 양끝코앞_M = 300;
+function 양끝회전(
   g: { x?: number; y?: number },
   끝?: { x?: number; y?: number },
 ): boolean {
   if (!끝 || typeof 끝.x !== "number" || typeof 끝.y !== "number") return false;
-  return distance([g.y!, g.x!], [끝.y, 끝.x]) <= 목적지코앞_M;
+  return distance([g.y!, g.x!], [끝.y, 끝.x]) <= 양끝코앞_M;
 }
 
 /**
@@ -439,8 +440,12 @@ export function analyze(
     bySpd[String(a.s)] = (bySpd[String(a.s)] || 0) + seg;
     const road = roadName(a.n);
     all.push({ seg, road, p: path[i], i });
-    // 램프를 빼기 위해 제한속도 50↑ 조건을 함께 건다
-    if (a.l === 1 && (a.s ?? 0) >= 50) narrow.push({ seg, road, p: path[i], i });
+    // 램프를 빼기 위해 제한속도 50↑ 조건을 함께 건다.
+    // 위쪽 80 도 뺀다 — 80km/h 짜리 1차로 링크는 좁은 교행로가 아니라 램프이거나
+    // 본선의 분기 조각이다. 안 빼면 평화로 1.1km 가 좁은 길(10점)과 고속주행(5점)에
+    // 동시에 들어가 같은 구간을 두 번 깎는다 (중문색달·산방산 실측에서 실제로 그랬다).
+    if (a.l === 1 && (a.s ?? 0) >= 50 && (a.s ?? 0) < 80)
+      narrow.push({ seg, road, p: path[i], i });
     if ((a.s ?? 0) >= 80) fast.push({ seg, road, p: path[i], i });
   }
 
