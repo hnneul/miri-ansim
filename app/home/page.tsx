@@ -249,6 +249,19 @@ function Home() {
             {area ?? (geoError ? "위치를 확인할 수 없어요" : "위치 확인 중…")}
           </span>
         </div>
+
+        {/*
+          시연 안내. 위치를 공항으로 박아 두면 화면은 아무 티도 안 내므로(GPS 가 성공한 것처럼
+          보인다) 보는 사람이 오해한다 — 서울에서 여는데 제주가 뜨니 더 그렇다. 밝히고 간다.
+
+          같은 env 로 켜고 끈다 (app/DemoLocation.tsx). 시연이 끝나 값을 비우면 이 줄도 같이
+          사라지므로, 지우는 걸 잊어서 실사용 화면에 안내가 남는 일이 없다.
+        */}
+        {process.env.NEXT_PUBLIC_DEMO_HERE && (
+          <p className="border-t border-[#ededed] bg-[#fff0e6] py-[9px] text-center text-[11px] leading-none text-[#8a5a3b]">
+            시연을 위해 현재 위치를 제주국제공항으로 고정해 두었습니다
+          </p>
+        )}
       </div>
 
       <h2 className="mt-[13px] shrink-0 pl-[23px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">
@@ -276,18 +289,21 @@ function Home() {
       */}
       <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
         {/*
-          href 를 뗐다 — 화면(app/nearby)도 lib/spots.ts 도 그대로 있고 이 줄만 되살리면 다시 열린다.
-          이 칸 하나가 유일한 입구라 여기서 막으면 사용자 호출이 0 이 된다.
+          href 를 다시 붙였다. 뗐던 이유는 카카오 길찾기 쿼터였는데(후보 열 곳까지 각각 조회 —
+          lib/spots.ts BANDS 2+4+4 로 화면 한 번에 10건), 이 칸이 /nearby 로 가는 유일한 문이라
+          막아 두면 화면이 있어도 아무도 못 본다. 무료 쿼터가 일 10,000건이라 하루 1,000번 열어야
+          닿는다 — 홈을 열 때마다가 아니라 이 칸을 눌렀을 때만 나가므로 그 전 걱정과도 다르다.
 
-          뗀 이유는 카카오 길찾기 쿼터다. 관광지를 부담 순으로 세우려면 후보 열 곳까지 가는 길을
-          각각 조회해야 해서(lib/spots.ts BANDS 2+4+4) 화면 한 번에 10건이 나간다 —
-          경로 비교 화면의 3건보다 세 배고, 무료 쿼터가 일 10,000건이다.
+          아이콘은 혼잡도 시절의 사람 셋(quick-traffic.png)에서 섬으로 바꿨다 (Figma 4209:2018).
+          이 칸이 세는 건 길이 아니라 갈 곳이라, 관광지 그림이 라벨과 같은 말을 한다.
+          quick-traffic.png 는 남겨 뒀다 — 혼잡도 칸이 생기면 그 자리로 돌아간다.
         */}
         <Quick
-          icon="/home/quick-traffic.png"
+          icon="/home/quick-spot.png"
           iconClass="size-[35px]"
           label="대표 관광지"
           sub="운전 편한 순"
+          href={`/nearby?${searchParams}`}
         />
         <Quick
           icon="/home/quick-tamna.png"

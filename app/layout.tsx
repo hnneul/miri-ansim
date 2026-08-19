@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
+import DemoLocation from "./DemoLocation";
 
 /*
  * 서체는 Noto Sans KR 하나다 (로고만 Jalnan2, globals.css).
@@ -44,6 +45,8 @@ export default function RootLayout({
     >
       {/* 세로 배치는 .phone 이 쥔다 (globals.css) — 노트북에서는 그게 폰 프레임이 된다 */}
       <body className="min-h-full">
+        {/* 아무것도 안 그린다 — 시연용 현위치 고정을 켜는 자리다 (./DemoLocation.tsx) */}
+        <DemoLocation />
         <div className="phone">{children}</div>
       </body>
     </html>
