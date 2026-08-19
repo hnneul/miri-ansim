@@ -277,6 +277,37 @@ function Destination() {
       : null,
   );
 
+  /**
+   * 지도의 핀을 눌렀다 = **여기로 간다.**
+   *
+   * 시트의 「근처 주차장 보기」와 다른 길이다. 저건 "관광지에 갔다가 차를 어디 대나"를 푸는
+   * 흐름이라 주차장을 한 번 거치는데, 핀을 누르는 건 찾은 그 자리로 곧장 가겠다는 뜻이다
+   * (choose 의 routing 갈래가 하는 일과 같다 — 거기는 출발지를 이미 손으로 정한 경우다).
+   *
+   * **출발지는 현재 위치다.** 손으로 고른 출발지가 있으면 걷어낸다 — 규칙은 setStart(null) 과
+   * 같다: 처음 실려 온 현재 위치를 도로 앉히고, 그것도 없으면 셋을 다 지워 길 비교 화면이
+   * 스스로 위치를 잡게 둔다.
+   *
+   * dest* 를 지우는 이유는 choose 와 같다. 그건 관광지 좌표 자리인데 여기서는 도착지가 곧
+   * 목적지라, 남겨두면 대본이 "차를 대고 옛 관광지까지 걸어간다"고 말한다.
+   */
+  function goStraight(found: Place) {
+    setRecent((prev) => addRecent(prev, found.label));
+    const next = new URLSearchParams(searchParams);
+    next.set("to", found.label);
+    next.set("toLat", String(found.coord[0]));
+    next.set("toLng", String(found.coord[1]));
+    for (const k of ["dest", "destLat", "destLng", "search"]) next.delete(k);
+    if (fromHome.current) {
+      next.set("originLat", fromHome.current[0]);
+      next.set("originLng", fromHome.current[1]);
+      next.delete("originName");
+    } else {
+      for (const k of ["originLat", "originLng", "originName"]) next.delete(k);
+    }
+    router.push(`/route?${next}`);
+  }
+
   function openSearch() {
     setSearching(true);
     setError(null);
@@ -352,10 +383,24 @@ function Destination() {
             center={focus?.coord ?? JEJU_CENTER}
             level={focus ? 5 : 10}
             routes={[]}
+            /*
+              시트를 닫는 길. ✕ 를 뺀 자리를 지도 빈 곳이 받는다 — /around·/route·/parking 이
+              쓰는 것과 같은 문이라 이 앱에서 시트를 접는 손짓이 화면마다 갈리지 않는다.
+              (검색바를 눌러도 시트는 가려진다. 그건 다시 고르러 가는 길이고, 이건 그냥 접는 길이다.)
+            */
+            onBlank={() => setPlace(null)}
             /* 캐릭터 핀은 목적지 것이다 — 출발지는 기본 마커로 찍어 둘이 안 헷갈리게 한다 */
             markers={
               place
-                ? [{ coord: place.coord, label: place.label, icon: MASCOT }]
+                ? [
+                    {
+                      coord: place.coord,
+                      label: place.label,
+                      icon: MASCOT,
+                      /* 핀이 곧 "여기로 갈게요" 버튼이다 (goStraight) */
+                      onClick: () => goStraight(place),
+                    },
+                  ]
                 : start
                   ? [{ coord: start.coord, label: `${start.label} (출발)` }]
                   : []
@@ -678,7 +723,6 @@ function Destination() {
               <PlaceSheet
                 place={place}
                 origin={origin}
-                onClose={() => setPlace(null)}
                 /*
                  * 목적지 좌표까지 넘긴다 — 이름만 넘기면 주차장 화면이 지오코딩을 한 번 더 해야 하고,
                  * 같은 이름이 여러 곳이면 여기서 고른 곳과 다른 데가 잡힐 수 있다.
@@ -707,13 +751,11 @@ function Destination() {
 function PlaceSheet({
   place,
   origin,
-  onClose,
   onParking,
   onStart,
 }: {
   place: Place;
   origin: LatLng | null;
-  onClose: () => void;
   onParking: () => void;
   onStart: () => void;
 }) {
@@ -752,7 +794,7 @@ function PlaceSheet({
         없는 동작을 있는 것처럼 말하는 표시라, 잡아당겨 본 사람에게는 고장으로 읽힌다.
         (주차장 화면의 손잡이는 눌러서 실제로 목록이 오르내린다 — 거기는 남는다.)
       */}
-      <div className="flex items-start justify-between gap-3 pr-[15px] pl-[30px]">
+      <div className="flex items-start pr-[15px] pl-[30px]">
         <div className="min-w-0">
           {/*
             유형 뱃지는 이름 뒤에 붙는다. 카테고리가 없는 곳이 있어 그때는 통째로 빠지고,
@@ -828,14 +870,6 @@ function PlaceSheet({
             )}
           </div>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="닫기"
-          /* 이미 회색 바탕이라 옅은 주황이 안 읽힌다 — 한 톤 진한 회색(테두리와 같은 색)으로 눌린다 */
-          className="grid size-[30px] shrink-0 place-items-center rounded-full border border-[#d6d6d6] bg-[#e5e5e5] text-[15px] leading-none text-[#525252] transition hover:bg-[#fff0e6]"
-        >
-          ✕
-        </button>
       </div>
 
       {/*
@@ -847,7 +881,7 @@ function PlaceSheet({
       <div className="mt-[11px] flex gap-1 px-4">
         <button
           onClick={onStart}
-          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
         >
           출발
         </button>
