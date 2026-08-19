@@ -132,6 +132,11 @@ body {
     /* 안쪽 cqh/cqw 가 노트북 화면이 아니라 이 박스를 기준으로 잡히게 한다 */
     container-type: size;
     overflow-y: auto;
+    /*
+     * 스크롤바는 숨긴다 — 폰 화면 안에 세로 막대가 서 있으면 앱이 아니라 웹페이지로 읽힌다
+     * (진짜 폰은 쓸어야 잠깐 떴다 사라진다). 스크롤 자체는 그대로 된다.
+     */
+    scrollbar-width: none;
     border-radius: 44px;
     background: var(--background);
     /*
@@ -145,6 +150,11 @@ body {
       0 0 0 8px #0c0a09,
       0 0 0 10.5px #a8a8ad,
       0 18px 40px rgb(0 0 0 / 0.18);
+  }
+
+  /* 사파리 18.2 아래는 scrollbar-width 를 모른다 — 같은 걸 웹킷 문법으로 한 번 더 */
+  .phone::-webkit-scrollbar {
+    display: none;
   }
 
   /*

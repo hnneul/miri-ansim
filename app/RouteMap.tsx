@@ -55,6 +55,28 @@ type Props = {
    * 카카오의 map "click" 은 마커·선을 눌렀을 때는 안 온다 — 그래서 "빈 곳"이 그냥 성립한다.
    */
   onBlank?: () => void;
+  /**
+   * **휠로** 확대/축소할지. 끄는 건 마우스 휠 하나뿐이다 — 핀치·더블클릭 확대와 끌기는 그대로 산다.
+   *
+   * **세로로 긴 화면 한복판에 박힌 지도는 꺼야 한다** (메인). 사람이 스크롤하려고 지도 위에서
+   * 휠을 굴리면 화면이 안 내려가고 지도만 축소된다 — 스크롤은 화면 가운데서 하는 게 보통이라
+   * 그 자리의 지도가 휠을 먹으면 화면이 고장 난 것처럼 느껴진다.
+   *
+   * setZoomable(false) 이 아니라 이 옵션인 이유: 저건 확대를 통째로 막아 핀치까지 죽는다.
+   * 휠은 데스크톱에서만 스크롤과 겹치고, 폰의 핀치는 스크롤과 안 겹친다 — 겹치는 것만 끈다.
+   * (확인: scrollwheel:false 지도에 휠은 레벨 5→5, 더블클릭은 5→4.)
+   *
+   * 지도가 화면의 주인공인 곳(길 비교·목적지)은 기본값 그대로 둔다.
+   */
+  wheelZoom?: boolean;
+  /**
+   * 지도 오른쪽 아래 ＋/－ 버튼. wheelZoom 을 끈 자리(메인)에 확대할 문 하나는 있어야 한다 —
+   * 폰의 핀치·더블탭은 살아 있지만 마우스로 여는 사람에게는 더블클릭 말고 보이는 게 없다.
+   *
+   * 카카오 기본 줌 컨트롤(ZoomControl) 대신 직접 그린다. 그건 지도 회색·파란 테두리로 와서
+   * 이 앱의 흰 카드·주황 톤과 안 맞고, 자리도 오른쪽 위(현위치 버튼 자리)로 고정이다.
+   */
+  zoomButtons?: boolean;
 };
 
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
@@ -90,6 +112,8 @@ export default function RouteMap({
   className = "rounded-[24px] shadow-inner ring-1 ring-black/5",
   padBottom = 0,
   onBlank,
+  wheelZoom = true,
+  zoomButtons = false,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
@@ -117,7 +141,9 @@ export default function RouteMap({
     const { kakao } = window;
     const pt = ([lat, lng]: LatLng) => new kakao.maps.LatLng(lat, lng);
 
-    map.current ??= new kakao.maps.Map(box.current, { center: pt(center), level });
+    // scrollwheel 은 세터가 없어 생성자에서만 걸린다 — 지도는 한 번만 만들어지므로(??=)
+    // 이 값은 화면마다 고정이다. 도중에 바꿔야 할 자리가 생기면 그때 지도를 다시 만들어야 한다.
+    map.current ??= new kakao.maps.Map(box.current, { center: pt(center), level, scrollwheel: wheelZoom });
 
     /*
       빈 곳 누르기. 리스너는 지도 하나당 한 번만 단다 — 이 효과는 경로·마커가 바뀔 때마다 도는데
@@ -246,6 +272,28 @@ export default function RouteMap({
   return (
     <div className={`relative h-full w-full overflow-hidden bg-slate-100 ${className}`}>
       <div ref={box} className="h-full w-full" />
+      {zoomButtons && sdk === "ready" && (
+        /* 오른쪽 아래 — 위는 현위치 버튼, 왼쪽 아래는 카카오 로고·축척자가 이미 쓰는 자리다 */
+        <div className="absolute right-[30px] bottom-[12px] z-10 flex flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_1px_4px_0_rgba(0,0,0,0.1)]">
+          {/*
+            레벨은 클수록 넓게 보인다 — ＋ 가 빼는 쪽이다. 1·14 밖은 카카오가 알아서 잘라낸다 (확인: 0→1, 30→14).
+
+            **{animate:true} 를 주면 안 된다.** 카카오가 그 애니메이션 뒤로 setLevel 을 더는 안 먹는다 —
+            첫 한 번만 움직이고 두 번째부터 레벨이 안 바뀐다 (맨 지도로도 재현: 4→5→5→5,
+            옵션 없이는 4→5→4→3→4→5→4). 어차피 한 단계씩이라 즉시 바뀌는 편이 더 또렷하다.
+          */}
+          {([["확대", -1], ["축소", +1]] as const).map(([label, step]) => (
+            <button
+              key={label}
+              onClick={() => map.current?.setLevel(map.current.getLevel() + step)}
+              aria-label={label}
+              className="size-[32px] text-[16px] leading-none text-[#1f1f1f] transition first:border-b first:border-[#ececec] active:bg-[#fff0e6]"
+            >
+              {step < 0 ? "＋" : "－"}
+            </button>
+          ))}
+        </div>
+      )}
       {selected && sdk === "ready" && <RoadviewPanel risk={selected} onClose={() => setSelected(null)} />}
       {notice && <Notice>{notice}</Notice>}
     </div>

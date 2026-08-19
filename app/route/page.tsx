@@ -80,6 +80,12 @@ function Route() {
   const query = Object.fromEntries(searchParams);
   const profile = parseProfile(query);
 
+  /**
+   * X 로 닫았을 때 돌아갈 화면. 넘어온 쪽이 ?back= 으로 알려준다.
+   * **화이트리스트로만 받는다** — 쿼리에 온 주소를 그대로 push 하면 외부로 튕겨 보낼 수 있다.
+   */
+  const 닫고갈곳 = ({ destination: "/destination", nearby: "/nearby" } as const)[query.back as "destination" | "nearby"] ?? "/home";
+
   /** 도착지 — 앞 화면에서 고른 주차장이다 (관광지가 아니라 차를 댈 자리로 길을 만든다). */
   const to = query.to ?? "도착지";
   const dest = coord(query.toLat, query.toLng);
@@ -390,14 +396,25 @@ function Route() {
             />
           </div>
           {/*
-            닫기는 메인화면으로 나간다. router.back() 이었는데 그건 주차장 화면으로 되돌아가는 거라
-            "닫기"가 아니라 "뒤로"였다 — 길 고르기를 접고 나가는 문이다.
-            쿼리를 그대로 실어야 /home 이 프로필을 되읽는다 (/destination 의 ← 와 같은 방식).
+            닫기는 **이 경로를 고르기 시작한 화면**으로 나간다 (back 쿼리, 없으면 /home).
+
+            처음엔 무조건 /home 이었다. router.back() 이 주차장으로 되돌아가서 "닫기"가 아니라
+            "뒤로"가 되는 게 싫었기 때문인데, 홈으로 보내니 이번엔 **튕겨나가는 느낌**이 났다.
+            지도 앱에서 X 가 자연스러운 건 배경 지도가 그대로 남아서다 — 상단 UI 만 걷히니
+            "닫혔다"로 읽힌다. 이 앱은 /route(전체화면 지도)와 /home(히어로+카드)의 레이아웃이
+            통째로 달라서 그 연속성이 없다.
+
+            그래서 **온 화면으로 돌려보낸다.** 그 화면들은 전부 지도 중심이라 배경이 이어진다.
+            주차장(/parking)이 아니라 /destination 인 이유는, 주차장은 거쳐 온 중간 단계지
+            경로 고르기를 시작한 자리가 아니어서다.
+
+            back 은 **정해둔 몇 곳만** 받는다 — 임의 주소를 그대로 밀어넣으면 남의 사이트로
+            튕겨 보낼 수 있다.
 
             칸을 고치는 중이면 그것부터 접는다. 한 번에 나가면 고치려다 만 사람이 화면 밖으로 밀려난다.
           */}
           <button
-            onClick={() => (editing ? setEditing(null) : router.push(`/home?${searchParams}`))}
+            onClick={() => (editing ? setEditing(null) : router.push(`${닫고갈곳}?${searchParams}`))}
             aria-label={editing ? "고치기 그만두기" : "닫기"}
             /* 호버는 목적지 화면의 같은 상자와 짝을 맞춘다 (거기 주석에 이유가 있다) */
             className="mt-[32px] grid size-[44px] shrink-0 place-items-center rounded-[10px] border border-[#d6d6d6] bg-white transition hover:bg-[#fff0e6] active:bg-black/5"
