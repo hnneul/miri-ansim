@@ -93,6 +93,24 @@ body {
   font-family: var(--font-noto-kr), sans-serif;
 }
 
+/*
+ * 스크롤바는 어디서도 안 보인다 — 폰 화면 안에 세로 막대가 서 있으면 앱이 아니라 웹페이지로
+ * 읽힌다 (진짜 폰은 쓸어야 잠깐 떴다 사라진다). **스크롤 동작 자체는 그대로다.**
+ *
+ * .phone 에 scrollbar-width 만 걸려 있었는데 그건 파이어폭스 것이라 크롬·사파리에서는
+ * 막대가 그대로 있었다. WebKit 은 ::-webkit-scrollbar 를 따로 봐야 한다.
+ *
+ * 프레임뿐 아니라 안쪽 스크롤 영역(주차장 목록·길 비교 시트·여행 기록)까지 * 로 덮는다 —
+ * 어느 한 군데만 막대가 서도 그 화면만 웹페이지처럼 튄다.
+ */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 .phone {
   display: flex;
   flex-direction: column;
@@ -136,7 +154,6 @@ body {
      * 스크롤바는 숨긴다 — 폰 화면 안에 세로 막대가 서 있으면 앱이 아니라 웹페이지로 읽힌다
      * (진짜 폰은 쓸어야 잠깐 떴다 사라진다). 스크롤 자체는 그대로 된다.
      */
-    scrollbar-width: none;
     border-radius: 44px;
     background: var(--background);
     /*

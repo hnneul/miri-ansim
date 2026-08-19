@@ -636,7 +636,7 @@ function Route() {
                         className="size-[7px] shrink-0 rounded-full"
                         style={{ backgroundColor: 부담색 }}
                       />
-                      {가른요인} — 두 길이 가장 다른 구간
+                      {가른요인} - 두 길이 가장 다른 구간
                     </p>
                   )}
 
