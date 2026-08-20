@@ -63,8 +63,13 @@ export const characterOf = (experienceYears: number) => CHARACTERS[experienceYea
 /**
  * 부담 유형 — 온보딩 4단계(여러 개 선택)에서 고르는 값.
  * 점수에는 아직 안 들어가서 DriverProfile 에 자리가 없다. 그래서 프로필 값과 따로,
- * 고른 인덱스만 쿼리 hard=0,4 로 실어 마이 화면(app/profile)에 되보여 준다.
+ * 고른 인덱스만 쿼리 hard=0,4 로 실어 다닌다. 그 인덱스를 읽는 곳은 둘이다 —
+ * 마이 화면(app/profile)이 되보여 주고, 길 비교(app/route)가 AI 대본에 실어 보낸다
+ * (lib/ai.ts Facts.부담유형 — 점수에 없는 값이라 프롬프트가 유일한 통로다).
  * short 는 카드 한 줄에 넣을 짧은 말이다 ("어려움: 좁은 길 · 주차").
+ *
+ * **라벨에 숫자를 넣지 않는다.** 프롬프트에 그대로 실리는데, AI 검증(lib/ai.ts
+ * 숫자가사실에있나)이 프롬프트에 있는 숫자를 사실로 치므로 모델이 그걸 문장에 쓸 수 있다.
  * ponytail: 점수에 반영하려면 lib/score.ts 가중치에 값을 뚫고 DriverProfile 로 옮긴다.
  */
 export const CONCERNS = [

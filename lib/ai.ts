@@ -25,6 +25,7 @@ import { ACTION, WHY } from "./briefing.ts";
 import type { RouteStats } from "./route.ts";
 import type { RiskFactor, ScoreResult, DriverProfile } from "./score.ts";
 import { RECOMMEND_THRESHOLD, activeWeights } from "./score.ts";
+import { CONCERNS } from "./profile.ts";
 
 /**
  * 후보는 **OpenAI 하나**다. 한때 Groq·Gemini 를 예비로 세워뒀는데 그건 무료 한도를 아끼려던
@@ -141,6 +142,13 @@ export type ArrivalFacts = {
 export type Facts = {
   구간: string;
   운전자조건: string[];
+  /**
+   * 온보딩 4단계에서 **본인이 고른** 부담 유형 (lib/profile.ts CONCERNS).
+   * 운전자조건과 다른 종류다 — 저건 프로필에서 계산한 가중치고, 이건 사람이 직접 말한 것이다.
+   * 점수에는 안 들어가므로(그 이유는 CONCERNS 주석) 여기 말고는 대본에 닿을 길이 없다.
+   * 안 고른 사람은 빈 배열이라 프롬프트에 `[]` 한 줄로 남고 규칙이 알아서 비껴간다.
+   */
+  부담유형: string[];
   추천경로: string;
   /** 이 값 **이상**이면 권할 만한 길 (lib/score.ts RECOMMEND_THRESHOLD) */
   추천임계값: number;
@@ -173,12 +181,18 @@ export function factsOf(
   }[],
   /** 도착지 주차장. 주차장을 안 거쳐 온 흐름이면 없고, 그때 대본은 ⑤칸을 쓰지 않는다 */
   arrival?: ArrivalFacts,
+  /** 온보딩 4단계가 고른 부담 유형 인덱스 (쿼리 hard=0,2). 범위 밖은 parseConcerns 가 이미 걸렀다 */
+  concerns: number[] = [],
 ): Facts {
   const 점수 = [result.fastScore, result.safeScore];
   const ROUTE_ID = ["fast", "safe"] as const; // routes 배열 순서 = breakdown 의 route 값
   return {
     구간: label,
     운전자조건: activeWeights(profile).map((s) => s.replace(/\s*×.*$/, "")),
+    // "해당 없음"은 고른 게 아니라 **안 고르겠다는 답**이라 뺀다 — 넘기면 모델이 그걸 부담 하나로 읽는다
+    부담유형: concerns
+      .map((i) => CONCERNS[i]?.label)
+      .filter((l) => l && l !== "해당 없음") as string[],
     추천경로:
       result.recommendedRoute === "single"
         ? "없음 (두 경로의 추천점수 차이가 작음)"
@@ -258,6 +272,15 @@ const RULES = `너는 제주 렌터카 초보 운전자에게 경로를 안내�
   나쁜 예: "고속주행 구간이 25.4km(제한속도 80km/h)이며 연속 급커브가 17곳으로 부담이 큽니다."
 - briefing 의 위험요인과 행동수칙은 **추천경로의 것만** 쓴다. 추천하지 않는 경로의 요인은
   briefing 에 넣지 않는다 (summary 에서 두 경로를 비교하는 것은 괜찮다).
+- "부담유형"은 이 사람이 **출발 전에 직접 고른** 부담이다. 점수에는 안 들어간 값이라 말로만
+  갚을 수 있다. 요인 하나를 골라 말하는 자리(verdicts · briefing ② · 대본 ②)에서 경로에
+  짝이 맞는 요인이 **있으면 그것을 먼저 고른다**. 없으면 평소대로 부담이 가장 큰 요인을 고른다.
+  짝: "좁은 골목길"→좁은 교행 구간 · "급경사·굽은 길"→연속 급커브 ·
+  "주차 어려운 곳"→도착해서 차를 댈 곳(대본 ⑤칸)을 생략하지 않는다.
+  "복잡한 교차로"·"어두운 길"은 짝이 없다 — 아무것도 바꾸지 않는다.
+  **고른 값 자체를 입에 올리지 않는다.** "좁은 길이 부담이라고 하셨으니"는 설문을 읽어주는 말이고,
+  없는 요인을 두고 "고르신 좁은 길은 이 경로에 없습니다"라고 하는 건 더 나쁘다.
+  고른 것에 맞춰 **무엇을 먼저 말할지만** 바꾼다.
 - 존댓말, 담백하게. 감탄사·과장·이모지 금지.
 
 출력:

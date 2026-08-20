@@ -102,16 +102,20 @@ const STEPS: Step[] = [
     title: ["어떤 길에서 특히", "긴장되시나요?"],
     subtitle: "피하고 싶거나, 안내를 더 자세히 받고 싶은 상황을 골라주세요.",
     /*
-      "길 설명에만 사용하며" 였는데 **아직 안 쓴다.** CONCERNS 를 읽는 곳은 마이 화면의
-      "어려움: 좁은 길 · 주차" 한 줄뿐이고(app/profile/page.tsx), 길 설명(lib/briefing.ts)에는
-      안 들어간다 — 아래 options 주석의 ponytail 이 그 사실을 이미 적어 뒀다.
-      기능이 없는 것보다 **있다고 말해놓고 없는 것**이 나쁘다. 지금 하는 일만 적는다.
-      briefing 에 실제로 반영하면 그때 문구를 되돌린다.
+      **여기 고른 값이 닿는 곳은 둘이다.** 마이 화면의 "어려움: 좁은 길 · 주차" 한 줄과
+      (app/profile/page.tsx), AI 대본이 무엇을 먼저 말할지 (lib/ai.ts Facts.부담유형).
+      점수(lib/score.ts)에는 여전히 안 들어간다 — 아래 options 주석 참고.
+
+      **hint 에 "길 설명에 쓰여요"라고 쓰지 않는다.** AI 대본은 한도·타임아웃·검증 실패면
+      null 이고(app/route/actions.ts aiRadio) 그때는 규칙 대본이 앉는데, 규칙 대본
+      (lib/briefing.ts radioScript)은 이 값을 안 본다. 늘 그런 게 아니면 늘 그런 것처럼
+      말하지 않는다 — 기능이 없는 것보다 **있다고 말해놓고 없는 것**이 나쁘다.
     */
     hint: "고른 내용은 마이 화면에서 다시 볼 수 있어요.",
     multi: true,
     // 선택지는 마이 화면과 공유한다 (lib/profile.ts CONCERNS) — 거기서 되보여 주므로 문구가 갈리면 안 된다.
-    // ponytail: 부담 유형은 아직 점수·브리핑에 안 들어간다. 반영하려면 lib/score.ts 가중치에 값을 뚫어야 한다.
+    // ponytail: 부담 유형은 AI 대본에만 들어가고 **점수에는 아직 안 들어간다**.
+    // 점수까지 반영하려면 lib/score.ts 가중치에 값을 뚫고 DriverProfile 로 옮긴다.
     options: CONCERNS,
   },
 ];

@@ -18,7 +18,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import DemoNotice from "../DemoNotice";
 import RouteMap, { labeledPin, type LatLng } from "../RouteMap";
-import { parseProfile } from "@/lib/profile";
+import { parseConcerns, parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
 import { isoToday } from "@/lib/record";
 import { saveDrive, thinPath, type SafeDrive } from "@/lib/safelog";
@@ -115,6 +115,8 @@ function Route() {
   const searchParams = useSearchParams();
   const query = Object.fromEntries(searchParams);
   const profile = parseProfile(query);
+  // 부담 유형은 프로필과 **따로** 다닌다 — DriverProfile 에 자리가 없다 (lib/profile.ts CONCERNS).
+  const concerns = parseConcerns(query);
 
   /**
    * ‹ 로 **한 걸음 물러날** 화면. 넘어온 쪽이 ?back= 으로 알려준다.
@@ -258,12 +260,14 @@ function Route() {
             placeName: query.dest,
           }
         : undefined,
+      concerns,
     );
     setResult(found);
     // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다
     if (!("error" in found))
       setPicked(found.score.recommendedRoute === "fast" ? "fast" : "safe");
-    // profile 은 매 렌더 새 객체라 의존성에 넣으면 무한히 다시 부른다. 쿼리가 그대로면 값도 그대로다.
+    // profile·concerns 는 매 렌더 새 객체라 의존성에 넣으면 무한히 다시 부른다.
+    // 둘 다 쿼리에서 나온 값이라 searchParams.toString() 이 이미 그 변화를 잡는다 (hard 포함).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin?.[0], origin?.[1], dest?.[0], dest?.[1], searchParams.toString()]);
 

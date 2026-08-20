@@ -83,6 +83,12 @@ export async function compareRoutes(
   profile: DriverProfile,
   /** 도착지 주차장. 없으면 대본이 ⑤칸(도착해서 차를 댈 곳)을 쓰지 않는다 */
   dest?: { name: string; place: LatLng | null; placeName?: string },
+  /**
+   * 온보딩 4단계가 고른 부담 유형 (쿼리 hard). **점수(scoreRoutes)에는 안 넘긴다** —
+   * 프로필 가중치에 자리가 없고(lib/profile.ts CONCERNS), 넘기면 같은 길의 점수가
+   * 설문 답에 따라 달라져 근거 표와 어긋난다. AI 대본이 무엇을 먼저 말할지에만 쓴다.
+   */
+  concerns: number[] = [],
 ): Promise<Compared> {
   // 프로필을 넘긴다 — 후보 셋 중 어느 것이 "안심 길" 자리에 앉을지가 프로필을 탄다 (routesFor 주석)
   const live = await routesFor(origin, destination, LINKS as Link[], profile);
@@ -128,7 +134,14 @@ export async function compareRoutes(
     score,
     verdicts,
     radio,
-    facts: factsOf(`현위치 → ${dest?.name ?? "도착지"}`, profile, score, live.routes, arrival),
+    facts: factsOf(
+      `현위치 → ${dest?.name ?? "도착지"}`,
+      profile,
+      score,
+      live.routes,
+      arrival,
+      concerns,
+    ),
     at: live.at,
   };
 }
