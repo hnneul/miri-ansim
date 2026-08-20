@@ -23,6 +23,7 @@ import DemoNotice from "../DemoNotice";
 import RouteMap, { type LatLng } from "../RouteMap";
 import { characterOf, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
 import { dotted, loadPhotos, loadRecords, type TripRecord } from "@/lib/record";
+import { me } from "@/lib/me";
 import { hereNow } from "./actions";
 
 /** 위치를 못 받았을 때 지도가 보는 곳. 제주시청이다 — 섬 한복판(한라산)보다 사람이 있는 자리다. */
@@ -90,14 +91,15 @@ function Home() {
 
   useEffect(locate, [locate]);
 
-  // 기록 목록 화면(TRIP-09)과 같은 버킷을 읽는다 — 거기서 저장한 기록이 여기 위에 뜬다
+  // 기록 목록 화면(TRIP-09)과 같은 버킷을 읽는다 — 거기서 저장한 기록이 여기 위에 뜬다.
+  // me() 는 localStorage 를 보므로 **effect 안에서** 부른다 (서버에는 그 저장소가 없다).
   useEffect(() => {
     let 살아있나 = true;
-    loadRecords(profile.experienceYears).then((rs) => 살아있나 && setRecords(rs));
+    loadRecords(me()).then((rs) => 살아있나 && setRecords(rs));
     return () => {
-      살아있나 = false; // 티어가 바뀌어 다시 부르면 늦게 온 옛 응답이 새 목록을 덮지 않게
+      살아있나 = false; // 늦게 온 옛 응답이 새 목록을 덮지 않게
     };
-  }, [profile.experienceYears]);
+  }, []);
 
   /**
    * 검색바를 누르면 목적지 검색 화면을 연다 (수정 HOME-01 a).

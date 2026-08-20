@@ -24,7 +24,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap from "../RouteMap";
-import { asTier, dotted } from "@/lib/record";
+import { dotted } from "@/lib/record";
+import { me } from "@/lib/me";
 import { loadDrives, removeDrive, setMine, type SafeDrive } from "@/lib/safelog";
 
 /*
@@ -142,8 +143,12 @@ function Safelog() {
    * 없다. ponytail: 그 문이 붙으면 SAMPLE 과 함께 이 갈래를 지운다.
    */
   const demo = searchParams.get("demo") === "1";
-  /** 버킷. 로그인이 없어 익숙함 티어가 곧 "누구 기록인지"다 (lib/records.db.ts 첫 주석) */
-  const tier = asTier(searchParams.get("exp")) ?? 1;
+  /*
+    버킷은 **이 브라우저**다 (lib/me.ts). me() 가 localStorage 를 보므로 그리는 중에는 못
+    부른다 — effect 로 한 번 받아 두고, 받기 전에는 목록을 안 읽는다.
+  */
+  const [나, set나] = useState<string | null>(null);
+  useEffect(() => set나(me()), []);
 
   /** 담긴 주행. 서버에서 읽어 온다 — 못 읽으면 빈 목록이고 화면은 "기록이 없어요"가 된다 */
   const [routes, setRoutes] = useState<SafeDrive[]>(demo ? SAMPLE : []);
@@ -159,18 +164,17 @@ function Safelog() {
   /** 자세히로 들어간 기록. 있으면 상세 화면이다 (2574:418) */
   const [detail, setDetail] = useState<SafeDrive | null>(null);
 
-  // 티어가 바뀌면(프로필을 고쳐 들어오면) 다른 버킷이라 다시 읽는다.
   // 늦게 온 응답이 새 목록을 덮지 않게 떠난 뒤엔 버린다.
   useEffect(() => {
-    if (demo) return;
+    if (demo || !나) return;
     let 살아있다 = true;
-    loadDrives(tier).then((list) => {
+    loadDrives(나).then((list) => {
       if (살아있다) setRoutes(list);
     });
     return () => {
       살아있다 = false;
     };
-  }, [demo, tier]);
+  }, [demo, 나]);
 
   /*
    * 빼기·담기는 **서버가 준 목록으로 갈아끼운다.** 화면에서 먼저 지우고 나중에 맞추면,
@@ -179,13 +183,13 @@ function Safelog() {
    */
   async function remove(drive: SafeDrive) {
     if (demo) return setRoutes((rs) => rs.filter((r) => r.id !== drive.id));
-    const next = await removeDrive(tier, drive.id);
+    const next = await removeDrive(me(), drive.id);
     if (next) setRoutes(next);
   }
 
   async function saveMine(drive: SafeDrive) {
     if (demo) return setRoutes((rs) => rs.map((r) => (r.id === drive.id ? { ...r, mine: true } : r)));
-    const next = await setMine(tier, drive.id, true);
+    const next = await setMine(me(), drive.id, true);
     if (next) setRoutes(next);
   }
 

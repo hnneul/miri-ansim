@@ -15,6 +15,11 @@ const dir = mkdtempSync(join(tmpdir(), "miri-drives-"));
 process.env.RECORDS_DB = join(dir, "records.db");
 
 const { closeDb, insertDrive, listDrives, removeDrive, setDriveMine } = await import("./records.db.ts");
+
+/** 서버가 받아주는 모양의 id (lib/me.ts OWNER_RE) — 예전 티어 1·3·10 자리다 */
+const 갑 = "11111111-2222-4333-8444-555555555555";
+const 을 = "66666666-7777-4888-8999-aaaaaaaaaaaa";
+const 병 = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
 const { asDrive, thinPath, PATH_MAX, SAME_DRIVE_MS } = await import("./safelog.ts");
 
 const 경로 = [
@@ -68,58 +73,58 @@ try {
   assert.deepEqual(솎인.at(-1), 긴경로.at(-1), "도착점은 그대로 남는다");
 
   /* ─────────────── ① 티어 ─────────────── */
-  assert.deepEqual(listDrives(1), [], "빈 버킷은 빈 목록이다");
+  assert.deepEqual(listDrives(갑), [], "빈 버킷은 빈 목록이다");
 
-  insertDrive(1, 주행(지금, "애월해안도로 → 협재"));
-  insertDrive(3, 주행(지금, "성산일출봉 → 함덕"));
+  insertDrive(갑, 주행(지금, "애월해안도로 → 협재"));
+  insertDrive(을, 주행(지금, "성산일출봉 → 함덕"));
 
-  assert.equal(listDrives(1).length, 1);
-  assert.equal(listDrives(3).length, 1);
-  assert.equal(listDrives(1)[0].title, "애월해안도로 → 협재", "티어끼리 안 섞인다");
-  assert.equal(listDrives(10).length, 0, "안 쓴 티어는 비어 있다");
+  assert.equal(listDrives(갑).length, 1);
+  assert.equal(listDrives(을).length, 1);
+  assert.equal(listDrives(갑)[0].title, "애월해안도로 → 협재", "주인끼리 안 섞인다");
+  assert.equal(listDrives(병).length, 0, "안 쓴 주인은 비어 있다");
 
   // 최신순
-  insertDrive(1, 주행(지금 + 1000, "표선 → 성산항"));
+  insertDrive(갑, 주행(지금 + 1000, "표선 → 성산항"));
   assert.deepEqual(
-    listDrives(1).map((d) => d.title),
+    listDrives(갑).map((d) => d.title),
     ["표선 → 성산항", "애월해안도로 → 협재"],
     "목록은 최신순이다",
   );
 
   /* ─────────────── ② 같은 길 다시 담기 ─────────────── */
-  const 잠시뒤 = insertDrive(1, 주행(지금 + SAME_DRIVE_MS - 1, "애월해안도로 → 협재", { km: 21 }));
+  const 잠시뒤 = insertDrive(갑, 주행(지금 + SAME_DRIVE_MS - 1, "애월해안도로 → 협재", { km: 21 }));
   assert.equal(잠시뒤.length, 2, "30분 안에 같은 길을 다시 담으면 쌓이지 않는다");
   assert.equal(잠시뒤.find((d) => d.title === "애월해안도로 → 협재")!.km, 21, "새 값으로 갈아끼운다");
 
   // 폭은 **마지막으로 담긴 시각**부터 잰다. 방금 갈아끼운 칸이 지금+30분-1 에 있으므로,
   // 그보다 30분을 더 지나야 다른 주행이다 (지금+30분+1초 로 재면 1초 차이라 여전히 같은 주행이다).
-  const 한참뒤 = insertDrive(1, 주행(지금 + 2 * SAME_DRIVE_MS, "애월해안도로 → 협재"));
+  const 한참뒤 = insertDrive(갑, 주행(지금 + 2 * SAME_DRIVE_MS, "애월해안도로 → 협재"));
   assert.equal(한참뒤.length, 3, "30분이 지나면 다른 주행이다");
 
   /* ─────────────── 나만의 길 ─────────────── */
   const 표선 = 지금 + 1000;
-  const 담긴 = setDriveMine(1, 표선, true);
+  const 담긴 = setDriveMine(갑, 표선, true);
   assert.equal(담긴.find((d) => d.id === 표선)!.mine, true, "나만의 길에 담긴다");
   assert.equal(담긴.filter((d) => d.mine).length, 1, "다른 기록은 안 건드린다");
 
   // 담아둔 길을 다시 달려도 표시가 안 풀린다. 갈아끼우면 **id 가 새것으로 바뀐다**
-  const 다시달림 = insertDrive(1, 주행(표선 + SAME_DRIVE_MS - 1, "표선 → 성산항"));
+  const 다시달림 = insertDrive(갑, 주행(표선 + SAME_DRIVE_MS - 1, "표선 → 성산항"));
   const 새표선 = 다시달림.find((d) => d.title === "표선 → 성산항")!;
   assert.equal(다시달림.length, 3, "다시 달려도 쌓이지 않는다");
   assert.equal(새표선.mine, true, "갈아끼워도 나만의 길 표시는 살아남는다");
   assert.equal(새표선.id, 표선 + SAME_DRIVE_MS - 1, "갈아끼운 칸은 새 시각을 갖는다");
 
-  assert.equal(setDriveMine(1, 새표선.id, false).find((d) => d.id === 새표선.id)!.mine, false);
-  assert.doesNotThrow(() => setDriveMine(1, 99, true), "없는 id 는 조용히 넘어간다");
+  assert.equal(setDriveMine(갑, 새표선.id, false).find((d) => d.id === 새표선.id)!.mine, false);
+  assert.doesNotThrow(() => setDriveMine(갑, 99, true), "없는 id 는 조용히 넘어간다");
 
   /* ─────────────── 빼기 ─────────────── */
-  const 뺀뒤 = removeDrive(1, 새표선.id);
+  const 뺀뒤 = removeDrive(갑, 새표선.id);
   assert.equal(뺀뒤.length, 2, "✕ 는 그 기록만 뺀다");
   assert.ok(!뺀뒤.some((d) => d.id === 새표선.id), "뺀 기록은 목록에 없다");
-  assert.equal(removeDrive(1, 새표선.id).length, 2, "없는 id 를 또 빼도 같은 결과다");
-  assert.equal(listDrives(3).length, 1, "다른 티어는 안 건드린다");
+  assert.equal(removeDrive(갑, 새표선.id).length, 2, "없는 id 를 또 빼도 같은 결과다");
+  assert.equal(listDrives(을).length, 1, "다른 주인은 안 건드린다");
 
-  console.log("✅ 주행 저장소 — 티어 분리 · 같은 길 갈아끼우기 · 모양 검사 통과");
+  console.log("✅ 주행 저장소 — 주인 분리 · 같은 길 갈아끼우기 · 모양 검사 통과");
 } finally {
   closeDb();
   rmSync(dir, { recursive: true, force: true });

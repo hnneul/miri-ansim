@@ -24,6 +24,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../../StatusBar";
+import { me } from "@/lib/me";
 import {
   BODY_MAX,
   EPISODE_MAX,
@@ -51,7 +52,7 @@ import { characterOf, parseProfile } from "@/lib/profile";
 /**
  * 코스 셀렉터의 "지난 여행"에 몇 줄까지 보여줄지.
  *
- * 기록은 티어당 200개까지 쌓이는데(lib/records.db.ts BUCKET_MAX) 다 펼치면 메뉴가 화면을 아래로
+ * 기록은 한 브라우저에 200개까지 쌓이는데(lib/records.db.ts BUCKET_MAX) 다 펼치면 메뉴가 화면을 아래로
  * 뚫고 내려가 사진·제목 칸을 덮는다 (8개에서 이미 474px 였다). 코스를 고르는 사람이 찾는 건 최근
  * 것들이고, 더 옛날 코스를 또 가고 싶으면 그 아래 "여행 하러 가기"가 있다.
  */
@@ -78,8 +79,16 @@ function Record() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const summary = parseSummary(searchParams);
-  // 기록 버킷은 익숙함 티어다 (lib/records.db.ts). 프로필이 이미 쿼리로 흘러와서 그대로 읽는다
+  // 카드에 앉히는 캐릭터를 고르는 값이다 (characterOf). **버킷과는 상관이 없다** —
+  // 예전에는 이 값이 버킷이기도 했는데 그건 아래 나 로 갈라졌다
   const tier = parseProfile(Object.fromEntries(searchParams)).experienceYears;
+
+  /*
+    기록 버킷은 **이 브라우저**다 (lib/me.ts). me() 가 localStorage 를 보므로 그리는 중에는
+    못 부른다 — effect 로 한 번 받아 두고, 받기 전에는 목록을 안 읽는다.
+  */
+  const [나, set나] = useState<string | null>(null);
+  useEffect(() => set나(me()), []);
 
   /*
     방금 끝낸 코스가 있으면 그 코스로 기록을 쓰러, 없으면 목록만 (위 첫 주석).
@@ -102,7 +111,8 @@ function Record() {
   // 서버에서 받아온다 — 첫 그림을 그린 뒤다. 실패하면 빈 목록이라 화면은 그대로 뜬다
   useEffect(() => {
     let 살아있나 = true;
-    loadRecords(tier).then((rs) => {
+    if (!나) return;
+    loadRecords(나).then((rs) => {
       if (!살아있나) return;
       setRecords(rs);
       /*
@@ -117,9 +127,9 @@ function Record() {
       }
     });
     return () => {
-      살아있나 = false; // 티어가 바뀌어 다시 부르면 늦게 온 옛 응답이 새 목록을 덮지 않게
+      살아있나 = false; // 늦게 온 옛 응답이 새 목록을 덮지 않게
     };
-  }, [tier, searchParams]);
+  }, [나, searchParams]);
 
   /*
     초안은 localStorage 라 첫 그림 뒤에 읽는다. draft=<초안 id> 로 들어오면 그 초안을 이어 쓴다 —
@@ -164,10 +174,10 @@ function Record() {
    * 카드의 ✕. **서버가 준 목록으로 갈아끼운다** — 화면에서 먼저 지우고 나중에 맞추면,
    * 서버가 거절했을 때 지워진 것처럼 보이다가 새로고침에 되살아난다 (app/safelog/page.tsx 와 같은 규칙).
    *
-   * 한 번 묻는 이유: 버킷이 티어 공용이라 남의 기록도 지워지고, 되돌릴 문이 없다.
+   * 한 번 묻는 이유: 되돌릴 문이 없다. 사진까지 같이 사라진다.
    */
   async function remove(record: TripRecord) {
-    const next = await removeRecord(tier, record.id);
+    const next = await removeRecord(me(), record.id);
     if (next) {
       clearPhotos(record.id); // 사진은 기기에만 있다 — 기록만 지우면 유령이 남는다
       setRecords(next);
@@ -455,7 +465,7 @@ function Write({
       km: editing?.km ?? summary?.km ?? 0,
     };
     set저장실패(false);
-    const next = await saveRecord(tier, record);
+    const next = await saveRecord(me(), record);
 
     /*
      * 서버가 안 받았으면 **여기서 멈춘다.**
@@ -636,8 +646,8 @@ function Write({
 
         {/*
           ── 오늘의 사진 ──
-          **기기에만 남는다** (lib/record.ts 사진 절). 서버 버킷은 티어 공용이라 남의 사진까지 한 자리에
-          쌓이고, 기록 본문의 8KB 상한에도 안 들어간다 — 올릴 자리가 정해지면 그때 옮긴다.
+          **기기에만 남는다** (lib/record.ts 사진 절). 기록 본문의 8KB 상한에 안 들어가고 올릴 자리도
+          정해진 게 없다 — 그 자리가 생기면 그때 옮긴다.
           고른 사진은 720px·JPEG 0.6 으로 줄여 담는다 (원본은 한 장에 localStorage 가 찬다).
         */}
         <div className="mt-6 flex shrink-0 items-center justify-between px-6">
@@ -760,7 +770,9 @@ function Write({
         </div>
 
         <p className="mx-6 mt-5 shrink-0 rounded-[12px] bg-[#f7f7f7] px-3.5 py-2.5 text-[13px] leading-normal text-[#262626]">
-          📍 TIP. 오늘 하루를 돌아보며 페이지를 기록해주세요
+          {/* 이모지 글자였다 — 기기마다 다른 그림이 나와 파일로 옮겼다 (app/trip/page.tsx Tile 주석) */}
+          <img src="/trip/field-must.png" alt="" className="mr-1 inline-block size-4 align-[-2px] object-contain" />
+          TIP. 오늘 하루를 돌아보며 페이지를 기록해주세요
         </p>
       </div>
 

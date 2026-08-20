@@ -22,6 +22,7 @@ import { parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
 import { isoToday } from "@/lib/record";
 import { saveDrive, thinPath, type SafeDrive } from "@/lib/safelog";
+import { me } from "@/lib/me";
 import { tradeoff, 예요 } from "@/lib/briefing";
 import { viaPoint, type LiveRoute } from "@/lib/route";
 import RouteRadio from "./RouteRadio";
@@ -507,7 +508,7 @@ function Route() {
       ],
       parkingTags: "",
     };
-    void saveDrive(profile.experienceYears, drive, { keepalive: true });
+    void saveDrive(me(), drive, { keepalive: true });
   }
 
   /**

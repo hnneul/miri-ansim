@@ -1,14 +1,13 @@
 // 주행 저장 읽기·쓰기. 저장은 lib/records.db.ts 가 하고 여기는 문지기만 본다.
 // 여행 기록(app/api/records/route.ts)과 같은 모양·같은 규칙이다 — 다른 건 담기는 값뿐이다.
 //
-// **로그인이 없다.** 익숙함 티어 셋(1·3·10)이 버킷이라 같은 티어를 고른 사람은 모두 같은
-// 목록을 읽고 쓴다. 공개 주소이므로 들어오는 값은 전부 의심한다 — 크기, 티어, 기록 모양 셋을
-// 여기서 본다.
+// **로그인이 없다.** 버킷은 브라우저가 스스로 만든 id 하나다 (lib/me.ts). 공개 주소이므로
+// 들어오는 값은 전부 의심한다 — 크기, 주인 id 모양, 기록 모양 셋을 여기서 본다.
 //
 // 라우트 핸들러는 기본이 캐시 안 됨이다 (Next 16 문서 15-route-handlers.md "Caching").
 // GET 이 방금 담은 주행을 못 보고 옛 목록을 돌려주면 안 되므로 그 기본에 기대고 아무것도 안 켠다.
 
-import { asTier } from "@/lib/record";
+import { asOwner } from "@/lib/me";
 import { asDrive } from "@/lib/safelog";
 import { insertDrive, listDrives, removeDrive, setDriveMine } from "@/lib/records.db";
 
@@ -32,47 +31,47 @@ async function body(request: Request): Promise<unknown | Response> {
   }
 }
 
-/** GET /api/drives?t=1 — 그 티어의 주행, 최신순 */
+/** GET /api/drives?o=<id> — 그 브라우저의 주행, 최신순 */
 export async function GET(request: Request) {
-  const tier = asTier(new URL(request.url).searchParams.get("t"));
-  if (tier === null) return new Response(null, { status: 400 });
-  return Response.json(listDrives(tier));
+  const owner = asOwner(new URL(request.url).searchParams.get("o"));
+  if (owner === null) return new Response(null, { status: 400 });
+  return Response.json(listDrives(owner));
 }
 
-/** POST /api/drives — { tier, drive } 를 담고 그 티어의 새 목록을 돌려준다 */
+/** POST /api/drives — { owner, drive } 를 담고 그 주인의 새 목록을 돌려준다 */
 export async function POST(request: Request) {
   const parsed = await body(request);
   if (parsed instanceof Response) return parsed;
 
-  const { tier: t, drive: v } = (parsed ?? {}) as { tier?: unknown; drive?: unknown };
-  const tier = asTier(t);
+  const { owner: o, drive: v } = (parsed ?? {}) as { owner?: unknown; drive?: unknown };
+  const owner = asOwner(o);
   // 화면이 쓰는 것과 **같은** 검사다 (lib/safelog.ts asDrive). 서버용을 따로 두면 한쪽만 느슨해진다
   const drive = asDrive(v);
-  if (tier === null || drive === null) return new Response(null, { status: 400 });
+  if (owner === null || drive === null) return new Response(null, { status: 400 });
 
-  return Response.json(insertDrive(tier, drive));
+  return Response.json(insertDrive(owner, drive));
 }
 
-/** DELETE /api/drives?t=1&id=… — 카드의 ✕ */
+/** DELETE /api/drives?o=<id>&id=… — 카드의 ✕ */
 export async function DELETE(request: Request) {
   const q = new URL(request.url).searchParams;
-  const tier = asTier(q.get("t"));
+  const owner = asOwner(q.get("o"));
   const id = Number(q.get("id"));
-  if (tier === null || !Number.isFinite(id)) return new Response(null, { status: 400 });
+  if (owner === null || !Number.isFinite(id)) return new Response(null, { status: 400 });
 
-  return Response.json(removeDrive(tier, id));
+  return Response.json(removeDrive(owner, id));
 }
 
-/** PATCH /api/drives — { tier, id, mine } 로 "나만의 길"을 담거나 뺀다 */
+/** PATCH /api/drives — { owner, id, mine } 로 "나만의 길"을 담거나 뺀다 */
 export async function PATCH(request: Request) {
   const parsed = await body(request);
   if (parsed instanceof Response) return parsed;
 
-  const { tier: t, id, mine } = (parsed ?? {}) as { tier?: unknown; id?: unknown; mine?: unknown };
-  const tier = asTier(t);
-  if (tier === null || typeof id !== "number" || !Number.isFinite(id) || typeof mine !== "boolean") {
+  const { owner: o, id, mine } = (parsed ?? {}) as { owner?: unknown; id?: unknown; mine?: unknown };
+  const owner = asOwner(o);
+  if (owner === null || typeof id !== "number" || !Number.isFinite(id) || typeof mine !== "boolean") {
     return new Response(null, { status: 400 });
   }
 
-  return Response.json(setDriveMine(tier, id, mine));
+  return Response.json(setDriveMine(owner, id, mine));
 }

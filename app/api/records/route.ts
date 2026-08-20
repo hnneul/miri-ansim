@@ -1,14 +1,14 @@
 // 여행 기록 읽기·쓰기. 저장은 lib/records.db.ts 가 하고 여기는 문지기만 본다.
 //
-// **로그인이 없다.** 익숙함 티어 셋(1·3·10)이 버킷이라 같은 티어를 고른 사람은 모두 같은
-// 목록을 읽고 쓴다 (lib/records.db.ts 첫 주석). 공개 주소이므로 들어오는 값은 전부 의심한다 —
-// 크기, 티어, 기록 모양 셋을 여기서 본다.
+// **로그인이 없다.** 버킷은 브라우저가 스스로 만든 id 하나다 (lib/me.ts). 공개 주소이므로
+// 들어오는 값은 전부 의심한다 — 크기, 주인 id 모양, 기록 모양 셋을 여기서 본다.
 //
 // 라우트 핸들러는 기본이 캐시 안 됨이다 (Next 16 문서 15-route-handlers.md "Caching").
 // GET 이 새 기록을 못 보고 옛 목록을 돌려주면 안 되므로 그 기본에 기대고 아무것도 안 켠다.
 
-import { asRecord, asTier } from "@/lib/record";
-import { insert, listByTier, remove } from "@/lib/records.db";
+import { asRecord } from "@/lib/record";
+import { asOwner } from "@/lib/me";
+import { insert, listByOwner, remove } from "@/lib/records.db";
 
 /**
  * 받는 몸통의 최대 바이트. 기록 하나는 제목·이야기(500자)·장소 몇 개라 넉넉잡아 8KB 다.
@@ -17,14 +17,14 @@ import { insert, listByTier, remove } from "@/lib/records.db";
  */
 const BODY_MAX_BYTES = 8_000;
 
-/** GET /api/records?t=1 — 그 티어의 기록, 최신순 */
+/** GET /api/records?o=<id> — 그 브라우저의 기록, 최신순 */
 export async function GET(request: Request) {
-  const tier = asTier(new URL(request.url).searchParams.get("t"));
-  if (tier === null) return new Response(null, { status: 400 });
-  return Response.json(listByTier(tier));
+  const owner = asOwner(new URL(request.url).searchParams.get("o"));
+  if (owner === null) return new Response(null, { status: 400 });
+  return Response.json(listByOwner(owner));
 }
 
-/** POST /api/records — { tier, record } 를 넣고 그 티어의 새 목록을 돌려준다 */
+/** POST /api/records — { owner, record } 를 넣고 그 주인의 새 목록을 돌려준다 */
 export async function POST(request: Request) {
   const raw = await request.text();
   if (raw.length > BODY_MAX_BYTES) return new Response(null, { status: 413 });
@@ -36,26 +36,26 @@ export async function POST(request: Request) {
     return new Response(null, { status: 400 });
   }
 
-  const { tier: t, record: r } = (body ?? {}) as { tier?: unknown; record?: unknown };
-  const tier = asTier(t);
+  const { owner: o, record: r } = (body ?? {}) as { owner?: unknown; record?: unknown };
+  const owner = asOwner(o);
   // 화면이 쓰는 것과 **같은** 검사다 (lib/record.ts asRecord). 서버용을 따로 두면 한쪽만 느슨해진다
   const record = asRecord(r);
-  if (tier === null || record === null) return new Response(null, { status: 400 });
+  if (owner === null || record === null) return new Response(null, { status: 400 });
 
-  return Response.json(insert(tier, record));
+  return Response.json(insert(owner, record));
 }
 
 /**
- * DELETE /api/records?t=1&id=… — 카드의 ✕ (/api/drives 와 같은 모양이다).
+ * DELETE /api/records?o=<id>&id=… — 카드의 ✕ (/api/drives 와 같은 모양이다).
  *
- * **버킷이 티어 공용이라 남의 기록도 지워진다.** 로그인이 없어 서버가 주인을 가릴 수단이 없다 —
- * 화면에서 한 번 묻는 것이 지금 있는 방어의 전부다 (app/trip/record/page.tsx).
+ * 주인 밖의 기록은 안 지워진다 — 지우는 문장이 owner 로 좁혀져 있어서(lib/records.db.ts remove),
+ * 남의 id 를 몰라도 되고 알아도 자기 버킷만 건드린다.
  */
 export async function DELETE(request: Request) {
   const q = new URL(request.url).searchParams;
-  const tier = asTier(q.get("t"));
+  const owner = asOwner(q.get("o"));
   const id = Number(q.get("id"));
-  if (tier === null || !Number.isFinite(id)) return new Response(null, { status: 400 });
+  if (owner === null || !Number.isFinite(id)) return new Response(null, { status: 400 });
 
-  return Response.json(remove(tier, id));
+  return Response.json(remove(owner, id));
 }

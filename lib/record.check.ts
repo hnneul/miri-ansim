@@ -3,13 +3,13 @@
 // 저장소 자체(SQLite)는 lib/records.db.check.ts 가 본다 — 여기는 모양 검사만.
 
 import assert from "node:assert";
+import { asOwner, me, OWNER_RE } from "./me.ts";
 import {
   BODY_MAX,
   EPISODE_MAX,
   removeDraft,
   dotted,
   asRecord,
-  asTier,
   isoToday,
   loadDrafts,
   parseSummary,
@@ -137,21 +137,29 @@ assert.equal(고침.body, "");
 // 이야기는 500자에서 잘린다. 화면은 이미 막지만 API 가 공개라 여기서 다시 건다
 assert.equal(some(asRecord({ ...record, body: "가".repeat(BODY_MAX + 50) })).body.length, BODY_MAX);
 
-/* ─────────────────────────────── 티어 (버킷 키) ─────────────────────────────── */
+/* ─────────────────────────────── 주인 id (버킷 키) ─────────────────────────────── */
 
-// 온보딩이 고를 수 있는 세 값만 버킷이 된다 (lib/profile.ts OPTIONS.experienceYears)
-assert.equal(asTier(1), 1);
-assert.equal(asTier(3), 3);
-assert.equal(asTier("10"), 10, "쿼리스트링은 문자열로 온다");
+const 성한id = "1a1a1a1a-2b2b-4c3c-8d4d-5e5e5e5e5e5e";
+assert.equal(asOwner(성한id), 성한id);
 
-// 그 밖은 **기본값으로 안 떨어뜨리고 거절한다** — 아무도 안 보는 버킷이 조용히 생기면 안 된다
-for (const bad of [0, 2, 99, -1, NaN, true, null, undefined, "", " ", "abc", {}, [1]])
-  assert.equal(asTier(bad), null, `티어가 아닌 값이 통과했다: ${JSON.stringify(bad)}`);
-
-// 같은 수를 달리 적은 것은 그 수의 버킷으로 간다 — 없는 버킷이 생기는 게 아니라 1번으로 들어간다.
-// lib/profile.ts parseProfile 도 같은 Number() 를 쓰므로 화면과 저장소가 같은 칸을 가리킨다.
-assert.equal(asTier("1e0"), 1);
-assert.equal(asTier(" 3 "), 3);
+// 그 밖은 **기본값으로 안 떨어뜨리고 거절한다** — 아무 문자열이나 버킷이 되면
+// 공개 엔드포인트로 표를 무한히 불릴 수 있다 (lib/records.db.ts TOTAL_MAX 가 마지막 방어다)
+for (const bad of [
+  1,
+  "1",
+  "",
+  " ",
+  "abc",
+  성한id.toUpperCase(), // 대문자는 안 받는다 — 같은 사람이 두 버킷을 갖게 된다
+  성한id + "x",
+  성한id.slice(0, -1),
+  성한id.replace(/-/g, ""),
+  null,
+  undefined,
+  {},
+  [성한id],
+])
+  assert.equal(asOwner(bad), null, `주인 id 가 아닌 값이 통과했다: ${JSON.stringify(bad)}`);
 
 /* ─────────────────────────────── 임시 저장 ─────────────────────────────── */
 
@@ -231,5 +239,10 @@ assert.equal(isoToday(new Date(2026, 0, 5)), "2026-01-05");
   assert.equal(parseSummary(나갈쿼리), null, "걷어냈는데도 코스 요약이 읽힌다");
   assert.equal(나갈쿼리.get("exp"), "1", "프로필까지 걷어내면 안 된다");
 }
+
+// me() 가 만드는 값은 asOwner 가 받아야 한다 — 화면과 서버가 어긋나면 아무것도 안 저장된다.
+// localStorage 가 없는 node 라 catch 갈래(임시 id)를 타는데, 그 값도 같은 모양이어야 한다.
+assert.ok(OWNER_RE.test(me()), "me() 가 만든 id 를 서버가 거절한다");
+assert.equal(asOwner(me()), me(), "같은 판에서 me() 는 같은 값이어야 한다");
 
 console.log("✅ 여행 기록 URL 왕복 + 저장소 입력 검증 정상");

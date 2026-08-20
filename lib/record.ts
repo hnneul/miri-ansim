@@ -166,26 +166,16 @@ export function asRecord(v: unknown): TripRecord | null {
   };
 }
 
-/**
- * 티어인지. 온보딩이 고를 수 있는 세 값(1·3·10)만 버킷이 된다 — 그 밖의 값이 들어오면
- * 아무도 안 보는 버킷이 조용히 생기므로 기본값으로 떨어뜨리지 않고 거절한다.
- * 서버(app/api/records/route.ts)와 화면이 같은 판정을 써야 해서 여기 하나만 둔다.
- */
-export function asTier(v: unknown): number | null {
-  const n = typeof v === "string" ? Number(v) : v;
-  return typeof n === "number" && (OPTIONS.experienceYears as readonly number[]).includes(n) ? n : null;
-}
-
 const API = "/api/records";
 
 /**
- * 한 티어의 기록, 최신순. **서버가 죽어도 빈 목록으로 돌아온다** — 화면이 뻗는 대신
+ * 이 브라우저의 기록, 최신순. **서버가 죽어도 빈 목록으로 돌아온다** — 화면이 뻗는 대신
  * "기록이 아직 없어요"가 뜬다. 목록을 못 읽는 것과 없는 것이 화면에서 같아 보이는 건
  * 아는 대가다: 시연 중에 예외 화면이 뜨는 쪽이 더 나쁘다.
  */
-export async function loadRecords(tier: number): Promise<TripRecord[]> {
+export async function loadRecords(owner: string): Promise<TripRecord[]> {
   try {
-    const res = await fetch(`${API}?t=${tier}`);
+    const res = await fetch(`${API}?o=${owner}`);
     if (!res.ok) return [];
     const raw: unknown = await res.json();
     return Array.isArray(raw) ? raw.map(asRecord).filter((r): r is TripRecord => r !== null) : [];
@@ -195,18 +185,18 @@ export async function loadRecords(tier: number): Promise<TripRecord[]> {
 }
 
 /**
- * 저장하고 그 티어의 새 목록을 돌려준다. **못 저장했으면 null 이다.**
+ * 저장하고 새 목록을 돌려준다. **못 저장했으면 null 이다.**
  *
  * 빈 배열로 뭉개지 않는 이유: 부르는 쪽(app/trip/record)이 "서버에 남았다"와 "이번 화면에서만
  * 보인다"를 갈라 다뤄야 한다. 예전 localStorage 판은 실패를 삼키고 목록을 돌려줬는데,
  * 그러면 저장이 안 된 기록이 저장된 것과 똑같이 보였다.
  */
-export async function saveRecord(tier: number, record: TripRecord): Promise<TripRecord[] | null> {
+export async function saveRecord(owner: string, record: TripRecord): Promise<TripRecord[] | null> {
   try {
     const res = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tier, record }),
+      body: JSON.stringify({ owner, record }),
     });
     if (!res.ok) return null;
     const raw: unknown = await res.json();
@@ -217,9 +207,9 @@ export async function saveRecord(tier: number, record: TripRecord): Promise<Trip
 }
 
 /** 목록에서 뺀다 (카드의 ✕). 새 목록을 돌려주고, 못 지웠으면 null 이다 — saveRecord 와 같은 규칙 */
-export async function removeRecord(tier: number, id: number): Promise<TripRecord[] | null> {
+export async function removeRecord(owner: string, id: number): Promise<TripRecord[] | null> {
   try {
-    const res = await fetch(`${API}?t=${tier}&id=${id}`, { method: "DELETE" });
+    const res = await fetch(`${API}?o=${owner}&id=${id}`, { method: "DELETE" });
     if (!res.ok) return null;
     const raw: unknown = await res.json();
     return Array.isArray(raw) ? raw.map(asRecord).filter((r): r is TripRecord => r !== null) : null;
@@ -231,9 +221,9 @@ export async function removeRecord(tier: number, id: number): Promise<TripRecord
 /* ─────────────────────────────── 사진 (기기에만) ─────────────────────────────── */
 
 /**
- * **사진은 서버에 안 올린다.** 기록 본문은 티어 버킷으로 모두가 함께 보지만(위 첫 주석),
- * 사진은 올릴 자리도 용량 제한도 정해진 게 없다 — 지금은 찍은 기기에만 남는다.
- * 그래서 다른 기기에서 열면 사진 없는 기록으로 보인다. 아는 대가다.
+ * **사진은 서버에 안 올린다.** 올릴 자리도 용량 제한도 정해진 게 없어서 찍은 기기에만 남는다.
+ * 기록 본문도 이제 브라우저별이라(lib/me.ts) 둘의 범위가 같아졌다 — 예전에는 본문만 공용이라
+ * 남의 기록이 사진 없는 카드로 떴다.
  *
  * localStorage 는 5MB 안팎이라 원본을 그대로 넣으면 두 장에 찬다. shrinkImage 로 줄여서 넣고,
  * 그래도 넘치면 savePhotos 가 false 를 돌려준다 (화면이 그때 사실대로 말한다).

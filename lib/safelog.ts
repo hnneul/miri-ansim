@@ -1,8 +1,8 @@
 // 주행 저장 — 와이어프레임 "주행 저장" 섹션(Figma 2606:846)이 쓰는 데이터.
 //
-// 여행 기록(lib/record.ts)과 **같은 저장소·같은 버킷**을 쓴다 (/api/drives → lib/records.db.ts).
-// 익숙함 티어 셋이 버킷이라 같은 티어를 고른 사람은 어느 기기로 들어와도 같은 목록을 본다.
-// 티어 판정도 거기 asTier 하나를 그대로 쓴다 — 판정이 두 벌이면 한쪽만 느슨해진다.
+// 여행 기록(lib/record.ts)과 **같은 저장소·같은 버킷 규칙**을 쓴다 (/api/drives → lib/records.db.ts).
+// 버킷은 브라우저 하나이고, 주인 id 판정은 lib/me.ts asOwner 하나를 화면·서버가 같이 쓴다 —
+// 판정이 두 벌이면 한쪽만 느슨해진다.
 //
 // **여행 기록과 다른 점은 담기는 순간이다.** 여행 기록은 사람이 글을 써서 저장을 누르지만,
 // 주행 저장은 길 비교 화면에서 **외부 내비로 넘길 때 자동으로** 담긴다. 우리가 아는 건
@@ -131,12 +131,12 @@ const asList = (raw: unknown): SafeDrive[] =>
   Array.isArray(raw) ? raw.map(asDrive).filter((d): d is SafeDrive => d !== null) : [];
 
 /**
- * 한 티어의 주행, 최신순. **서버가 죽어도 빈 목록으로 돌아온다** —
+ * 이 브라우저의 주행, 최신순. **서버가 죽어도 빈 목록으로 돌아온다** —
  * 화면이 뻗는 대신 "주행 저장 기록이 없어요"가 뜬다 (lib/record.ts loadRecords 와 같은 대가).
  */
-export async function loadDrives(tier: number): Promise<SafeDrive[]> {
+export async function loadDrives(owner: string): Promise<SafeDrive[]> {
   try {
-    const res = await fetch(`${API}?t=${tier}`);
+    const res = await fetch(`${API}?o=${owner}`);
     return res.ok ? asList(await res.json()) : [];
   } catch {
     return [];
@@ -144,13 +144,13 @@ export async function loadDrives(tier: number): Promise<SafeDrive[]> {
 }
 
 /**
- * 담고 그 티어의 새 목록을 돌려준다. 못 담았으면 null 이다.
+ * 담고 새 목록을 돌려준다. 못 담았으면 null 이다.
  *
  * **페이지를 떠나면서 부르는 자리가 있다** (길 비교 → 외부 내비). 그때는 keepalive 로 보내야
  * 브라우저가 문서를 버리면서 요청까지 끊지 않는다. 이걸 빼면 "가끔 기록이 안 남는" 버그가 된다.
  */
 export async function saveDrive(
-  tier: number,
+  owner: string,
   drive: SafeDrive,
   opts: { keepalive?: boolean } = {},
 ): Promise<SafeDrive[] | null> {
@@ -158,7 +158,7 @@ export async function saveDrive(
     const res = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tier, drive }),
+      body: JSON.stringify({ owner, drive }),
       keepalive: opts.keepalive,
     });
     return res.ok ? asList(await res.json()) : null;
@@ -168,9 +168,9 @@ export async function saveDrive(
 }
 
 /** 목록에서 뺀다 (카드의 ✕). 새 목록을 돌려주고, 실패하면 null 이다 */
-export async function removeDrive(tier: number, id: number): Promise<SafeDrive[] | null> {
+export async function removeDrive(owner: string, id: number): Promise<SafeDrive[] | null> {
   try {
-    const res = await fetch(`${API}?t=${tier}&id=${id}`, { method: "DELETE" });
+    const res = await fetch(`${API}?o=${owner}&id=${id}`, { method: "DELETE" });
     return res.ok ? asList(await res.json()) : null;
   } catch {
     return null;
@@ -178,12 +178,12 @@ export async function removeDrive(tier: number, id: number): Promise<SafeDrive[]
 }
 
 /** "나만의 길"에 담거나 뺀다. 새 목록을 돌려주고, 실패하면 null 이다 */
-export async function setMine(tier: number, id: number, mine: boolean): Promise<SafeDrive[] | null> {
+export async function setMine(owner: string, id: number, mine: boolean): Promise<SafeDrive[] | null> {
   try {
     const res = await fetch(API, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tier, id, mine }),
+      body: JSON.stringify({ owner, id, mine }),
     });
     return res.ok ? asList(await res.json()) : null;
   } catch {
