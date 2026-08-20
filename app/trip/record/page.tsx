@@ -558,7 +558,7 @@ function Write({
               사람은 그걸 사실로 읽는다. 대신 "최근 여행"이 가장 나중에 받은 코스 하나를 가리킨다.
             */}
             <span className="min-w-0 flex-1 truncate text-[14px] leading-5 font-medium text-[#262626]">
-              {course || (noCourse ? "여행기록이 없습니다" : "코스를 골라주세요")}
+              {course || (noCourse ? "고를 코스가 없어요" : "코스를 골라주세요")}
             </span>
             <span
               aria-hidden
@@ -580,9 +580,10 @@ function Write({
                 <>
                   <MenuLabel text="최근 여행" right={goTrip} />
                   <p className="px-1 py-2 text-center text-[12px] leading-[18px] text-[#7d7d7d]">
-                    여행 기록이 없어 여행기록을 남길수가 없어요
+                    {/* "여행기록"·"남길수가"·"다녀오시는건" 이 붙어 있었다. 앱 전체 표기는 "여행 기록" 이다 */}
+                    아직 다녀온 코스가 없어 고를 것이 없어요.
                     <br />
-                    여행을 다녀오시는건 어떨까요?
+                    먼저 여행을 다녀오시는 건 어떨까요?
                   </p>
                 </>
               )}

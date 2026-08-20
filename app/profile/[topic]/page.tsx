@@ -58,7 +58,9 @@ function Topic() {
 
       {/* 안쪽에 스크롤을 따로 두지 않는다 — 폰 프레임(.phone)이 이미 스크롤이다 (app/profile 과 같다) */}
       <div className="px-4 pt-4 pb-10">
-        <p className="text-[13px] leading-[1.6] text-[#616161]">{t.lead}</p>
+        <p className="rounded-[12px] bg-[#fff0e6] px-[13px] py-3 text-[13px] leading-[1.6] whitespace-pre-line text-[#616161]">
+          {t.lead}
+        </p>
         {t.blocks.map((b, i) => (
           <Chunk key={i} block={b} />
         ))}
@@ -73,24 +75,43 @@ function Topic() {
  */
 function Chunk({ block }: { block: Block }) {
   if ("h" in block)
-    return <h2 className="mt-7 mb-2 text-[15px] leading-normal font-bold text-[#1f1f1f]">{block.h}</h2>;
+    return (
+      <h2 className="mt-7 mb-2 pl-[13px] text-[15px] leading-normal font-bold text-[#1f1f1f]">{block.h}</h2>
+    );
 
   // \n 을 살린다 — 계산식처럼 줄을 나눠야 읽히는 문단이 있다 (lib/serviceinfo.ts "점수를 매기는 식")
   if ("p" in block)
+    // label 이 달린 문단은 화면이 꼭 쥐고 가야 하는 한 줄이다 — 주황 제목을 얹고 바탕을 바꾼다.
+    // 소제목(h)을 따로 두지 않는다. 라벨이 그 자리라 둘 다 적으면 같은 말이 두 번 나온다.
     return (
-      <p className="mt-2 rounded-[12px] bg-[#f5f7f7] px-4 py-3 text-[12.5px] leading-[1.7] whitespace-pre-line text-[#616161]">
-        {block.p}
-      </p>
+      <div
+        className={`mt-2 rounded-[12px] px-[13px] py-3 ${block.label ? "bg-[#fff0e6]" : "bg-[#f5f7f7]"}`}
+      >
+        {block.label && (
+          <p className="mb-1.5 text-[12px] leading-normal font-bold text-[#ff6114]">{block.label}</p>
+        )}
+        <p className="text-[12.5px] leading-[1.7] whitespace-pre-line text-[#616161]">{block.p}</p>
+      </div>
     );
 
   return (
     <div className="mt-2 flex flex-col gap-2">
-      {block.rows.map((r) => (
+      {block.rows.map((r, i) => (
         <div
           key={r.k}
           className="flex items-start justify-between gap-3 rounded-[12px] border border-[#e6e6e6] bg-white px-[13px] py-3"
         >
-          <div className="min-w-0">
+          {/*
+            번호 뱃지. 와이어프레임은 카드를 122~163px 로 잡아 글 아래가 비는데 그 여백은 뺐다 —
+            채울 것이 없는 빈칸이라, 그대로 옮기면 뭔가 안 그려진 카드로 보인다.
+            뱃지는 아이콘이 아니라 세는 수라 aria-hidden 하지 않는다 (읽어 주면 "01 카카오…" 로 들린다).
+          */}
+          {block.numbered && (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#fff0e6] text-[13px] leading-none font-bold text-[#ff6114]">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
             <p className="text-[14px] leading-normal font-medium text-[#1f1f1f]">{r.k}</p>
             {r.d && <p className="mt-1 text-[12px] leading-[1.55] text-[#616161]">{r.d}</p>}
           </div>

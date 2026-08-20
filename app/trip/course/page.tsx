@@ -21,7 +21,7 @@ import { navigateTo } from "@/lib/parking";
 import { courseMeta, driveNote, hourMin, type Course } from "@/lib/course";
 import type { Stop } from "@/lib/course";
 import { summaryOf, toRecordQuery } from "@/lib/record";
-import { queryRecord, TRIP_KEYS, type TripPlan } from "@/lib/trip";
+import { nightsOf, queryRecord, TRIP_KEYS, type TripPlan } from "@/lib/trip";
 import { makeCourses, type Made } from "./actions";
 
 /**
@@ -481,6 +481,19 @@ function Recommend({
           </p>
         )}
 
+        {/*
+          **몇 박이든 코스는 하루치다** (lib/course.ts buildCourses 의 하루 주석).
+          설계로는 맞는 판단인데 화면이 그 말을 안 해서, "2박 3일"을 고르고 온 사람은
+          나머지 이틀이 왜 없는지 알 수가 없었다. 여러 날 코스로 되돌리면 이 줄만 지우면 된다.
+
+          하루짜리 여행에는 안 띄운다 — 당일치기에 "먼저 첫날"은 할 말이 아니다.
+        */}
+        {(nightsOf(plan.start, plan.end)?.nights ?? 0) > 0 && (
+          <p className="mt-3 shrink-0 px-[23px] text-[12px] leading-[18px] text-[#7d7d7d]">
+            먼저 첫날 코스를 짰어요. 나머지 날은 다녀와서 다시 받아보세요.
+          </p>
+        )}
+
         <div className="mt-6 flex shrink-0 flex-col gap-3 px-[23px] pb-2">
           {courses.map((c, i) => (
             <CourseCard
@@ -506,6 +519,17 @@ function Recommend({
           >
             <img src="/trip/icon-navigation.svg" alt="" aria-hidden className="size-5" />이 코스로 여행하기
           </button>
+          {/*
+            카카오 링크는 경유지를 5개까지만 받아서 그 뒤는 잘린다 (lib/parking.ts VIA_MAX).
+            코스는 기본 3곳 + "꼭 가고 싶은 곳" 최대 10곳이라 13곳까지 나오는데, 화면에는 13곳이
+            그려지고 내비에는 6곳만 간다 — 조용히 사라지면 어디를 빼먹었는지도 모른다.
+            잘릴 때만 말한다 (VIA_MAX 5 + 도착지 1 = 6).
+          */}
+          {days[0] && days[0].stops.length > 6 && (
+            <p className="mx-[22px] mt-2 shrink-0 text-center text-[11px] leading-[16px] text-[#9e9e9e]">
+              내비에는 앞 6곳까지만 넘어가요. 나머지는 도착해서 다시 잡아주세요.
+            </p>
+          )}
         </>
       )}
       <div className="h-[57px] shrink-0" />

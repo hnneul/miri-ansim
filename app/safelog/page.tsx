@@ -547,7 +547,7 @@ function RouteCard({
             onClick={route.mine ? onDetail : onSaveMine}
             className="flex h-10 flex-1 items-center justify-center rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-bold text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
           >
-            {route.mine ? "자세히" : "나만의 길의 저장"}
+            {route.mine ? "자세히" : "나만의 길로 저장"}
           </button>
         </div>
       ) : (
