@@ -18,14 +18,14 @@
 // 좌표는 390x844 를 옮기되 절대배치는 쓰지 않는다 — .phone 이 노트북에서 844 보다 낮아질 수 있어서
 // 가운데(flex-1)부터 줄어야 하단 버튼이 안 잘린다 (app/onboarding/page.tsx 와 같은 이유).
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import DemoNotice from "../DemoNotice";
 import { recommendSpots, suggestPlaces } from "../destination/actions";
 import { hereNow } from "../home/actions";
 import RouteMap, { type LatLng } from "../RouteMap";
-import type { Place } from "@/lib/geocode";
+import { 이어친목록, type Place } from "@/lib/geocode";
 import {
   COMPANIONS,
   DRIVE_HOURS,
@@ -884,7 +884,7 @@ function OriginView({ onBack, onApply }: Omit<DetailProps, "plan">) {
   // here: 현재 위치로 잡은 값인지. 검색·지도로 고른 곳까지 "현재 위치 사용" 칸을 켜면 안 된다.
   const [picked, setPicked] = useState<{ name: string; at: LatLng | null; here: boolean } | null>(null);
   const [geo, setGeo] = useState<"idle" | "loading" | "error">("idle");
-  const found = usePlaceSuggest(text);
+  const { found, 찾은말, 물어봤나 } = usePlaceSuggest(text);
 
   function useHere() {
     if (!navigator.geolocation) return setGeo("error");
@@ -950,6 +950,31 @@ function OriginView({ onBack, onApply }: Omit<DetailProps, "plan">) {
         />
 
         <div className="mt-3 flex flex-col gap-2">
+          {/*
+            **빈 목록에도 말을 건다.** 전에는 갈래가 없어서, 제주에 없는 이름을 치면 화면이
+            그대로였다 — 검색이 도는지도 알 수 없었다 (F07 과 같은 병이 이 화면에도 있었다).
+            셋으로 가른다: 아직 안 온 것 · 물어봤는데 없는 것 · 못 물어본 것.
+          */}
+          {text.trim() && found.length === 0 && (
+            <p className="px-1 py-2 text-[13px] leading-[20px] text-[#7d7d7d]">
+              {찾은말 !== text ? (
+                "검색 결과를 찾는 중…"
+              ) : 물어봤나 ? (
+                /* "제주에 없다"고는 안 한다 — "스타벅"은 0인데 "스타벅스"는 세 곳이 나온다 */
+                <>
+                  &lsquo;{text}&rsquo;로는 못 찾았어요.
+                  <br />
+                  이름을 조금 더 적어보세요.
+                </>
+              ) : (
+                <>
+                  지금은 장소를 찾아볼 수 없어요.
+                  <br />
+                  잠시 뒤에 다시 쳐보세요.
+                </>
+              )}
+            </p>
+          )}
           {found.map((p) => (
             <button
               key={`${p.label}${p.road}`}
@@ -1043,7 +1068,8 @@ function MustView({ plan, onBack, onApply }: DetailProps) {
     출발 위치(04-C)에서는 안 거른다 — 거기서는 차를 세워둔 주차장이 실제 출발점일 수 있다.
     주차장을 찾아주는 화면은 따로 있다 (app/parking).
   */
-  const found = usePlaceSuggest(text).filter((p) => !주차장(p));
+  const 검색 = usePlaceSuggest(text);
+  const found = 검색.found.filter((p) => !주차장(p));
   const full = musts.length >= MAX_MUSTS;
   /**
    * 목적지 검색 화면과 같은 목록 (data/spots.json 을 카테고리별로 한 바퀴씩 — recommendSpots 주석).
@@ -1104,8 +1130,21 @@ function MustView({ plan, onBack, onApply }: DetailProps) {
           )}
         </div>
 
+        {/*
+          **"검색 결과 0" 은 다 온 뒤에만 적는다.** 전에는 도는 중에도 0 이 떠서, 없다고 말해놓고
+          잠시 뒤에 목록이 튀어나왔다. 못 물어본 경우도 갈라 말한다 — 네트워크가 죽었을 뿐인데
+          0 이라고 적으면 앱이 거짓말을 한다 (usePlaceSuggest).
+        */}
         {text.trim() && (
-          <p className="mt-[16px] shrink-0 px-6 text-[14px] leading-[22px] text-[#7d7d7d]">검색 결과 {found.length}</p>
+          <p className="mt-[16px] shrink-0 px-6 text-[14px] leading-[22px] text-[#7d7d7d]">
+            {검색.찾은말 !== text
+              ? "검색 결과를 찾는 중…"
+              : !검색.물어봤나
+                ? "지금은 장소를 찾아볼 수 없어요. 잠시 뒤에 다시 쳐보세요."
+                : found.length
+                  ? `검색 결과 ${found.length}`
+                  : "이름을 조금 더 적어보세요."}
+          </p>
         )}
 
         {/*
@@ -1267,15 +1306,40 @@ function Add({ on, added, full }: { on: () => void; added: boolean; full: boolea
  * 늦게 온 앞선 응답은 버린다 — 안 버리면 글자를 지웠을 때 먼저 보낸 긴 검색어의 결과가
  * 나중에 도착해 목록을 덮는다 (app/destination/page.tsx 와 같은 이유).
  */
-function usePlaceSuggest(text: string): Place[] {
+function usePlaceSuggest(text: string) {
   const [found, setFound] = useState<Place[]>([]);
+  /**
+   * 지금 떠 있는 후보가 **어느 검색어의 결과인가**. null 이면 아직 안 왔다는 뜻이다.
+   * 이게 없으면 "아직 안 옴"과 "찾아봤는데 없음"이 둘 다 빈 배열이라 화면이 못 가른다
+   * (app/destination/page.tsx · app/route/PlaceSearch.tsx 와 같은 규칙·같은 이유).
+   */
+  const [찾은말, set찾은말] = useState<string | null>(null);
+  /**
+   * 그 검색어를 **물어보기는 했나**. false 면 목록이 빈 이유가 "제주에 없어서"가 아니라
+   * 카카오에 못 물어봐서다 (../destination/actions.ts suggestPlaces).
+   */
+  const [물어봤나, set물어봤나] = useState(true);
+  /** 마지막으로 결과가 나온 검색어와 그 목록. 치는 중에 붙들 근거다 (lib/geocode.ts 이어친목록) */
+  const 앞결과 = useRef<{ 말: string; 목록: Place[] }>({ 말: "", 목록: [] });
 
   useEffect(() => {
-    if (!text.trim()) return setFound([]);
+    set찾은말(null); // 글자가 바뀌면 앞 결과는 이 검색어의 것이 아니다 — "찾는 중"으로 되돌린다
+    if (!text.trim()) {
+      앞결과.current = { 말: "", 목록: [] };
+      return setFound([]);
+    }
 
     let alive = true;
     const timer = setTimeout(() => {
-      suggestPlaces(text).then((places) => alive && setFound(places));
+      suggestPlaces(text).then((r) => {
+        if (!alive) return;
+        // 0건이어도 앞 검색어를 이어 친 것이면 붙든다 — 친 글자가 든 것만 남겨서 (이어친목록)
+        const 목록 = r.places.length ? r.places : 이어친목록(앞결과.current, text);
+        if (목록.length) 앞결과.current = { 말: text, 목록 };
+        setFound(목록);
+        set물어봤나(r.물어봤나);
+        set찾은말(text);
+      });
     }, TYPING_MS);
     return () => {
       alive = false;
@@ -1283,7 +1347,7 @@ function usePlaceSuggest(text: string): Place[] {
     };
   }, [text]);
 
-  return found;
+  return { found, 찾은말, 물어봤나 };
 }
 
 type DetailProps = {

@@ -38,6 +38,31 @@ const TIMEOUT_MS = 6000;
 export type Place = { coord: LatLng; label: string; region: string; road: string; jibun: string; type: string };
 export type Geocoded = Place | { error: string };
 
+/**
+ * 치는 중에 목록이 통째로 사라지지 않게 붙드는 규칙.
+ *
+ * **카카오는 낱말 단위로 맞춘다** — "협재"는 10건인데 "협재해"는 0건이고 "협재해수욕장"이면 다시 나온다
+ * ("스타벅"도 0인데 "스타벅스"는 나온다). 이름을 다 치는 도중에 반드시 지나가는 구멍이라,
+ * 그때마다 목록이 사라지면 방금 눈앞에 있던 협재해수욕장이 없어진다.
+ *
+ * 그래서 **앞 검색어를 이어 친 것이면 앞 목록을 붙든다.** 단, 붙들되 **친 글자가 실제로 든 것만**
+ * 남긴다 — 안 그러면 "협재해"라고 쳐 있는데 한림공원을 내밀게 되고, 그건 빈 화면보다 나쁘다.
+ * 남는 줄은 전부 입력칸 글자를 품고 있어서, 최악이 "보여줄 게 적다"이지 "틀린 걸 보여준다"가 아니다.
+ *
+ * 이어 친 것이 아니면(지우고 새로 침) 빈 배열이다 — 붙들기가 진짜 없는 이름을 가려주면 안 된다.
+ */
+export const 이어친목록 = (앞: { 말: string; 목록: Place[] }, 말: string): Place[] =>
+  앞.말 && 말.startsWith(앞.말) ? 앞.목록.filter((p) => p.label.includes(말)) : [];
+
+/**
+ * 후보 목록과 **왜 비었는지**. 타이핑 중 화면(suggestPlaces)이 쓴다.
+ *
+ * 빈 목록에는 뜻이 둘 있다 — "제주에 그 이름이 없다"와 "물어보지 못했다"(타임아웃·네트워크·키 없음).
+ * 둘을 같은 빈 배열로 뭉개 놓으면 화면이 네트워크가 느렸을 뿐인 사람에게 "그런 곳 없어요"라고
+ * 단정하게 된다. 이 앱의 "모르면 침묵" 규칙이 걸리는 자리라 이유를 같이 들고 다닌다.
+ */
+export type Suggested = { places: Place[]; 물어봤나: boolean };
+
 /** 도 이름은 늘 같은 값이라 자리만 차지한다 — 제주 안만 검색하므로(JEJU_RECT) 줄여 쓴다. */
 const shortJeju = (address: string) => address.replace(/^제주특별자치도/, "제주");
 
@@ -101,7 +126,12 @@ const toPlace = (place: {
  * 검색어로 후보를 여러 개 받아온다. 목적지 검색 화면(HOME-01 a)이 고르라고 늘어놓는 목록이다.
  * 실패 사유는 아래 geocodePlace 와 같은 모양이라 부르는 쪽이 그대로 보여주면 된다.
  */
-export async function searchPlaces(query: string, size = 10): Promise<{ places: Place[] } | { error: string }> {
+export async function searchPlaces(
+  query: string,
+  size = 10,
+  // 없음: **물어봤는데 제주에 그 이름이 없었다.** 못 물어본 실패(타임아웃·네트워크·키)와 갈라야
+  // 부르는 쪽이 "없다"고 단정할지 입을 다물지 정할 수 있다 (Suggested 주석)
+): Promise<{ places: Place[] } | { error: string; 없음?: true }> {
   const key = process.env.KAKAO_REST_API_KEY;
   if (!key) return { error: "장소 검색 키(KAKAO_REST_API_KEY)가 설정되지 않았습니다" };
 
@@ -117,7 +147,10 @@ export async function searchPlaces(query: string, size = 10): Promise<{ places: 
     const docs = (await res.json()).documents ?? [];
     // 입력을 의심하는 건 여기 하나뿐이다 — 검색은 됐는데 제주 안에 그 이름이 없는 경우다
     if (!docs.length)
-      return { error: `"${query}"의 위치를 제주에서 찾지 못했습니다. 정확한 장소명이나 주소로 다시 입력해주세요.` };
+      return {
+        error: `"${query}"의 위치를 제주에서 찾지 못했습니다. 정확한 장소명이나 주소로 다시 입력해주세요.`,
+        없음: true,
+      };
 
     return { places: docs.map(toPlace) };
   } catch {

@@ -9,10 +9,11 @@
 // 둘을 같이 띄우지 않는 이유는 자리가 아니라 뜻이다 — 후보가 떠 있는 동안 최근 검색어는
 // 지금 적고 있는 것과 상관없는 목록이라 손이 잘못 간다 (/destination 과 같은 규칙).
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Place } from "@/lib/geocode";
 import { loadRecent, removeRecent } from "@/lib/recent";
 import { findPlace, suggestPlaces } from "../destination/actions";
+import { 이어친목록 } from "@/lib/geocode";
 
 /** 타이핑이 멎고 나서 후보를 부르기까지 (/destination 과 같은 값) */
 const TYPING_MS = 250;
@@ -33,6 +34,14 @@ export default function PlaceSearch({
    * (/destination 과 같은 규칙·같은 이유).
    */
   const [찾은말, set찾은말] = useState<string | null>(null);
+  /**
+   * 그 검색어를 **물어보기는 했나**. false 면 목록이 빈 이유가 "제주에 없어서"가 아니라
+   * 카카오에 못 물어봐서다 (타임아웃·네트워크·키). 없다고 단정하면 안 되는 자리다
+   * (app/destination/actions.ts suggestPlaces).
+   */
+  const [물어봤나, set물어봤나] = useState(true);
+  /** 마지막으로 결과가 나온 검색어와 그 목록. 치는 중에 붙들 근거다 (lib/geocode.ts 이어친목록) */
+  const 앞결과 = useRef<{ 말: string; 목록: Place[] }>({ 말: "", 목록: [] });
 
   useEffect(() => setRecent(loadRecent()), []);
 
@@ -43,6 +52,7 @@ export default function PlaceSearch({
   useEffect(() => {
     if (!text.trim()) {
       set찾은말(null);
+      앞결과.current = { 말: "", 목록: [] };
       return setFound([]);
     }
 
@@ -51,7 +61,10 @@ export default function PlaceSearch({
     const timer = setTimeout(() => {
       suggestPlaces(text).then((r) => {
         if (!alive) return;
-        setFound(r);
+        const 목록 = r.places.length ? r.places : 이어친목록(앞결과.current, text);
+        if (목록.length) 앞결과.current = { 말: text, 목록 };
+        setFound(목록);
+        set물어봤나(r.물어봤나);
         set찾은말(text);
       });
     }, TYPING_MS);
@@ -103,11 +116,25 @@ export default function PlaceSearch({
             ))}
           </ul>
         ) : 찾은말 === text ? (
-          <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
-            &lsquo;{text}&rsquo;은(는) 제주에서 못 찾았어요.
-            <br />
-            다른 이름이나 주소로 찾아보세요.
-          </p>
+          /* 물어본 끝에 없는 것과, 못 물어본 것. 뒤엣것에 "없어요"를 붙이면 앱이 거짓말을 한다 */
+          물어봤나 ? (
+            /*
+              **"제주에 없다"고는 안 한다.** 카카오가 0을 준 건 "이 조각으로는 못 맞췄다"까지고,
+              실제로 "스타벅"은 0인데 "스타벅스"는 세 곳이 나온다. 알 수 없는 것을 단정하지 않는다
+              (엔터로 확정할 때는 findPlace 가 사유를 말한다 — 거긴 다 친 뒤라 단정해도 된다).
+            */
+            <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+              &lsquo;{text}&rsquo;로는 못 찾았어요.
+              <br />
+              이름을 조금 더 적어보세요.
+            </p>
+          ) : (
+            <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+              지금은 장소를 찾아볼 수 없어요.
+              <br />
+              잠시 뒤에 다시 쳐보세요.
+            </p>
+          )
         ) : (
           <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
         )

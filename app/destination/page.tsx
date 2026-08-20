@@ -12,7 +12,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
-import type { Place } from "@/lib/geocode";
+import { 이어친목록, type Place } from "@/lib/geocode";
 import { addRecent, loadRecent, removeRecent } from "@/lib/recent";
 import { findPlace, findPostal, recommendSpots, suggestPlaces } from "./actions";
 
@@ -79,6 +79,14 @@ function Destination() {
    * 이 화면의 첫 번째 일이 목적지 찾기라, 그 실패가 침묵이면 안 된다.
    */
   const [찾은말, set찾은말] = useState<string | null>(null);
+  /**
+   * 그 검색어를 **물어보기는 했나**. false 면 목록이 빈 이유가 "제주에 없어서"가 아니라
+   * 카카오에 못 물어봐서다 (타임아웃·네트워크·키). 없다고 단정하면 안 되는 자리다
+   * (./actions.ts suggestPlaces).
+   */
+  const [물어봤나, set물어봤나] = useState(true);
+  /** 마지막으로 결과가 나온 검색어와 그 목록. 치는 중에 붙들 근거다 (lib/geocode.ts 이어친목록) */
+  const 앞결과 = useRef<{ 말: string; 목록: Place[] }>({ 말: "", 목록: [] });
   /** 아직 아무것도 안 적었을 때 띄우는 추천 장소 이름 (./actions.ts recommendSpots). */
   const [spots, setSpots] = useState<string[]>([]);
   /*
@@ -200,6 +208,7 @@ function Destination() {
   useEffect(() => {
     if (!searching || !text.trim()) {
       set찾은말(null);
+      앞결과.current = { 말: "", 목록: [] };
       return setSuggest([]);
     }
 
@@ -209,7 +218,10 @@ function Destination() {
     const timer = setTimeout(() => {
       suggestPlaces(text).then((found) => {
         if (!alive) return;
-        setSuggest(found);
+        const 목록 = found.places.length ? found.places : 이어친목록(앞결과.current, text);
+        if (목록.length) 앞결과.current = { 말: text, 목록 };
+        setSuggest(목록);
+        set물어봤나(found.물어봤나);
         set찾은말(text);
       });
     }, TYPING_MS);
@@ -679,12 +691,29 @@ function Destination() {
                     ))}
                   </ul>
                 ) : 찾은말 === text ? (
-                  /* 찾아봤는데 없다. 무엇을 하면 되는지까지 적는다 — "없음"만으로는 다음 손이 안 움직인다 */
-                  <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
-                    &lsquo;{text}&rsquo;은(는) 제주에서 못 찾았어요.
-                    <br />
-                    다른 이름이나 주소로 찾아보세요.
-                  </p>
+                  /*
+                    찾아봤는데 없다. 무엇을 하면 되는지까지 적는다 — "없음"만으로는 다음 손이 안 움직인다.
+                    **못 물어본 경우는 갈라 말한다**: 네트워크가 죽었을 뿐인데 "그런 곳 없어요"라고
+                    단정하면 앱이 거짓말을 한다 (./actions.ts suggestPlaces).
+                  */
+                  물어봤나 ? (
+                    /*
+                      **"제주에 없다"고는 안 한다.** 카카오가 0을 준 건 "이 조각으로는 못 맞췄다"까지고,
+                      실제로 "스타벅"은 0인데 "스타벅스"는 세 곳이 나온다. 엔터로 확정할 때만(findPlace)
+                      사유를 단정한다 — 거긴 다 친 뒤다.
+                    */
+                    <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+                      &lsquo;{text}&rsquo;로는 못 찾았어요.
+                      <br />
+                      이름을 조금 더 적어보세요.
+                    </p>
+                  ) : (
+                    <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+                      지금은 장소를 찾아볼 수 없어요.
+                      <br />
+                      잠시 뒤에 다시 쳐보세요.
+                    </p>
+                  )
                 ) : (
                   <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
                 )
