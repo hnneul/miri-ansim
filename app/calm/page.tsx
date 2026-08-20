@@ -104,10 +104,18 @@ function Calm() {
         <h2 className="text-[23px] leading-8 font-bold text-[#262626]">
           지금 <span className="text-[#ff7d32]">연습하기 좋은</span> 길
         </h2>
+        {/*
+          세 갈래다 — 기다리는 중 / 받았음 / 못 받았음.
+          전에는 둘뿐이라 **실패한 뒤에도 "확인하고 있어요"가 남았다.** 아래 빈 화면은 이미
+          "받아오지 못했어요"라고 말하고 있어서, 한 화면이 위에서는 진행 중이라 하고
+          가운데서는 실패라고 하는 상태가 됐다. near 가 왔는데 at 이 비면 그건 실패다.
+        */}
         <p className="mt-3 text-[14px] leading-[21px] text-[#7d7d7d]">
-          {near?.at
-            ? `${내위치 ? "내 주변" : "제주시청 주변"} 5km · ${near.at} 기준`
-            : "지금 도로 상황을 확인하고 있어요."}
+          {near == null
+            ? "지금 도로 상황을 확인하고 있어요."
+            : near.at
+              ? `${내위치 ? "내 주변" : "제주시청 주변"} 5km · ${near.at} 기준`
+              : "지금 도로 상황을 받지 못했어요."}
         </p>
       </div>
 
@@ -252,7 +260,8 @@ function Skeleton() {
 function Empty({ 실시간 }: { 실시간: boolean }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <p className="text-[15px] leading-[22px] text-[#7d7d7d]">
+      {/* break-keep — 375px 에서 "없어 / 요." 로 어절 한복판이 끊겼다 (실측) */}
+      <p className="break-keep text-[15px] leading-[22px] text-[#7d7d7d]">
         {실시간 ? (
           <>
             주변 5km 안에 지금 연습할 만한 길이 없어요.

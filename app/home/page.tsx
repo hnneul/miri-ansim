@@ -287,7 +287,19 @@ function Home() {
 
         운전 TIP 은 팁 화면이 생기면 quick-tip.png 로 되돌리면 된다.
       */}
-      <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
+      {/*
+        칸이 넷에서 다섯이 됐다 (차 없는 길이 들어왔다) — **한 줄에서 두 줄 격자로 바꾼다.**
+
+        가로 스크롤로 먼저 해봤는데 못 쓴다. 375px 에서 넷째 칸이 365 에서 끝나 다섯째가
+        정확히 화면 밖에서 시작한다 — 걸쳐 보이는 게 1px 도 없어서 옆에 더 있다는 걸 알 방법이
+        없었다. 못 찾는 문은 없는 문과 같고, 그건 이 칸을 만든 이유(app/calm 입구가 없던 것)와
+        똑같은 잘못이다.
+
+        3열이면 칸이 103px 로 넓어져 "대표 관광지" 여섯 글자가 넉넉히 들어가고, 다섯 개가
+        3 + 2 로 앉는다. 마지막 줄 오른쪽이 비는 건 격자에서 흔한 모양이라 어색하지 않다.
+        높이가 두 배가 되지만 이 화면은 원래 스크롤된다 (파일 첫 주석).
+      */}
+      <div className="mt-[10px] grid shrink-0 grid-cols-3 gap-[10px] px-[23px]">
         {/*
           href 를 다시 붙였다. 뗐던 이유는 카카오 길찾기 쿼터였는데(후보 열 곳까지 각각 조회 —
           lib/spots.ts BANDS 2+4+4 로 화면 한 번에 10건), 이 칸이 /nearby 로 가는 유일한 문이라
@@ -331,6 +343,21 @@ function Home() {
           label="여행 코스"
           sub="AI 맞춤 추천"
           href={`/trip?${searchParams}`}
+        />
+        {/*
+          **차 없는 길로 들어가는 유일한 문이다.** 그 화면(app/calm)은 첫 줄에
+          "메인화면 '차 없는 길' 칸으로 들어온다"고 적혀 있는데 정작 그 칸이 없어서,
+          272줄짜리 화면과 lib/practice.ts 가 통째로 주소를 직접 쳐야만 열렸다.
+
+          아이콘은 혼잡도 시절의 사람 셋(quick-traffic.png)을 되살려 쓴다 — 이 칸이 세는 게
+          "지금 그 길에 차가 얼마나 있나" 라서 라벨과 같은 말을 한다. 새 그림을 만들 이유가 없다.
+        */}
+        <Quick
+          icon="/home/quick-traffic.png"
+          iconClass="size-[34px]"
+          label="차 없는 길"
+          sub="지금 연습하기"
+          href={`/calm?${searchParams}`}
         />
       </div>
 
@@ -380,7 +407,8 @@ function Quick({
   sub: string;
   href?: string;
 }) {
-  const box = "flex h-[96px] w-[78px] shrink-0 flex-col items-center rounded-[16px] border border-[#e5e0db] bg-white pt-[6px]";
+  // 폭은 격자가 정한다 (w-full) — 78px 로 박아 두면 3열 칸 안에서 혼자 좁아 왼쪽으로 쏠린다
+  const box = "flex h-[96px] w-full shrink-0 flex-col items-center rounded-[16px] border border-[#e5e0db] bg-white pt-[6px]";
   const inner = (
     <>
       {/* 39px 짜리는 이 띠를 살짝 넘는다 — 와이어프레임에서도 아이콘이 글자 위로 조금 겹친다 */}
