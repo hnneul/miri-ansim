@@ -24,6 +24,7 @@ import RouteMap, { type LatLng } from "../RouteMap";
 import { characterOf, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
 import { dotted, loadPhotos, loadRecords, type TripRecord } from "@/lib/record";
 import { me } from "@/lib/me";
+import { APP_FOOTER } from "@/lib/version";
 import { hereNow } from "./actions";
 
 /** 위치를 못 받았을 때 지도가 보는 곳. 제주시청이다 — 섬 한복판(한라산)보다 사람이 있는 자리다. */
@@ -341,12 +342,13 @@ function Home() {
       */}
       <div className="mt-[14px] flex shrink-0 flex-col gap-[10px] px-[21px]">
         {records.slice(0, 2).map((r) => (
-          /* 카드를 누르면 **그 기록의 상세**로 (open=<id>). ＋ 칸만 목록으로 간다 */
+          /* 카드를 누르면 **그 기록의 상세**로 (open=<id>). ＋ 칸은 바로 쓰는 화면으로 */
           <Record key={r.id} record={r} href={`/trip/record?${searchParams}&open=${r.id}`} />
         ))}
+        {/* ＋ 는 "쓴다"는 표시다 — 목록으로 보내면 한 번 더 누르게 된다 (write=1, app/trip/record) */}
         <Link
-          href={`/trip/record?${searchParams}`}
-          aria-label="여행 기록 보기"
+          href={`/trip/record?${searchParams}&write=1`}
+          aria-label="여행 기록하기"
           className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0] transition hover:bg-[#e5e5e5] active:scale-[0.99]"
         >
           <img src="/home/icon-add.svg" alt="" className="size-[40px]" />
@@ -354,7 +356,7 @@ function Home() {
       </div>
 
       <p className="mt-[17px] shrink-0 text-center text-[11px] leading-none font-medium text-[#616161]">
-        미리 안심 · 앱 버전 1.0.0
+        {APP_FOOTER}
       </p>
     </div>
   );
