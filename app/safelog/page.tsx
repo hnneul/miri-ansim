@@ -533,13 +533,13 @@ function RouteCard({
         /*
           펼친 카드의 버튼 줄.
 
-          **폭·색은 와이어프레임(3713:2556) 그대로다** — 자세히 102, 사이 19, 흰 알약은 #cacaca
-          1.5px 테두리에 #aaa 글자. 높이 40 과 알약 모양은 목적지·주차장 화면의
-          "자세히 · 여기로 갈게요" 짝과 같다 (app/parking/page.tsx).
+          **폭은 와이어프레임(3713:2556) 그대로다** — 자세히 102, 사이 19. 높이 40 과 알약 모양은
+          목적지·주차장 화면의 "자세히 · 여기로 갈게요" 짝과 같다 (app/parking/page.tsx).
 
-          그 짝과 완전히 같지는 않다는 뜻이기도 하다 — 저쪽은 테두리 #e5e5e5 에 검은 글자,
-          자세히 폭이 글자만큼이다. 같은 성격의 버튼이 화면마다 조금 다르게 생기는 셈이라,
-          한쪽으로 통일할 거면 이 카드가 아니라 둘 중 하나를 골라 양쪽을 같이 고쳐야 한다.
+          **색은 와이어프레임을 안 따른다.** 거기 값(#cacaca 1.5px 테두리 + #aaa 글자)은 흰 바탕에서
+          2.3:1 이라, 누를 수 있는 버튼이 꺼진 것처럼 보였다 — 옆에 주황 버튼이 서 있으니 더 그렇다.
+          앱의 흰 알약은 이미 #e5e5e5 테두리 + #1f1f1f 글자로 네 곳(목적지·주차장 둘·온보딩)에
+          같이 서 있고, 여기만 혼자 달랐다. 그쪽으로 맞춘다 — 폭은 이 화면 값을 지킨다.
 
           이미 나만의 길이면 담을 것이 없어 "자세히" 하나만 남고, 그때는 폭을 다 쓴다 —
           담긴 것과 안 담긴 것은 배지 색이 이미 갈라주고 있어서 빈 칸까지 남길 이유가 없다.
@@ -548,7 +548,7 @@ function RouteCard({
           {!route.mine && (
             <button
               onClick={onDetail}
-              className="h-10 w-[102px] shrink-0 rounded-full border-[1.5px] border-[#cacaca] bg-white text-[14px] leading-[22px] font-bold text-[#aaa] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
+              className="h-10 w-[102px] shrink-0 rounded-full border border-[#e5e5e5] bg-white text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
             >
               자세히
             </button>
