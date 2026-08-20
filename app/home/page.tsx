@@ -19,6 +19,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
+import DemoNotice from "../DemoNotice";
 import RouteMap, { type LatLng } from "../RouteMap";
 import { characterOf, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
 import { dotted, loadPhotos, loadRecords, type TripRecord } from "@/lib/record";
@@ -250,18 +251,7 @@ function Home() {
           </span>
         </div>
 
-        {/*
-          시연 안내. 위치를 공항으로 박아 두면 화면은 아무 티도 안 내므로(GPS 가 성공한 것처럼
-          보인다) 보는 사람이 오해한다 — 서울에서 여는데 제주가 뜨니 더 그렇다. 밝히고 간다.
-
-          같은 env 로 켜고 끈다 (app/DemoLocation.tsx). 시연이 끝나 값을 비우면 이 줄도 같이
-          사라지므로, 지우는 걸 잊어서 실사용 화면에 안내가 남는 일이 없다.
-        */}
-        {process.env.NEXT_PUBLIC_DEMO_HERE && (
-          <p className="border-t border-[#ededed] bg-[#fff0e6] py-[9px] text-center text-[11px] leading-none text-[#8a5a3b]">
-            시연을 위해 현재 위치를 제주국제공항으로 고정해 두었습니다
-          </p>
-        )}
+        <DemoNotice />
       </div>
 
       <h2 className="mt-[13px] shrink-0 pl-[23px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">

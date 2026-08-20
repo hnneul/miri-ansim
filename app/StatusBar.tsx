@@ -16,7 +16,11 @@ export default function StatusBar({ tone }: { tone: string }) {
     // pt/pb 가 아일랜드 자리를 만든다. pt-[18px]+leading-[22px] 로 시각의 세로 중심이 29 —
     // 아일랜드 중심(11+37/2 = 29.5)과 맞는다. 아래 pb 까지 더한 59 는 실제 아이폰의
     // safe area top 과 같은 값이라, 이 아래로는 어느 화면이 와도 아일랜드를 안 건드린다.
-    <div className={`flex shrink-0 items-center justify-between pt-[18px] pb-[19px] ${tone}`}>
+    // **진짜 폰(<480px)에서는 통째로 접는다.** 위에 제 살 붙은 상태바가 이미 있어서 시각이
+    // 둘로 보이고, 여기 잡아둔 59(safe area top)도 그 자리에 이미 있는 여백과 겹쳐 두 번 빈다.
+    // 다이내믹 아일랜드 목업(globals.css .phone::before)이 이미 같은 규칙으로 꺼진다 — 거기 주석이
+    // "진짜 폰에는 제 살 붙은 아일랜드가 있으니 이 블록째 꺼진다"고 적어둔 그 규칙이다.
+    <div className={`hidden shrink-0 items-center justify-between pt-[18px] pb-[19px] min-[480px]:flex ${tone}`}>
       <span className="w-[133px] text-center text-[17px] leading-[22px] font-semibold">9:41</span>
       {/* 신호·와이파이·배터리. 와이어프레임은 ● ◒ ▮ 문자로 자리만 잡아뒀던 곳이다 */}
       <span aria-hidden className="flex w-[133px] items-center justify-center gap-[5px]">

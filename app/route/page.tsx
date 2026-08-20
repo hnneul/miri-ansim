@@ -16,6 +16,7 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
+import DemoNotice from "../DemoNotice";
 import RouteMap, { labeledPin, type LatLng } from "../RouteMap";
 import { parseProfile } from "@/lib/profile";
 import { navigateTo } from "@/lib/parking";
@@ -547,6 +548,7 @@ function Route() {
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-white">
       <StatusBar tone="text-[#525252]" />
+      <DemoNotice />
 
       {view === "why" ? (
         /*

@@ -16,6 +16,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
+import DemoNotice from "../DemoNotice";
 import { loadSdk, type LatLng } from "../RouteMap";
 import { findPlace } from "../destination/actions";
 import { tamnaAround, type Around as Nearby } from "./actions";
@@ -300,6 +301,7 @@ function Around() {
         */}
         <div className="pointer-events-auto bg-white">
           <StatusBar tone="text-[#525252]" />
+          <DemoNotice />
         </div>
 
         {/*

@@ -26,6 +26,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
+import DemoNotice from "../DemoNotice";
 import RouteMap, { type LatLng, type MapRoute } from "../RouteMap";
 import { calmNear, type CalmNear } from "./actions";
 import { LEVEL_HINT, LEVEL_LABEL, type Segment } from "@/lib/practice";
@@ -88,6 +89,7 @@ function Calm() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-white">
       <StatusBar tone="text-[#262626]" />
+      <DemoNotice />
 
       <div className="flex shrink-0 items-center px-[13px]">
         <button
