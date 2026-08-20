@@ -345,6 +345,10 @@ function Header({ onBack }: { onBack: () => void }) {
 /**
  * 탭 하나. 바탕은 위 알약과 미끄러지는 덩어리가 다 그리고, 여기는 글자와 누를 자리만 맡는다.
  * 둘 다 92px 이라 글자 길이와 상관없이 가운데가 맞는다.
+ *
+ * **글자색은 발밑 바탕을 따라간다.** 둘 다 흰색이던 때는 안 고른 쪽이 옅은 살구(#ffcfbc) 위에
+ * 흰 글자라 대비가 1.4:1 이었다 — 밝은 데서는 탭이 하나만 있는 것처럼 보인다.
+ * 안 고른 쪽만 진한 갈주황으로 내리면 4.8:1 이 된다. 고른 쪽은 주황 덩어리 위라 흰색 그대로다.
  */
 function Tab({
   label,
@@ -362,7 +366,9 @@ function Tab({
       onClick={onClick}
       aria-pressed={on}
       style={{ left }}
-      className="absolute top-0 z-10 h-[34px] w-[92px] text-[11px] leading-none font-medium text-white"
+      className={`absolute top-0 z-10 h-[34px] w-[92px] text-[11px] leading-none font-medium ${
+        on ? "text-white" : "text-[#8a4a25]"
+      }`}
     >
       {label}
     </button>
