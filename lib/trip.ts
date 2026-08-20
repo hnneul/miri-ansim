@@ -393,6 +393,25 @@ export function mustLabel(plan: TripPlan): string | null {
 export const isReady = (plan: TripPlan) =>
   nightsOf(plan.start, plan.end) !== null && plan.origin !== "" && plan.companion !== null;
 
+/**
+ * "다음"이 왜 잠겼는지 한 줄. 다 채웠으면 null 이다.
+ *
+ * **먼저 비어 있는 하나만 집는다.** 셋을 다 늘어놓으면 목록이 되고, 목록은 안 읽힌다 —
+ * 카드마다 이미 "날짜를 골라주세요"가 회색으로 있는데 그건 *채우라*는 말이지
+ * *버튼이 왜 잠겼는지*를 말하는 자리가 아니다. 하나를 채우면 다음 하나로 문장이 넘어간다.
+ *
+ * **isReady 와 같은 조건·같은 순서**로 적는다. 둘이 어긋나면 "다 채웠는데 안 열린다"가 되므로
+ * 여기 바로 옆에 둔다 — 조건을 고칠 때 이 함수가 눈에 같이 들어와야 한다.
+ */
+export const 모자란것 = (plan: TripPlan): string | null =>
+  nightsOf(plan.start, plan.end) === null
+    ? "여행 기간을 고르면 다음으로 갈 수 있어요"
+    : plan.companion === null
+      ? "동행을 고르면 다음으로 갈 수 있어요"
+      : plan.origin === ""
+        ? "출발 위치를 고르면 다음으로 갈 수 있어요"
+        : null;
+
 /** ?key=value 에서 같은 키가 여러 번 오면 첫 값 (lib/profile.ts 와 같은 규칙) */
 const oneOf = (sp: Record<string, string | string[] | undefined>, k: string) =>
   Array.isArray(sp[k]) ? sp[k][0] : sp[k];
