@@ -26,6 +26,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../../StatusBar";
 import Confirm from "../../Confirm";
 import { me } from "@/lib/me";
+import { loadCourses } from "@/lib/courses";
 import {
   BODY_MAX,
   EPISODE_MAX,
@@ -355,8 +356,25 @@ function Write({
    */
   const [알림, set알림] = useState<{ title: string; body: string; onClose?: () => void } | null>(null);
 
-  /** 지난 여행 — 지금 고른 코스와 방금 다녀온 코스는 위에 이미 있으므로 뺀다 */
-  const past = records
+  /**
+   * 받아 둔 코스. localStorage 라 서버 렌더에는 없다 — 처음 그릴 때 빈 목록으로 두고
+   * 붙은 뒤에 채운다 (lib/courses.ts).
+   */
+  const [받은코스, set받은코스] = useState<CourseSummary[]>([]);
+  useEffect(() => set받은코스(loadCourses()), []);
+
+  /**
+   * 지난 여행 — 지금 고른 코스와 방금 다녀온 코스는 위에 이미 있으므로 뺀다.
+   *
+   * **기록만 보지 않는다.** 예전에는 저장된 기록에서만 코스를 뽑아서, 기록 하나를 지우면
+   * 받아 둔 코스까지 목록에서 사라졌다. 받은 코스(lib/courses.ts)를 같이 놓고 이름으로
+   * 한 벌만 남긴다 — 기록 쪽을 앞에 두어 실제로 다녀온 값(places)이 이긴다.
+   */
+  const past = [
+    ...records.map((r) => ({ key: `r${r.id}`, course: r.course, route: r.route, places: r.places })),
+    // 받기만 한 코스는 방문 장소가 아직 없다. 기록을 처음 열 때와 같은 규칙으로 만든다 (route 의 첫 칸은 출발지)
+    ...받은코스.map((c) => ({ key: `c${c.course}`, course: c.course, route: c.route, places: c.route.slice(1) })),
+  ]
     .filter((r) => r.course !== summary?.course)
     .filter((r, i, all) => all.findIndex((o) => o.course === r.course) === i)
     .slice(0, PAST_MAX);
@@ -571,7 +589,7 @@ function Write({
                   <MenuLabel text="지난 여행" right={summary ? null : goTrip} top={!!summary} />
                   {past.map((r) => (
                     <Option
-                      key={r.id}
+                      key={r.key}
                       on={course === r.course}
                       title={r.course}
                       meta={r.route.join(" → ")}

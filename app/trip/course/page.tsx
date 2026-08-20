@@ -21,6 +21,7 @@ import { navigateTo } from "@/lib/parking";
 import { courseMeta, driveNote, hourMin, type Course } from "@/lib/course";
 import type { Stop } from "@/lib/course";
 import { homeQuery, summaryOf, toRecordQuery } from "@/lib/record";
+import { rememberCourse } from "@/lib/courses";
 import { nightsOf, queryRecord, TRIP_KEYS, type TripPlan } from "@/lib/trip";
 import { makeCourses, type Made } from "./actions";
 
@@ -146,7 +147,12 @@ function CourseResult() {
       onHome={() => router.push(`/home?${homeQuery(나가는쿼리())}`)}
       // 여행 기록(TRIP-08~09)으로 넘어가는 유일한 문이다. 코스 전체가 아니라 요약만 쿼리로 넘긴다
       // — 기록에 필요한 건 이름 몇 개와 거리뿐이다 (lib/record.ts 첫 주석).
-      onDone={(c) => router.push(`/trip/record?${toRecordQuery(summaryOf(c, made.plan.origin), 나가는쿼리())}`)}
+      onDone={(c) => {
+        const 요약 = summaryOf(c, made.plan.origin);
+        // 기록을 지워도 받아 둔 코스는 남아야 한다 (lib/courses.ts 첫 주석)
+        rememberCourse(요약);
+        router.push(`/trip/record?${toRecordQuery(요약, 나가는쿼리())}`);
+      }}
     />
   );
 }
@@ -376,6 +382,8 @@ function Recommend({
     if (!stops?.length || !plan.originAt) return;
     set넘김(true);
     set다녀옴(true);
+    // 길 안내로 나가는 쪽도 같이 기억한다 — 다녀와서 기록할 때 이 코스를 다시 골라야 한다
+    rememberCourse(summaryOf(course, plan.origin));
     navigateTo(
       { name: stops[stops.length - 1].name, at: stops[stops.length - 1].at },
       {
