@@ -172,6 +172,29 @@ function Route() {
     );
   }, [origin]);
 
+  /**
+   * 출발지 동네 이름 ("제주시 용담이동"). 검색해서 온 사람은 쿼리에 있고, 현위치에서 바로 길을
+   * 본 사람은 없어서 좌표로 물어야 한다 — 그걸 **미리** 받아 둔다.
+   *
+   * 담기(주행 저장) 안에서 물으면 저장이 통째로 날아간다: 그 자리는 내비를 여는 순간이라,
+   * 이름을 기다리는 동안 브라우저가 이 문서를 얼려 버린다(폰에서 앱이 앞으로 나오면 그렇다).
+   * 아직 안 나간 요청은 keepalive 도 못 살린다 — 나가지도 못한 요청이라서다.
+   * 데스크톱에서는 탭이 살아 있어 그대로 담겼고, 그래서 폰에서만 안 남았다.
+   */
+  const [originArea, setOriginArea] = useState<string | null>(null);
+  useEffect(() => {
+    if (query.originName || !origin) return;
+    let 살아있다 = true;
+    areaOf(...origin).then((name) => {
+      if (살아있다) setOriginArea(name);
+    });
+    return () => {
+      살아있다 = false;
+    };
+    // origin 은 매 렌더 새 배열이라 좌표 두 값으로 건다 (아래 load 와 같은 이유·같은 모양)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin?.[0], origin?.[1], query.originName]);
+
   const load = useCallback(async () => {
     if (!origin || !dest) return;
     setResult(null);
@@ -421,18 +444,20 @@ function Route() {
    * 점수·거리·시간·위험요인은 **이 화면이 이미 계산해 둔 값 그대로**다. 주행 저장이 따로
    * 매기지 않는다 — 한 주행이 두 화면에서 다른 점수로 보이면 안 된다.
    */
-  async function 담기(picked: LiveRoute) {
+  function 담기(picked: LiveRoute) {
     // result 는 실패 사유일 수도 있는 합집합이라 화면 다른 곳과 같은 방식으로 좁힌다
     if (!result || "error" in result) return;
 
     /*
      * 출발지 이름. 검색해서 온 사람은 쿼리에 실려 있지만, 현위치에서 바로 길을 본 사람은 없다 —
      * 그때 "출발지 → 서귀포매일올레시장"으로 담기면 목록에서 어디서 떠났는지 알 수 없다.
-     * 좌표를 동네 이름으로 바꿔 쓴다 (areaOf). 못 받으면 "현재 위치"로 떨어뜨린다 —
-     * 이 화면 출발지 칸이 쓰는 말과 같아서, 사람이 본 것과 담긴 것이 어긋나지 않는다.
+     * 그래서 동네 이름을 위에서 미리 받아 둔다 (originArea). 못 받았으면 "현재 위치"로
+     * 떨어뜨린다 — 이 화면 출발지 칸이 쓰는 말과 같아서, 사람이 본 것과 담긴 것이 어긋나지 않는다.
+     *
+     * **여기서 기다리는 게 하나도 없어야 한다.** 이 함수가 첫 await 를 만나면 그 뒤는 내비가
+     * 열린 다음이고, 폰에서는 그 다음이 오지 않는다 (originArea 주석).
      */
-    const 출발 =
-      query.originName ?? (origin ? ((await areaOf(...origin)) ?? "현재 위치") : "현재 위치");
+    const 출발 = query.originName ?? originArea ?? "현재 위치";
     const 점수 = picked.id === "fast" ? result.score.fastScore : result.score.safeScore;
     const 최단 = Math.min(...routes.map((r) => r.durationMin));
     const drive: SafeDrive = {
@@ -485,10 +510,10 @@ function Route() {
   function go() {
     if (!chosen || !dest) return;
     /*
-     * 담기는 기다리지 않는다 — 지명을 받아오느라 내비가 늦게 열리면 안 된다.
-     * 대신 saveDrive 가 keepalive 로 나가서, 이 문서를 떠난 뒤에도 요청이 끊기지 않는다.
+     * 내비를 열기 **전에** 담는다. 담기 안에는 기다리는 곳이 없어서 요청이 이 줄에서 곧장
+     * 나가고, keepalive 가 그 뒤를 맡는다 — 문서를 떠난 뒤에도 요청이 끊기지 않는다.
      */
-    void 담기(chosen);
+    담기(chosen);
     const other = routes.find((r) => r.id !== chosen.id);
     navigateTo(
       { name: to, at: dest },
