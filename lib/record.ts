@@ -109,6 +109,23 @@ export function summaryOf(course: Course, origin: string): CourseSummary {
  */
 export const RECORD_KEYS = ["c", "d", "km", "r"] as const;
 
+/**
+ * 홈으로 나갈 때 쓰는 쿼리. **기록 흐름의 값을 여기서 끊는다.**
+ *
+ * 끊는 건 RECORD_KEYS 만이 아니다 — `draft`(이어 쓰던 초안 id)·`write`·`back` 도 같이 뺀다.
+ * 초안 id 가 홈까지 따라가면 "여행 기록 ＋" 가 목록 대신 **그 초안을 편다**. 코스 요약보다
+ * 이쪽이 더 헷갈린다: 새로 쓰려고 눌렀는데 전에 쓰다 만 글이 올라온다.
+ *
+ * 부르는 곳은 **홈으로 나가는 문 전부**다 (app/trip/record·app/trip·app/trip/course).
+ * 한 곳만 끊으면 나머지 문으로 새 나가는데, 홈 URL 은 다음 화면으로 그대로 실려 다녀서
+ * 어느 문으로 나왔는지가 몇 화면 뒤의 ＋ 동작을 바꾼다.
+ */
+export function homeQuery(keep: URLSearchParams | string): URLSearchParams {
+  const q = new URLSearchParams(keep);
+  for (const k of [...RECORD_KEYS, "write", "draft", "back"]) q.delete(k);
+  return q;
+}
+
 export function toRecordQuery(s: CourseSummary, keep?: URLSearchParams | string): string {
   const q = new URLSearchParams(keep);
   q.set("c", s.course);

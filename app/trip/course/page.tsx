@@ -20,7 +20,7 @@ import RouteMap, { labeledPin, type LatLng, type MapMarker, type MapRoute } from
 import { navigateTo } from "@/lib/parking";
 import { courseMeta, driveNote, hourMin, type Course } from "@/lib/course";
 import type { Stop } from "@/lib/course";
-import { summaryOf, toRecordQuery } from "@/lib/record";
+import { homeQuery, summaryOf, toRecordQuery } from "@/lib/record";
 import { nightsOf, queryRecord, TRIP_KEYS, type TripPlan } from "@/lib/trip";
 import { makeCourses, type Made } from "./actions";
 
@@ -109,7 +109,7 @@ function CourseResult() {
         */}
         <div className="flex h-11 shrink-0 items-center justify-end pr-[19px] pl-[15px]">
           <button
-            onClick={() => router.push(`/home?${나가는쿼리()}`)}
+            onClick={() => router.push(`/home?${homeQuery(나가는쿼리())}`)}
             aria-label="메인화면으로"
             className="flex size-11 items-center justify-center transition hover:opacity-40 active:scale-90"
           >
@@ -143,7 +143,7 @@ function CourseResult() {
         방금 나온 코스 화면으로 되돌아간다. 갈아끼우면 뒤로가기가 원래 자리로 간다.
       */
       onBack={() => router.replace(`/trip?${searchParams}&resume=1`)}
-      onHome={() => router.push(`/home?${나가는쿼리()}`)}
+      onHome={() => router.push(`/home?${homeQuery(나가는쿼리())}`)}
       // 여행 기록(TRIP-08~09)으로 넘어가는 유일한 문이다. 코스 전체가 아니라 요약만 쿼리로 넘긴다
       // — 기록에 필요한 건 이름 몇 개와 거리뿐이다 (lib/record.ts 첫 주석).
       onDone={(c) => router.push(`/trip/record?${toRecordQuery(summaryOf(c, made.plan.origin), 나가는쿼리())}`)}

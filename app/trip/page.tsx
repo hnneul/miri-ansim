@@ -40,6 +40,7 @@ import {
   dayLabel,
   driveLabel,
   isReady,
+  모자란것,
   monthGrid,
   DEFAULT_TRIP,
   parseTrip,
@@ -52,7 +53,7 @@ import {
   type Companion,
   type TripPlan,
 } from "@/lib/trip";
-import { isoToday } from "@/lib/record";
+import { homeQuery, isoToday } from "@/lib/record";
 
 /** 타이핑이 멎고 나서 후보를 부르기까지 (app/destination/page.tsx 와 같은 값·같은 이유) */
 const TYPING_MS = 250;
@@ -180,7 +181,11 @@ function Trip() {
     // 기록 화면에서 "여행 하러 가기"로 왔으면 **쓰던 자리로** 되돌린다 (write=1 이 작성 화면을 편다).
     // 잘못 눌렀을 때 홈까지 밀려나거나 목록으로 떨어지면 쓰던 글을 다시 찾아 들어가야 한다
     if (from === "record") return router.push(`/trip/record?${carry ? `${carry}&` : ""}write=1`);
-    router.push(`/home${carry ? `?${carry}` : ""}`);
+    // 홈으로 나갈 때는 기록 흐름의 값도 끊는다 — 초안 id 나 코스 요약이 홈 URL 에 눌어붙으면
+    // 홈의 "여행 기록 ＋" 가 목록 대신 쓰다 만 글을 편다 (lib/record.ts homeQuery).
+    // 바로 윗줄은 그 값들이 필요한 길이라 carry 그대로다 — 쓰던 자리로 되돌아가는 문이다.
+    const 홈 = homeQuery(carry);
+    router.push(`/home${[...홈].length ? `?${홈}` : ""}`);
   }
 
   function makeCourse() {
@@ -194,7 +199,7 @@ function Trip() {
 
   if (view === "fields")
     return (
-      <Shell label="다음" onNext={() => setView("taste")} disabled={!isReady(plan)}>
+      <Shell label="다음" onNext={() => setView("taste")} disabled={!isReady(plan)} note={모자란것(plan)}>
         <Back onClick={back} />
         <div className="mt-2 shrink-0">
           <Title lines={["여행의 기본 정보를", "알려주세요"]} subtitle="이동 시간과 쉬는 간격까지 계산할게요." />
@@ -252,8 +257,14 @@ function Shell({
   label: string;
   onNext: () => void;
   disabled?: boolean;
-  /** 버튼 아래 작은 안내. 없으면 그 자리는 여백이다 (통합 화면만 쓴다) */
-  note?: string;
+  /**
+   * 버튼이 잠긴 이유 한 줄. 없으면 그 줄째 빠진다.
+   *
+   * **버튼 위**에 둔다 (아래가 아니라). 아래에 두면 이 줄이 나타났다 사라질 때마다 버튼이
+   * 그만큼 오르내린다 — 마지막 칸을 채우는 순간, 그러니까 사람이 바로 버튼을 누르려는 순간
+   * 버튼이 움직인다. 위에 두면 그 높이를 스크롤 영역(flex-1)이 먹어서 버튼은 제자리에 있는다.
+   */
+  note?: string | null;
 }) {
   return (
     // min-h-0 이 있어야 아래 스크롤 영역이 .phone 높이 안에 갇힌다 — flex 자식의 기본 min-height 는
@@ -262,7 +273,10 @@ function Shell({
       <StatusBar tone="text-[#262626]" />
       <DemoNotice />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
-      {/* 본문과 버튼 사이 20 · 버튼 아래 안내까지 15 — 피그마 세로 좌표(710 → 730 → 793) 그대로 */}
+      {/* 본문과 버튼 사이 20 — 피그마 세로 좌표(710 → 730) 그대로 */}
+      {note && (
+        <p className="mt-4 shrink-0 px-6 text-center text-[12px] leading-[18px] text-[#7d7d7d]">{note}</p>
+      )}
       {/*
         **꺼진 버튼은 주황을 버린다.** 전에는 disabled:opacity-40 하나였는데, 주황(#ff7d32)에
         걸리면 살구색이 되고 글자는 흰색 그대로라 대비가 1.6:1 이었다 — "다음"이 거의 안 읽힌다.
@@ -287,21 +301,19 @@ function Shell({
         {label}
       </button>
       {/*
-        안내 아래 여백만 피그마(33)보다 얇다. 우리 상태바가 59 인데 와이어프레임의 자리표시자는
+        버튼 아래 여백만 피그마(33)보다 얇다. 우리 상태바가 59 인데 와이어프레임의 자리표시자는
         26 이라 세로로 33 이 모자란데(StatusBar.tsx — 다이내믹 아일랜드를 실측으로 피한다),
         글자 사이 간격을 조금씩 줄여 메우면 화면 전체가 원본과 어긋난다. 아무것도 없는 맨 아래에서 뺀다.
+
+        **이 자리는 늘 같은 높이다.** 예전에는 note 가 있으면 이 여백 대신 들어왔는데,
+        그러면 안내가 나타났다 사라질 때마다 위의 버튼이 오르내린다 (note 주석).
+
+        **진짜 폰(<480px)에서는 24 로 줄인다.** 이 67 은 피그마 844 화면의 맨 아래 빈 자리인데,
+        폰 브라우저는 위아래 크롬이 먹어 남는 높이가 훨씬 낮다(아이폰 17 사파리 715, SE 553).
+        아무것도 없는 여백을 그대로 들고 있으면 그만큼 본문이 밀려, TRIP-01 의 말풍선이 잘렸다.
+        상태바(StatusBar.tsx)가 폰에서 59→12 로 접히는 것과 같은 규칙이다.
       */}
-      {note ? (
-        <p className="mt-[15px] shrink-0 pb-2 text-center text-[9px] leading-[18px] text-[#7d7d7d]">{note}</p>
-      ) : (
-        /*
-          **진짜 폰(<480px)에서는 24 로 줄인다.** 이 67 은 피그마 844 화면의 맨 아래 빈 자리인데,
-          폰 브라우저는 위아래 크롬이 먹어 남는 높이가 훨씬 낮다(아이폰 17 사파리 715, SE 553).
-          아무것도 없는 여백을 그대로 들고 있으면 그만큼 본문이 밀려, TRIP-01 의 말풍선이 잘렸다.
-          상태바(StatusBar.tsx)가 폰에서 59→12 로 접히는 것과 같은 규칙이다.
-        */
-        <div className="h-6 shrink-0 min-[480px]:h-[67px]" />
-      )}
+      <div className="h-6 shrink-0 min-[480px]:h-[67px]" />
     </div>
   );
 }
@@ -651,10 +663,18 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
 /* ─────────────────────────────── TRIP-04-A ─────────────────────────────── */
 
 /**
- * 여행 기간. 와이어프레임은 달력을 직접 그렸지만 <input type="date"> 를 쓴다 —
- * 폰에서는 OS 기본 달력이 그대로 뜨고, 직접 그린 그리드가 못 하는 것(다른 달로 넘기기,
- * 키보드 입력, 스크린리더)을 공짜로 얻는다.
- * 도착일에 min 을 걸어 시작보다 앞선 날짜를 아예 못 고르게 한다 (parseTrip 도 같은 값을 막는다).
+ * 여행 기간. **달력을 직접 그린다** (monthGrid 42칸).
+ *
+ * 한때 이 자리에 "<input type=\"date\"> 를 쓴다 — OS 기본 달력이 뜨고 키보드 입력과
+ * 스크린리더를 공짜로 얻는다"고 적혀 있었는데, 코드는 그렇게 간 적이 없다. 네이티브 달력은
+ * **시작~도착 사이를 칠하지 못한다.** 며칠짜리 여행인지가 이 화면이 답할 것 전부라 그 표시를
+ * 잃을 수 없어서 직접 그렸고, 그 대가로 아래 것들을 손으로 만들었다:
+ *   · 다른 달로 넘기기 — "지난 달"·"다음 달" 버튼 (지난 달은 이번 달에서 멈춘다)
+ *   · 스크린리더 — 칸마다 aria-label={dayLabel(date)} 로 날짜를 읽어준다
+ *   · 지난 날짜 막기 — 네이티브의 min 대신 칸을 disabled + 흐리게
+ * 못 얻은 것도 분명하다: **키보드로 날짜를 쳐 넣을 수는 없다.** 눌러서만 고른다.
+ *
+ * 도착일은 시작보다 앞선 날짜를 아예 못 고르게 한다 (parseTrip 도 같은 값을 막는다).
  */
 function PeriodView({ plan, onBack, onApply }: DetailProps) {
   const [start, setStart] = useState(plan.start);

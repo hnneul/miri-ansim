@@ -11,6 +11,7 @@ import {
   dotted,
   asRecord,
   isoToday,
+  homeQuery,
   loadDrafts,
   parseSummary,
   RECORD_KEYS,
@@ -76,6 +77,17 @@ assert.equal(some(parseSummary(new URLSearchParams("c=코스&r=a&r=b&d=2026-8-14
 assert.equal(some(parseSummary(new URLSearchParams("c=코스&r=a&r=b&km=-99"))).km, 0);
 assert.equal(some(parseSummary(new URLSearchParams("c=코스&r=a&r=b&km=abc"))).km, 0);
 assert.equal(some(parseSummary(new URLSearchParams("c=코스&r=a&r=b&km=61.6"))).km, 62);
+
+/* ─────────────────────────────── 홈으로 나갈 때 ─────────────────────────────── */
+
+// 홈 URL 에 기록 흐름이 눌어붙으면 "여행 기록 ＋" 가 목록 대신 작성 화면을 연다.
+// 초안 id 까지 남으면 쓰다 만 글이 통째로 올라온다 — 나가는 문마다 이걸 통과해야 한다.
+const 나감 = homeQuery(`${toRecordQuery(summary, "exp=10&car=suv")}&draft=1755&write=1&back=record`);
+for (const k of [...RECORD_KEYS, "draft", "write", "back"]) assert.equal(나감.get(k), null);
+assert.equal(parseSummary(나감), null);
+// 프로필은 살아 있다 — 이건 홈이 쓰는 값이다
+assert.equal(나감.get("exp"), "10");
+assert.equal(나감.get("car"), "suv");
 
 /* ─────────────────────────────── 코스 → 요약 ─────────────────────────────── */
 
