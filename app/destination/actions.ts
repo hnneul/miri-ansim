@@ -5,7 +5,7 @@
 //
 // 얇게 감싸기만 한다. 검색어 정리·실패 문구는 lib/geocode.ts 가 이미 하고 있어서 그대로 흘린다.
 
-import { geocodePlace, postalOf, searchPlaces, type Geocoded, type Place } from "@/lib/geocode";
+import { geocodePlace, postalOf, searchPlaces, type Geocoded, type Place, type Suggested } from "@/lib/geocode";
 import SPOTS from "@/data/spots.json";
 
 export async function findPlace(query: string): Promise<Geocoded> {
@@ -17,14 +17,21 @@ export async function findPlace(query: string): Promise<Geocoded> {
 
 /**
  * 타이핑 중에 보여줄 후보 목록 (HOME-01 a "검색하는 화면").
- * 사유 대신 빈 목록을 돌려준다 — 아직 다 적지도 않은 글자에 "찾지 못했습니다"를 띄우면
+ *
+ * **문장으로 된 사유는 안 돌려준다** — 아직 다 적지도 않은 글자에 "찾지 못했습니다"를 띄우면
  * 한 글자 칠 때마다 빨간 줄이 깜빡인다. 진짜 사유가 필요한 건 엔터를 눌렀을 때고, 그건 findPlace 가 한다.
+ *
+ * 대신 **물어보기는 했는지**만 흘린다 (Suggested). 목록이 빈 이유가 "제주에 없다"인지
+ * "물어보지 못했다"인지에 따라 화면이 할 말이 달라서다 — 전에는 둘 다 빈 배열이라,
+ * 네트워크가 죽어도 화면이 "제주에서 못 찾았어요"라고 단정했다.
  */
-export async function suggestPlaces(query: string): Promise<Place[]> {
+export async function suggestPlaces(query: string): Promise<Suggested> {
   const q = query.trim();
-  if (!q) return [];
+  if (!q) return { places: [], 물어봤나: true };
   const found = await searchPlaces(q);
-  return "error" in found ? [] : found.places;
+  // 못 물어본 실패는 빈 목록과 함께 그 사실을 흘린다 — 화면이 "없다"고 단정하지 않게 (Suggested)
+  if ("error" in found) return { places: [], 물어봤나: found.없음 === true };
+  return { places: found.places, 물어봤나: true };
 }
 
 /**
