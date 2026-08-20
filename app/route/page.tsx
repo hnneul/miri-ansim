@@ -929,6 +929,7 @@ function Route() {
                   <span className="truncate text-[15px] font-bold text-[#1f1f1f]">
                     {titleOf(
                       chosen,
+                      result.routes.find((r) => r.id !== chosen.id) ?? null,
                       result.score.recommendedRoute === chosen.id || result.routes.length === 1,
                     )}
                   </span>
@@ -1050,6 +1051,7 @@ function Route() {
                         route={r}
                         title={titleOf(
                           r,
+                          result.routes.find((x) => x.id !== r.id) ?? null,
                           result.score.recommendedRoute === r.id || result.routes.length === 1,
                         )}
                         score={
@@ -1344,7 +1346,7 @@ function Why({
     하는 화면이 나왔고, 같은 길을 두 이름으로 부르면 두 길 얘기인 줄 안다.
     이름을 정하는 곳은 기본이름() 한 곳뿐이고, 문장은 그걸 받아 쓴다.
   */
-  const 한줄 = tradeoff(pick, route, other, other ? 기본이름(other) : "");
+  const 한줄 = tradeoff(pick, route, other, other ? 기본이름(other, route, pick === other.id) : "");
   const rows: { label: string; mine: string; theirs: string }[] = [
     row("회전교차로", (s) => (s.roundabouts ? `${s.roundabouts}곳` : "없음")),
     row("연속 급커브", (s) => (s.sharpCurveKm ? `${s.sharpCurveKm}km` : "없음")),
@@ -1398,7 +1400,7 @@ function Why({
         ) : null}
         {/* 근거 화면도 비교 화면과 같은 이름을 쓴다 — 넘어오면서 이름이 바뀌면 같은 길인지 흔들린다 */}
         <span className="min-w-0 truncate text-[16px] font-bold text-[#1f1f1f]">
-          {titleOf(route, recommended || !other)}
+          {titleOf(route, other, recommended || !other)}
         </span>
         {/*
           점수만 주황이다. 비교 화면의 카드에서는 검정인데(거기선 두 값을 나란히 재는 자리라
@@ -1519,19 +1521,28 @@ function Why({
  * "남조로"는 아무 정보가 아니고, 두 카드가 답해야 하는 건 "그래서 어느 쪽이 뭔데"다.
  * 도로 이름은 지도의 말풍선과 근거 화면이 이미 말하고 있다.
  *
- * **두 이름뿐이다: "안심 길" / "짧은 길".** 화면 어디서나 같은 말로 부르기로 한 결정이다
- * (와이어프레임 3920:630 의 "짧은 길보다 7분 더" 도 그 이름을 쓴다).
+ * **추천받은 길은 늘 "안심 길"이다.** 추천이 추천점수(=부담이 낮은 쪽) 하나로 정해지므로
+ * (lib/score.ts), 추천된 길은 정의상 두 길 중 덜 부담스러운 쪽이다 — 그러니 그 이름이 참이다.
+ * 앱이 권하는 길과 앱 이름이 같은 말을 하게 된다.
  *
- * 한때 상대와 재서 골랐다 — 시간이 짧으면 "빠른 길", 거리만 짧으면 "짧은 길", 둘 다 아니면
- * "다른 길". 그 규칙을 뗀 건 같은 길이 화면마다 다른 이름으로 불리면 두 길 얘기인 줄 알아서다.
+ * **나머지 한 장은 상대와 재서 부른다.** 더 빠르면 "빠른 길", 시간은 못 이기는데 거리가 짧으면
+ * "짧은 길", 둘 다 아니면 "다른 길". 한때 있다가 뺐던 규칙인데(같은 길이 화면마다 다른 이름으로
+ * 불릴까 봐), 이름을 여기 한 곳에서만 정하고 문장·근거 화면이 그걸 받아 쓰는 지금 구조에서는
+ * 그 걱정이 안 생긴다 — 한 화면 안에서는 한 이름이다.
  *
- * ponytail: **"짧은 길"이 늘 참인 건 아니다.** fast 자리는 "나머지 중 가장 빠른 것"이라
- * (lib/route.ts) 시간으로 고른 값이고, 거리가 더 짧다는 보장이 없다 — 드물게 더 긴 길을
- * "짧은 길"이라 부르게 된다. 실제로 그런 화면이 나오면 되돌릴 자리는 여기 한 곳이다.
- * 아래 tradeoff 로 이름이 흘러가므로 문장도 같이 따라온다.
+ * 되살린 이유는 **고정 이름이 거짓말을 했기 때문이다.** fast 자리는 시간으로 고른 값이라
+ * (lib/route.ts) 거리가 짧다는 보장이 없는데 "짧은 길"로 못 박고 있었다 — 곽지→함덕에서
+ * 67분 42.2km 를 "짧은 길", 89분 37.6km 를 "안심 길"로 부르고 있었다. 4.6km 더 긴 길이었다.
+ *
+ * 추천이 없을 때(두 길 차이 5% 이내·길이 한 장)는 safe 자리가 "안심 길"을 맡는다 —
+ * 그 자리가 부담으로 고른 후보라는 사실은 추천 여부와 상관없이 참이다.
  */
-function 기본이름(route: LiveRoute): string {
-  return route.id === "safe" ? "안심 길" : "짧은 길";
+function 기본이름(route: LiveRoute, other: LiveRoute | null, 추천: boolean): string {
+  if (추천 || !other) return "안심 길";
+  if (route.id === "safe") return "안심 길";
+  if (route.durationMin < other.durationMin) return "빠른 길";
+  if (route.distanceKm < other.distanceKm) return "짧은 길";
+  return "다른 길";
 }
 
 /**
@@ -1541,8 +1552,8 @@ function 기본이름(route: LiveRoute): string {
  * 안 붙는데(고를 상대가 없다), 그 한 장도 프로필로 잰 부담 점수를 달고 나온다. 그래서 거기도
  * 얹는다. 배지는 회색 "단일 경로"가 대신 앉아 고른 게 아니라는 걸 같은 줄에서 말한다.
  */
-function titleOf(route: LiveRoute, 맞춤: boolean): string {
-  const base = 기본이름(route);
+function titleOf(route: LiveRoute, other: LiveRoute | null, 맞춤: boolean): string {
+  const base = 기본이름(route, other, 맞춤);
   return 맞춤 ? `맞춤 ${base}` : base;
 }
 
