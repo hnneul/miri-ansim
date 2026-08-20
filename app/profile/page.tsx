@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import { TOPICS } from "@/lib/serviceinfo";
+import { APP_FOOTER } from "@/lib/version";
 import { CONCERNS, LABELS, characterOf, parseProfile, parseConcerns } from "@/lib/profile";
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
@@ -108,9 +109,17 @@ function Profile() {
         고치려고 네 문항을 다시 답할 이유가 없고, 1단계에서 뒤로를 눌러도 이 화면으로 되돌아온다.
         다 고르고 나면 온보딩이 새 쿼리를 만들어 /home 으로 넘긴다.
       */}
+      {/*
+        **회색은 그대로 두고 호버만 준다.** 이 화면에서 누를 수 있는 건 이 버튼과 아래 정보 카드
+        넷뿐인데, 정작 액션인 이쪽이 흰 카드들보다 흐렸다 (F58). 색을 올려 눈에 띄게 만드는 대신
+        눌리는 것이라는 신호만 붙인다 — 이 화면의 회색은 고른 색이지 빠뜨린 색이 아니다.
+
+        #f5f5f5 → #e5e5e5 는 홈의 회색 칸(app/home/page.tsx bg-[#f0f0f0])이 쓰는 짝과 같은 계열이다.
+        새 색을 만들지 않는다.
+      */}
       <button
         onClick={() => router.push(`/onboarding?${searchParams}`)}
-        className="mx-[34px] mt-[26px] h-[37px] shrink-0 rounded-[32px] bg-[#f5f5f5] text-[13px] text-[#1f1f1f] transition active:scale-[0.99]"
+        className="mx-[34px] mt-[26px] h-[37px] shrink-0 rounded-[32px] bg-[#f5f5f5] text-[13px] text-[#1f1f1f] transition hover:bg-[#e5e5e5] active:scale-[0.99]"
       >
         프로필 수정
       </button>
@@ -152,7 +161,7 @@ function Profile() {
       </p>
 
       <p className="mt-[23px] shrink-0 pb-6 text-center text-[11px] leading-none font-medium text-[#616161]">
-        미리 안심 · 앱 버전 1.0.0
+        {APP_FOOTER}
       </p>
     </div>
   );
