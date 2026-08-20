@@ -23,6 +23,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
+import Confirm from "../Confirm";
 import RouteMap from "../RouteMap";
 import { dotted } from "@/lib/record";
 import { me } from "@/lib/me";
@@ -38,13 +39,22 @@ import { loadDrives, removeDrive, setMine, type SafeDrive } from "@/lib/safelog"
 const REASON_LABELS = ["좁은 교행 구간", "급커브", "사고 잦은 곳"];
 
 /**
- * 추천점수 배지 바탕색 — 30 이하 · 60 이하 · 그 위 세 칸이다.
+ * 추천점수 배지 색 — 30 이하 · 60 이하 · 그 위 세 칸이다. 바탕과 글자가 한 짝으로 움직인다.
  *
  * 색을 기록에 들고 다니지 않는다. 색과 숫자가 따로 놀면 다음 사람이 색을 보고 점수를 짐작한다.
  * 높음·보통·낮음 같은 말은 안 붙인다 — 숫자와 색이 이미 그 말을 하고 있다.
+ *
+ * **이 배지는 점수만 말한다.** 담긴 카드를 여기서 살구로 칠했었는데(와이어프레임 3794:2712을
+ * "나만의 길은 살구"로 읽었다), 살구는 원래 **낮은 점수** 색이다 — 그 카드가 살구였던 건
+ * 점수가 34라서다. 그래서 66점짜리를 담는 순간 배지가 빨개져 좋은 길이 나쁜 길로 보였다.
+ * 담겼다는 표시는 아래 날짜 줄의 칩이 맡는다.
  */
-const badgeColor = (score: number) =>
-  score <= 30 ? "#fff0e5" : score <= 60 ? "#e5f5e5" : "#e5eaf5";
+const badgeStyle = (score: number) =>
+  score <= 30
+    ? { background: "#fff0e5", color: "#ff4b00" }
+    : score <= 60
+      ? { background: "#e5f5e5", color: "#42a861" }
+      : { background: "#e5eaf5", color: "#4A7DFF" };
 
 /**
  * 상세 지도의 출발·도착 표시. **점과 이름을 한 장에 그려** 마커 아이콘으로 넘긴다.
@@ -163,6 +173,13 @@ function Safelog() {
   const [open, setOpen] = useState<number | null>(null);
   /** 자세히로 들어간 기록. 있으면 상세 화면이다 (2574:418) */
   const [detail, setDetail] = useState<SafeDrive | null>(null);
+  /**
+   * 지울지 묻고 있는 기록. 물음 창(app/Confirm.tsx)이 이걸 보고 뜬다.
+   *
+   * **전에는 ✕ 가 곧장 지웠다.** 여행 기록은 같은 자리 같은 ✕ 에 확인창이 뜨는데 여기만
+   * 안 떠서, 한쪽에서 배운 것이 다른 쪽에서 안 통했다. 서버에서 지우는 일이라 되돌릴 수도 없다.
+   */
+  const [asking, setAsking] = useState<SafeDrive | null>(null);
 
   // 늦게 온 응답이 새 목록을 덮지 않게 떠난 뒤엔 버린다.
   useEffect(() => {
@@ -187,9 +204,14 @@ function Safelog() {
     if (next) setRoutes(next);
   }
 
-  async function saveMine(drive: SafeDrive) {
-    if (demo) return setRoutes((rs) => rs.map((r) => (r.id === drive.id ? { ...r, mine: true } : r)));
-    const next = await setMine(me(), drive.id, true);
+  /**
+   * 나만의 길에 담거나 뺀다. **한 버튼이 두 방향을 다 맡는다** — 담기만 있던 때는 잘못 담은 길을
+   * 무를 길이 ✕(기록 통째로 지우기)뿐이라, 표시만 풀고 싶은 사람이 기록을 잃었다.
+   */
+  async function toggleMine(drive: SafeDrive) {
+    if (demo)
+      return setRoutes((rs) => rs.map((r) => (r.id === drive.id ? { ...r, mine: !r.mine } : r)));
+    const next = await setMine(me(), drive.id, !drive.mine);
     if (next) setRoutes(next);
   }
 
@@ -208,7 +230,8 @@ function Safelog() {
   if (detail) return <Detail route={detail} onBack={() => setDetail(null)} />;
 
   return (
-    <div className="flex flex-1 flex-col bg-white pb-[19px]">
+    /* relative 다 — 물음 창이 화면 전체를 덮되 **폰 안에서만** 덮게 (app/Confirm.tsx 마지막 줄) */
+    <div className="relative flex flex-1 flex-col bg-white pb-[19px]">
       <StatusBar tone="text-[#1f1f1f]" />
 
       {/*
@@ -307,12 +330,25 @@ function Safelog() {
               route={route}
               open={open === route.id}
               onToggle={() => setOpen(open === route.id ? null : route.id)}
-              onRemove={() => remove(route)}
-              onSaveMine={() => saveMine(route)}
+              onRemove={() => setAsking(route)}
+              onToggleMine={() => toggleMine(route)}
               onDetail={() => setDetail(route)}
             />
           ))}
         </div>
+      )}
+
+      {asking && (
+        <Confirm
+          title={`"${asking.title}" 기록을 지울까요?`}
+          body="지운 기록은 되돌릴 수 없어요."
+          onCancel={() => setAsking(null)}
+          onOk={() => {
+            const 지울것 = asking;
+            setAsking(null);
+            remove(지울것);
+          }}
+        />
       )}
     </div>
   );
@@ -449,7 +485,7 @@ function Empty({ mineOnly }: { mineOnly: boolean }) {
           <>
             마음에 쏙 든 길, 담아두세요!
             <br />
-            전체 탭에서 저장하면 여기에 모여요.
+            전체 탭에서 담아두면 여기에 모여요.
           </>
         ) : (
           <>
@@ -475,14 +511,14 @@ function RouteCard({
   open,
   onToggle,
   onRemove,
-  onSaveMine,
+  onToggleMine,
   onDetail,
 }: {
   route: SafeDrive;
   open: boolean;
   onToggle: () => void;
   onRemove: () => void;
-  onSaveMine: () => void;
+  onToggleMine: () => void;
   onDetail: () => void;
 }) {
   return (
@@ -502,24 +538,27 @@ function RouteCard({
 
       <button onClick={onToggle} className="block w-full text-left" aria-expanded={open}>
         {/* 저장은 2026-08-12, 화면은 2026.08.12 — 표기 규칙은 여행 기록과 같다 (lib/record.ts dotted) */}
-        <p className="text-[10px] leading-none text-[#6e6e6e]">{dotted(route.date)}</p>
+        {/*
+          날짜 줄. **나만의 길이면 칩이 하나 붙는다** — 접힌 카드에도 표가 나야 "전체" 탭에서
+          담긴 것과 안 담긴 것이 한눈에 갈린다. 점수 배지가 하던 일인데, 거기 색은 점수 몫이라
+          겹쳐 쓸 수 없었다 (badgeStyle 주석). 여기서는 칩에 "나만의 길"이라고 적혀 있어
+          살구색이 무엇을 뜻하는지 색만으로 알아맞힐 필요가 없다.
+        */}
+        <p className="flex items-center gap-[6px] text-[10px] leading-none text-[#6e6e6e]">
+          {dotted(route.date)}
+          {route.mine && (
+            <span className="rounded-[9px] bg-[#ffdcc7] px-[7px] py-[3px] font-medium text-[#ff4b00]">
+              나만의 길
+            </span>
+          )}
+        </p>
         <p className={`text-[16px] leading-[19px] font-bold text-[#1f1f1f] ${open ? "mt-[18px]" : "mt-[11px]"}`}>
           {route.title}
         </p>
         <div className="mt-[11px] flex items-center">
-          {/*
-            **나만의 길로 담긴 카드는 배지가 살구다** (3794:2712). 펼쳤는지가 아니라 담겼는지로 갈린다 —
-            펼쳐야만 바뀌면 목록에서는 어느 것이 내 길인지 알 수 없고, 접힌 카드에도 표가 나야
-            "전체" 탭에서 담긴 것과 안 담긴 것이 한눈에 갈린다.
-            (와이어프레임은 접힌 나만의 길 카드를 초록으로 그려뒀지만 그건 안 고친 자국이다.)
-          */}
           <span
             className="flex h-[30px] w-[84px] items-center justify-center rounded-[15px] text-[10px] leading-none font-medium"
-            style={
-              route.mine
-                ? { background: "#ffdcc7", color: "#ff4b00" }
-                : { background: badgeColor(route.score), color: "#42a861" }
-            }
+            style={badgeStyle(route.score)}
           >
             추천 점수 {route.score}
           </span>
@@ -541,23 +580,25 @@ function RouteCard({
           앱의 흰 알약은 이미 #e5e5e5 테두리 + #1f1f1f 글자로 네 곳(목적지·주차장 둘·온보딩)에
           같이 서 있고, 여기만 혼자 달랐다. 그쪽으로 맞춘다 — 폭은 이 화면 값을 지킨다.
 
-          이미 나만의 길이면 담을 것이 없어 "자세히" 하나만 남고, 그때는 폭을 다 쓴다 —
-          담긴 것과 안 담긴 것은 배지 색이 이미 갈라주고 있어서 빈 칸까지 남길 이유가 없다.
+          **담긴 카드도 버튼이 둘이다.** 전에는 담긴 카드에 "자세히" 하나만 남겨서, 잘못 담은 길을
+          무르려면 ✕ 로 기록째 지우는 수밖에 없었다 (F15). 자리와 색은 두 상태가 똑같다 —
+          왼쪽이 보는 문, 오른쪽이 담고 빼는 문이라, 담았다고 버튼이 자리를 바꾸지 않는다.
+
+          말은 "담기 ↔ 빼기"로 짝을 맞춘다. "저장"이었는데 이 화면 제목("주행 저장")의 저장은
+          내비로 넘길 때 자동으로 쌓이는 것이라, 같은 단어가 한 화면에서 두 가지 일을 가리켰다.
         */
         <div className="mt-[24px] flex gap-[19px]">
-          {!route.mine && (
-            <button
-              onClick={onDetail}
-              className="h-10 w-[102px] shrink-0 rounded-full border border-[#e5e5e5] bg-white text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
-            >
-              자세히
-            </button>
-          )}
           <button
-            onClick={route.mine ? onDetail : onSaveMine}
+            onClick={onDetail}
+            className="h-10 w-[102px] shrink-0 rounded-full border border-[#e5e5e5] bg-white text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
+          >
+            자세히
+          </button>
+          <button
+            onClick={onToggleMine}
             className="flex h-10 flex-1 items-center justify-center rounded-full bg-[#ff7b33] text-[14px] leading-[22px] font-bold text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
           >
-            {route.mine ? "자세히" : "나만의 길로 저장"}
+            {route.mine ? "나만의 길에서 빼기" : "나만의 길로 담기"}
           </button>
         </div>
       ) : (
@@ -596,10 +637,10 @@ function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
         <div>
           <p className="text-[10px] leading-none text-[#6e6e6e]">{dotted(route.date)} · 완료된 경로</p>
           <p className="mt-[12px] text-[17px] leading-[20px] font-bold text-[#1f1f1f]">{route.title}</p>
-          {/* 추천 경로가 곧 최단시간이면 "짧은 길보다 0분 더"가 된다 — 그때는 그 말을 뺀다 */}
+          {/* 추천 경로가 곧 최단시간이면 "빠른 길보다 0분 더"가 된다 — 그때는 그 말을 뺀다 */}
           <p className="mt-[8px] text-[10px] leading-none text-[#6e6e6e]">
             {route.minutes}분 · {route.km}km
-            {route.slower > 0 && ` · 짧은 길보다 ${route.slower}분 더`}
+            {route.slower > 0 && ` · 빠른 길보다 ${route.slower}분 더`}
           </p>
         </div>
         {/* 와이어프레임은 숫자 밑에 "낮음"을 달았지만 등급 말은 화면 어디에도 안 쓴다 */}
