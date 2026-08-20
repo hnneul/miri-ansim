@@ -58,6 +58,7 @@ export async function findPostal(road: string): Promise<string | null> {
  * 유명세는 **data/spots.json 의 순서**다. 카카오도 관광공사도 인기도 신호를 안 줘서
  * 사람이 카테고리별로 유명한 순서대로 적어둔 목록이다 (scripts/build-spots.mjs SPOTS 주석).
  * 그 순서를 그대로 쓰되 카테고리를 한 바퀴씩 돈다 — 앞에서 여덟 개를 자르면 전부 해수욕장이다.
+ * 그 위에 한 겹 더 얹는다 — 길이 두 갈래로 갈리는 곳이 앞이다 (아래 두갈래).
  *
  * **화면이 쓸 여덟보다 넉넉히 준다.** 최근 검색어와 겹치는 이름은 화면에서 걷어내는데
  * (한 화면에 같은 이름이 두 번 뜨면 고장으로 읽힌다), 최근 검색어가 최대 열이라
@@ -70,7 +71,36 @@ export async function findPostal(road: string): Promise<string | null> {
 const 통 = new Map<string, string[]>();
 for (const s of SPOTS) 통.set(s.category, [...(통.get(s.category) ?? []), s.name]);
 const 줄 = [...통.values()];
-const 추천 = Array.from({ length: 18 }, (_, i) => 줄[i % 줄.length]?.[(i / 줄.length) | 0]).filter(Boolean);
+
+/**
+ * **길이 둘로 갈리는 곳을 앞에 세운다.**
+ *
+ * 이 앱이 보여줄 게 있는 목적지는 길이 두 갈래인 곳이다 — 한 갈래뿐이면 길 비교 화면이
+ * 카드 한 장("단일 경로")으로 죽어서, 권한 대로 눌렀는데 고를 게 없는 화면이 나온다
+ * (lib/route.ts routesFor 의 found.length === 1).
+ *
+ * 아래 여섯은 **제주공항에서 재 본 결과**다. 추천 18곳을 공항([33.507, 126.493]) 출발로
+ * routesFor 에 넣고 routes.length 를 센 것이고, 나머지 열두 곳은 전부 한 갈래였다
+ * (함덕·협재·금능·곽지 일주도로, 성산일출봉·섭지코지·에코랜드 번영로, 만장굴 일주동로,
+ * 동문시장·오일시장 시내, 천제연·오설록 평화로).
+ *
+ * 손으로 적은 목록인 건 어쩔 수 없다 — 갈리는지 아닌지는 카카오한테 물어봐야 알고,
+ * 18곳을 미리 물으면 화면 한 번에 길찾기 54건이다(무료 쿼터 일 10,000건). 출발지가
+ * 공항이 아니면 순서의 근거도 사라진다. 다른 출발지가 기본이 되면 그때 다시 재면 된다.
+ */
+const 두갈래 = new Set([
+  "천지연폭포", // 516로 ↔ 평화로
+  "정방폭포", // 516로 ↔ 평화로
+  "서귀포매일올레시장", // 516로 ↔ 평화로
+  "엉또폭포", // 1100로 ↔ 평화로
+  "비자림", // 조천우회로 ↔ 번영로
+  "카멜리아힐", // 화전길 ↔ 한창로
+]);
+
+const 추천 = Array.from({ length: 18 }, (_, i) => 줄[i % 줄.length]?.[(i / 줄.length) | 0])
+  .filter((name): name is string => Boolean(name))
+  // 정렬은 안정적이라(V8) 갈리는 곳만 앞으로 오고 나머지 순서 — 카테고리 한 바퀴 — 는 그대로다
+  .sort((a, b) => Number(두갈래.has(b)) - Number(두갈래.has(a)));
 
 export async function recommendSpots(): Promise<string[]> {
   return 추천;
