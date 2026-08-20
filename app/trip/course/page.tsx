@@ -246,6 +246,13 @@ function Recommend({
    * 넘긴 적 없는 사람에게는 아무 일도 안 일어난다 — 아직 출발도 안 했는데 다녀왔냐고 물을 수 없다.
    */
   const [넘김, set넘김] = useState(false);
+  /**
+   * 내비로 넘긴 적이 있는가. 넘김 과 달리 **안 꺼진다** — 기록으로 가는 문을 남겨두는 데 쓴다.
+   * 넘김 하나로 물음창만 띄우던 때는 "나중에"를 누르는 순간 그 문이 통째로 사라졌다
+   * ("나중에"는 안 하겠다가 아니라 이따가인데 이따가가 없었다). 팝업이 막혀 물음창이
+   * 아예 안 뜬 사람도 같은 자리에 갇혔다.
+   */
+  const [다녀옴, set다녀옴] = useState(false);
   /** 가운데 뜨는 "여행을 기록하시겠습니까?" 창 */
   const [기록물음, set기록물음] = useState(false);
   /**
@@ -332,7 +339,13 @@ function Recommend({
       set기록물음(true);
     };
     document.addEventListener("visibilitychange", 돌아옴);
-    return () => document.removeEventListener("visibilitychange", 돌아옴);
+    // 팝업이 막혀 같은 탭에서 열렸으면(lib/parking.ts navigateTo) 이 문서가 떠났다 돌아온다 —
+    // 그 복귀는 visibilitychange 가 아니라 pageshow 로 온다 (bfcache).
+    window.addEventListener("pageshow", 돌아옴);
+    return () => {
+      document.removeEventListener("visibilitychange", 돌아옴);
+      window.removeEventListener("pageshow", 돌아옴);
+    };
   }, [넘김]);
 
   /** 고른 코스를 카카오내비로 넘긴다 — 하루치를 통째로(마지막이 목적지, 나머지가 경유지) */
@@ -340,6 +353,7 @@ function Recommend({
     const stops = days[0]?.stops;
     if (!stops?.length || !plan.originAt) return;
     set넘김(true);
+    set다녀옴(true);
     navigateTo(
       { name: stops[stops.length - 1].name, at: stops[stops.length - 1].at },
       {
@@ -529,6 +543,20 @@ function Recommend({
             <p className="mx-[22px] mt-2 shrink-0 text-center text-[11px] leading-[16px] text-[#9e9e9e]">
               내비에는 앞 6곳까지만 넘어가요. 나머지는 도착해서 다시 잡아주세요.
             </p>
+          )}
+          {/*
+            물음창(아래)을 닫은 뒤에도 남는 기록 입구. 아래 주석이 "늘 붙어 있는 회색 버튼"을
+            경계하는데, 그 경계는 **아직 안 떠난 사람**에게 보이는 걸 두고 한 말이다 —
+            다녀옴 이 그 자리를 정확히 가른다. 위 주황 버튼은 그대로 둔다: 물음창을 닫자마자
+            내비를 다시 켜려는 사람(팝업이 막혀 되돌아온 사람이 그렇다)이 있다.
+          */}
+          {다녀옴 && (
+            <button
+              onClick={() => onDone(course)}
+              className="mx-[22px] mt-2 h-[46px] shrink-0 rounded-[10px] bg-[#f6f4f1] text-[15px] font-medium text-[#262626] transition hover:bg-[#eae7e2] active:scale-[0.98]"
+            >
+              여행 기록하기
+            </button>
           )}
         </>
       )}

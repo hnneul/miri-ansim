@@ -314,7 +314,18 @@ export function navigateTo(
   dest: NaviPoint,
   opts: { from?: NaviPoint; via?: NaviPoint | NaviPoint[] } = {},
 ) {
-  return window.open(naviLink(dest, opts), "_blank", "noopener");
+  const url = naviLink(dest, opts);
+  /*
+   * **반환값을 봐야 한다.** 팝업이 막히면 window.open 은 던지지 않고 조용히 null 을 준다 —
+   * 버튼을 눌렀는데 화면에 아무 일도 안 일어나고 콘솔에도 아무것도 안 남는다.
+   * 이 앱의 마지막 버튼 둘("이 길로 갈게요" · "이 코스로 여행하기")이 그 상태가 된다.
+   *
+   * 막혔으면 같은 탭에서 연다. 새 탭이 나은 이유(돌아올 화면이 남는다)는 그대로지만,
+   * 못 여는 것보다는 낫다 — 돌아오는 길은 브라우저 뒤로가기가 맡는다.
+   */
+  const opened = window.open(url, "_blank", "noopener");
+  if (!opened) location.href = url;
+  return opened;
 }
 
 /** 초보가 편한 쪽(직각)인가. 배지 하나를 붙일지 말지에만 쓴다. */
