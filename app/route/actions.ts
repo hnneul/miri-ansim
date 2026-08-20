@@ -147,19 +147,18 @@ export async function compareRoutes(
  * 애초에 비교할 게 없으면 ②칸(왜 이 길인지)이 성립하지 않는다. 규칙 대본이 그 경우를 맡는다.
  */
 /**
- * ponytail: **AI 대본을 지금은 끈다.** 어느 모델을 쓸지 아직 안 정했다.
+ * AI 대본을 켠다. 모델이 gpt-5.6-luna 하나로 정해졌고 askModel 의 2단 폴백도 없어졌다 —
+ * 껐던 이유(1순위가 잘리고 2순위가 받아 10초)가 그대로 사라졌다.
  *
- * lib/ai.ts 의 askModel 이 openai → groq → gemini×2 를 **순차로** 시도하는데, 1순위가
- * TIMEOUT_MS(6초)를 넘겨 잘리고 2순위가 받으면 그대로 10초다 — 실측 2026-08-16,
- * 제주시청→협재에서 10,012ms 였다 (같은 화면의 compareRoutes 는 517ms).
+ * 한 번 부르는 데 10초는 여전하다 — 실측 2026-08-20, lib/ai.smoke.ts 로 초보 9.7초 ·
+ * 베테랑 10.4초였고 둘 다 verify 를 통과했다. **화면은 이걸 안 기다린다** (page.tsx 의
+ * useEffect). 규칙 대본이 먼저 앉고 AI 대본이 오면 갈아끼운다.
  *
- * 끄면 화면이 규칙 대본만 쓴다. **빠지는 기능이 없다** — radioScript 가 늘 값을 채우므로
- * 재생 버튼도 칸 수도 그대로고, 문장이 덜 매끄러워지는 것뿐이다. 덤으로 RouteRadio 의
- * 미리받기가 한 벌만 나간다 (대본이 중간에 안 바뀌므로).
- *
- * 후보를 정하면 true 로 되돌린다. 그 실측은 lib/ai.smoke.ts 로 계속 할 수 있다.
+ * 같은 프롬프트는 캐시가 받아친다 — 같은 실측에서 2회차가 0ms 였다. 시연 전에 열어 볼
+ * 구간을 한 번씩 미리 열어두면 대본이 즉시 뜨고 호출도 안 나간다. 캐시는 서버 메모리라
+ * 배포하면 재시작되며 비므로 **배포 뒤에** 데운다.
  */
-const AI_대본 = false;
+const AI_대본 = true;
 
 export async function aiRadio(facts: Facts): Promise<string[][] | null> {
   if (!AI_대본) return null;
