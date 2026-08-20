@@ -5,13 +5,6 @@
 배포: <https://miriansim.duckdns.org>  
 스택: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · node:sqlite
 
-|  |  |
-|:--:|:--:|
-| <img src="docs/route.png" width="300" alt="길 비교 화면"> | <img src="docs/home.png" width="300" alt="메인 화면"> |
-| **길 비교** — 두 길의 추천점수를 나란히 놓고, 무엇이 둘을 갈랐는지 지도에 칠한다 | **메인** — 현위치·날씨와 네 갈래 입구 |
-| <img src="docs/parking.png" width="300" alt="주차장 화면"> | <img src="docs/nearby.png" width="300" alt="대표 관광지 화면"> |
-| **주변 주차장** — 목적지에서 걸어갈 거리 안, 평행주차를 피할 수 있는 곳부터 | **대표 관광지** — 같은 시각이라도 프로필에 따라 순서가 바뀐다 |
-
 ## 무엇을 하는 앱인가
 
 길을 대신 골라주는 앱이 아니다. **그 길에 뭐가 있는지 미리 알려주는 앱**이다.
@@ -48,6 +41,92 @@
 
 프로필은 저장소 없이 **URL 쿼리로** 화면 사이를 흐른다 (`lib/profile.ts`). 링크 하나로 그대로
 재현·공유되고 새로고침에도 안 날아간다.
+
+## 구조
+
+```mermaid
+flowchart LR
+  subgraph BR["브라우저 · app/**/page.tsx"]
+    ROUTE["/route<br>길 비교"]
+    OTHERS["/home · /destination · /parking<br>/nearby · /around · /calm · /trip"]
+    RECS["/safelog · /trip/record"]
+  end
+
+  subgraph SRV["서버 · app/**/actions.ts · app/api"]
+    CMP["compareRoutes"]
+    AIR["aiRadio"]
+    ACTS["hereNow · findPlace · findParkingNear<br>nearbySpots · calmNear · makeCourses"]
+    TTSAPI["/api/tts"]
+    RECAPI["/api/records<br>/api/drives"]
+  end
+
+  subgraph LIB["계산 · lib/ — 네트워크 없이 도는 순수 함수"]
+    RT["route.ts<br>후보 셋 중 같은 길 접기"]
+    AN["analyze.ts<br>급커브 · 차로수 · 고속주행"]
+    SC["score.ts<br>추천점수"]
+    BRF["briefing.ts<br>규칙 문장 · 음성 대본"]
+    AIL["ai.ts<br>프롬프트 · verify"]
+    ETC["spots · course · flow<br>poi · geocode"]
+  end
+
+  subgraph OUT["바깥"]
+    KAKAO["카카오<br>길찾기 · 로컬 · 지도"]
+    OPENAI["OpenAI"]
+    TTSX["Google TTS<br>→ Edge TTS"]
+    ITS["제주ITS"]
+    METEO["Open-Meteo"]
+    DB[("SQLite<br>~/miri-data")]
+  end
+
+  DAT["굳혀둔 데이터 · data/<br>jeju-link 37,063 · parking · spots<br>tamna · road-baseline · 판독표"]
+
+  ROUTE --> CMP
+  ROUTE --> AIR
+  ROUTE --> TTSAPI
+  ROUTE --> RECAPI
+  OTHERS --> ACTS
+  RECS --> RECAPI
+
+  CMP --> RT --> AN --> SC --> BRF
+  AIR --> AIL
+  ACTS --> ETC
+
+  RT --> KAKAO
+  ETC --> KAKAO
+  ETC --> ITS
+  ETC --> METEO
+  AIL --> OPENAI
+  TTSAPI --> TTSX
+  RECAPI --> DB
+
+  AN -.-> DAT
+  ETC -.-> DAT
+```
+
+세 가지 규칙이 이 그림을 만든다.
+
+- **키와 큰 데이터는 서버에 둔다.** 카카오 REST 키는 브라우저로 못 나가고, 도로 링크
+  `jeju-link.json` 은 6.7MB 라 폰으로 내려보낼 수 없다. 그래서 화면이 서버 액션을 거친다.
+- **계산은 `lib/` 이 쥐고 화면은 그리기만 한다.** `lib/` 은 화면을 안 물고 있어서 `node` 로 바로
+  돌아가고, 그래서 `*.check.ts` 가 네트워크 없이 규칙을 전부 검증할 수 있다.
+- **AI 는 문장만 만든다.** 숫자와 추천은 `score.ts` 가 정하고, `ai.ts` 는 그 결과를 한국어로 옮긴 뒤
+  `verify()` 를 통과해야 화면에 오른다. 못 통과하면 `briefing.ts` 의 규칙 문장이 그대로 나간다.
+
+```
+app/          화면 (Next.js App Router). page.tsx 옆의 actions.ts 가 그 화면의 서버 액션이다
+  api/        /api/records · /api/drives (기록 저장) · /api/tts (음성)
+lib/          계산·판정·저장소. 화면을 안 물고 있어서 node 로 바로 돌릴 수 있다
+  *.check.ts  네트워크 없는 검증
+  *.smoke.ts  실제 API 확인 (키 필요)
+data/         굳혀둔 데이터와 원본 CSV
+scripts/      data/ 를 만드는 스크립트
+public/       아이콘·캐릭터·마커
+```
+
+빌드 스크립트와 런타임이 **같은 함수**(`lib/analyze.ts`)를 쓰는 것도 같은 이유다 —
+같은 경로에 다른 숫자가 나오면 근거 카드가 무너진다.
+
+코드 주석이 문서다. "왜 이렇게 했나"는 대부분 해당 파일 첫 주석이나 그 값 바로 위에 적혀 있다.
 
 ## 시작하기
 
@@ -140,25 +219,6 @@ node --experimental-strip-types --env-file=.env.local lib/ai.smoke.ts
 
 새로 만든 `data/*.json` 을 앱이 import 하기 시작했다면 **반드시 커밋해야 한다.** 커밋 안 하면
 서버에 없어서 빌드가 깨진다.
-
-## 폴더
-
-```
-app/          화면 (Next.js App Router). page.tsx 옆의 actions.ts 가 그 화면의 서버 액션이다
-  api/        /api/records · /api/drives (기록 저장) · /api/tts (음성)
-lib/          계산·판정·저장소. 화면을 안 물고 있어서 node 로 바로 돌릴 수 있다
-  *.check.ts  네트워크 없는 검증
-  *.smoke.ts  실제 API 확인 (키 필요)
-data/         굳혀둔 데이터와 원본 CSV
-scripts/      data/ 를 만드는 스크립트
-public/       아이콘·캐릭터·마커
-docs/         README 스크린샷 (앱이 안 읽는다)
-```
-
-`lib` 이 계산을 쥐고 `app` 은 그리기만 한다. 빌드 스크립트와 런타임이 **같은 함수**(`lib/analyze.ts`)를
-쓰는 것도 그래서다 — 같은 경로에 다른 숫자가 나오면 근거 카드가 무너진다.
-
-코드 주석이 문서다. "왜 이렇게 했나"는 대부분 해당 파일 첫 주석이나 그 값 바로 위에 적혀 있다.
 
 ## 알아둘 것
 
