@@ -180,10 +180,38 @@ export function loadSdk() {
     // autoload=false — 로드 직후 maps.load() 로 직접 초기화한다
     s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KEY}&autoload=false`;
     s.onload = () => window.kakao.maps.load(resolve);
-    s.onerror = reject;
+    s.onerror = (e) => {
+      // 화면에는 "잠시 뒤 다시" 만 나간다 (mapNotice) — 원인을 볼 자리는 여기 하나다
+      console.error("[지도] 카카오 SDK 를 불러오지 못했습니다 — 키·도메인 등록을 확인하세요", KEY ? "(키 있음)" : "(키 없음)", e);
+      reject(e);
+    };
     document.head.append(s);
   }));
 }
+
+/**
+ * 지도 자리에 띄울 한 줄. 그릴 게 없으면 null 이다.
+ *
+ * **세 화면이 같은 말을 해야 해서 여기 하나로 둔다** — RouteMap · 탐나는전(app/around) ·
+ * 주차장(app/parking) 이 각자 같은 삼항식을 복사해 갖고 있었고, 셋 다 실패했을 때
+ * "지도를 불러오지 못했습니다 (키·도메인 등록 확인)" 를 사용자에게 보여줬다.
+ *
+ * **그 문장은 개발자에게 하는 말이다.** sdk === "error" 는 스크립트가 안 붙은 모든 경우라
+ * (느린 망 · 카카오 쪽 장애 · 새 도메인 미등록) 초보 운전자가 볼 일이 실제로 있는데,
+ * 거기서 "도메인 등록"은 알아들을 수도 없고 할 수 있는 일도 아니다. 사람에게는 다음에 할 일만
+ * 말하고(잠시 뒤 다시), 원인은 console 로 보낸다 (loadSdk 의 onerror).
+ *
+ * 키가 없는 갈래는 **개발 중에만** 나온다 — NEXT_PUBLIC_ 값은 빌드 때 코드에 박히므로
+ * 배포본에 키가 없으면 지도 자체가 안 그려진다. 그래서 그 문장은 개발자용 그대로 둔다.
+ */
+export const mapNotice = (sdk: "loading" | "ready" | "error"): string | null =>
+  !KEY
+    ? "NEXT_PUBLIC_KAKAO_MAP_KEY 가 없습니다 (.env.local 확인)"
+    : sdk === "loading"
+      ? "지도를 불러오는 중…"
+      : sdk === "error"
+        ? "지도를 불러오지 못했어요. 잠시 뒤 다시 열어주세요."
+        : null;
 
 export default function RouteMap({
   center,
@@ -397,13 +425,7 @@ export default function RouteMap({
     return () => ro.disconnect();
   }, [sdk, shape]);
 
-  const notice = !KEY
-    ? "NEXT_PUBLIC_KAKAO_MAP_KEY 가 없습니다 (.env.local 확인)"
-    : sdk === "loading"
-      ? "지도를 불러오는 중…"
-      : sdk === "error"
-        ? "지도를 불러오지 못했습니다 (키·도메인 등록 확인)"
-        : null;
+  const notice = mapNotice(sdk);
 
   return (
     <div className={`relative h-full w-full overflow-hidden bg-slate-100 ${className}`}>

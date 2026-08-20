@@ -21,7 +21,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import { loadSdk, type LatLng } from "../RouteMap";
+import { loadSdk, mapNotice, type LatLng } from "../RouteMap";
 import { findParkingNear } from "./actions";
 import {
   spotsAround,
@@ -864,13 +864,7 @@ function Map({ pins, selected, onPick, onBlank, move, start, dest }: MapProps) {
     }
   }, [sdk, pins, selected, dest]);
 
-  const notice = !process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
-    ? "NEXT_PUBLIC_KAKAO_MAP_KEY 가 없습니다 (.env.local 확인)"
-    : sdk === "loading"
-      ? "지도를 불러오는 중…"
-      : sdk === "error"
-        ? "지도를 불러오지 못했습니다 (키·도메인 등록 확인)"
-        : null;
+  const notice = mapNotice(sdk);
 
   return (
     <>
