@@ -527,11 +527,25 @@ function RouteCard({
         open ? "border-2 border-[#ff7b33] pb-[21px]" : "border border-[#e5e0db] pb-[13px]"
       }`}
     >
-      {/* ✕ — 이 기록을 목록에서 뺀다. 카드를 펼치는 자리 위에 얹히므로 버튼이 먼저 받는다 */}
+      {/*
+        ✕ — 이 기록을 목록에서 뺀다. 카드를 펼치는 자리 위에 얹히므로 버튼이 먼저 받는다.
+
+        **평소에는 물러나 있는다** (opacity-50). 굵은 검은 ✕ 를 그대로 두면 날짜·제목보다
+        먼저 눈에 들어와, 카드에서 가장 강한 신호가 "지우기"가 된다. 카드가 할 말은 그 기록이지
+        지우는 방법이 아니다. 손이 닿으면(hover·active) 제 색으로 돌아와 누를 때는 또렷하다.
+
+        투명도로 낮추는 이유는 아이콘 색이 svg 안에 검정으로 박혀 있어서다
+        (public/safelog/icon-close.svg) — <img> 라 CSS 로 색을 못 바꾼다. 50 이 하한이다:
+        더 흐리면 흰 바탕 대비가 3:1 아래로 떨어져 눌러야 할 것이 안 보인다.
+        누르는 자리(30px)는 그대로라 손에 닿는 넓이는 안 줄었다.
+
+        사진 위의 ✕(app/trip/record/page.tsx 오늘의 사진)는 이 규칙 밖이다 — 거기선 어두운
+        사진이 배경이라 흐리면 사라진다.
+      */}
       <button
         onClick={onRemove}
         aria-label={`${route.title} 기록 지우기`}
-        className="absolute top-[8px] right-[11px] flex size-[30px] items-center justify-center transition active:scale-[0.9]"
+        className="absolute top-[8px] right-[11px] flex size-[30px] items-center justify-center opacity-50 transition hover:opacity-100 active:scale-[0.9] active:opacity-100"
       >
         <img src="/safelog/icon-close.svg" alt="" className="size-[14px]" />
       </button>

@@ -1100,7 +1100,7 @@ function List({
                   <button
                     onClick={() => onRemoveDraft(d.id)}
                     aria-label={`${d.title || "제목 없는 초안"} 초안 지우기`}
-                    className="absolute top-[17px] right-[11px] z-20 flex size-[30px] items-center justify-center transition active:scale-[0.9]"
+                    className="absolute top-[17px] right-[11px] z-20 flex size-[30px] items-center justify-center opacity-50 transition hover:opacity-100 active:scale-[0.9] active:opacity-100"
                   >
                     <img src="/safelog/icon-close.svg" alt="" className="size-[14px]" />
                   </button>
@@ -1142,7 +1142,7 @@ function List({
                 <button
                   onClick={() => onRemove(r)}
                   aria-label={`${r.title} 기록 지우기`}
-                  className="absolute top-[8px] right-[11px] z-20 flex size-[30px] items-center justify-center transition active:scale-[0.9]"
+                  className="absolute top-[8px] right-[11px] z-20 flex size-[30px] items-center justify-center opacity-50 transition hover:opacity-100 active:scale-[0.9] active:opacity-100"
                 >
                   <img src="/safelog/icon-close.svg" alt="" className="size-[14px]" />
                 </button>
