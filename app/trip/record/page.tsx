@@ -31,6 +31,7 @@ import {
   EPISODE_MAX,
   clearPhotos,
   dotted,
+  homeQuery,
   isoToday,
   loadDrafts,
   loadPhotos,
@@ -43,12 +44,10 @@ import {
   saveRecord,
   savedAt,
   shrinkImage,
-  RECORD_KEYS,
   type CourseSummary,
   type Draft,
   type TripRecord,
 } from "@/lib/record";
-import { characterOf, parseProfile } from "@/lib/profile";
 
 /**
  * 코스 셀렉터의 "지난 여행"에 몇 줄까지 보여줄지.
@@ -80,9 +79,6 @@ function Record() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const summary = parseSummary(searchParams);
-  // 카드에 앉히는 캐릭터를 고르는 값이다 (characterOf). **버킷과는 상관이 없다** —
-  // 예전에는 이 값이 버킷이기도 했는데 그건 아래 나 로 갈라졌다
-  const tier = parseProfile(Object.fromEntries(searchParams)).experienceYears;
 
   /*
     기록 버킷은 **이 브라우저**다 (lib/me.ts). me() 가 localStorage 를 보므로 그리는 중에는
@@ -148,16 +144,8 @@ function Record() {
     if (found) setDraft(found);
   }, [searchParams]);
 
-  /**
-   * 홈으로. **기록 흐름의 값을 여기서 끊는다** (lib/record.ts RECORD_KEYS).
-   * 안 끊으면 홈 URL 에 코스 요약이 눌어붙고, 홈의 "여행 기록 ＋" 가 그걸 돌려줘서
-   * 목록 대신 작성 화면이 열린다. write·draft·back 도 같이 뺀다 — 도착지에서 쓸 데가 없다.
-   */
-  const home = () => {
-    const q = new URLSearchParams(searchParams);
-    for (const k of [...RECORD_KEYS, "write", "draft", "back"]) q.delete(k);
-    router.push(`/home?${q}`);
-  };
+  /** 홈으로. 기록 흐름의 값은 lib/record.ts homeQuery 가 끊는다 (여기만이 아니라 나가는 문 전부가 쓴다) */
+  const home = () => router.push(`/home?${homeQuery(searchParams)}`);
   /**
    * 코스 추천으로. **어디서 왔는지 알려준다** — 그래야 거기서 뒤로 나올 때 홈이 아니라 여기로 돌아온다
    * (app/trip/page.tsx back). 잘못 눌렀을 때 되돌아올 길이 없으면 쓰던 기록이 통째로 날아간다.
@@ -188,7 +176,6 @@ function Record() {
   if (view === "write")
     return (
       <Write
-        tier={tier}
         summary={summary}
         records={records}
         editing={editing}
@@ -235,7 +222,6 @@ function Record() {
       <List
         records={records}
         drafts={drafts}
-        tier={tier}
         onHome={home}
         onRemove={setAsking}
         onWrite={() => setView("write")}
@@ -313,7 +299,6 @@ function Cta({ label, onClick, ghost }: { label: string; onClick: () => void; gh
  * "임시 저장"도 안 보인다 — 초안은 아직 저장 안 한 새 기록의 것이라, 고쳐 쓰는 글과 섞이면 안 된다.
  */
 function Write({
-  tier,
   summary,
   records,
   editing,
@@ -323,7 +308,6 @@ function Write({
   onBack,
   onSaved,
 }: {
-  tier: number;
   summary: CourseSummary | null;
   records: TripRecord[];
   editing: TripRecord | null;
@@ -1019,7 +1003,6 @@ function NameInput({
 function List({
   records,
   drafts,
-  tier,
   onHome,
   onRemove,
   onWrite,
@@ -1029,7 +1012,6 @@ function List({
 }: {
   records: TripRecord[];
   drafts: Draft[];
-  tier: number;
   onHome: () => void;
   onRemove: (record: TripRecord) => void;
   onWrite: () => void;
@@ -1054,8 +1036,6 @@ function List({
               귤이와 함께한 제주 여행
             </p>
           </div>
-          {/* 홈·마이 아바타와 같은 얼굴이다 (lib/profile.ts characterOf) — 한 사람의 프로필이 화면마다 갈리면 안 된다 */}
-          <img src={characterOf(tier).src} alt="" className="mt-1 size-[62px] shrink-0 rounded-full object-cover" />
         </div>
 
         <div className="mx-[23px] mt-5 flex h-[82px] shrink-0 items-center justify-between rounded-[18px] bg-[#fff0e6] pr-[26px] pl-[18px]">
