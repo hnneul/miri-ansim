@@ -717,17 +717,17 @@ function Destination() {
                             onClick={() => forget(r)}
                             aria-label={`최근 검색어에서 ${r} 삭제`}
                             /*
-                              호버는 회색 동그라미다 — 지우는 버튼이라 주황(앱의 진행 색)으로 물들면
-                              누르면 뭔가 진행되는 것처럼 읽힌다 (route-editor 의 닫기 상자와 같은 규칙).
-                              흐려둔 아이콘도 커서를 올리면 또렷해져서, 어느 줄을 겨누고 있는지가 보인다.
+                              호버에 동그라미를 안 깐다 — 앱의 아이콘 버튼 규칙이다(app/trip/page.tsx Back 주석).
+                              커서를 올리면 ✕ 가 더 흐려져서, 어느 줄을 겨누고 있는지가 보인다.
                             */
-                            className="group shrink-0 rounded-full p-1 transition hover:bg-[#fff0e6] active:scale-90"
+                            className="shrink-0 p-1 transition hover:opacity-40 active:scale-90"
                           >
                             <img
                               src="/home/icon-close.svg"
                               alt=""
                               aria-hidden
-                              className="size-4 opacity-40 transition group-hover:opacity-80"
+                              /* 평소에도 옅다 — 목록에서 지우기가 이름보다 세면 안 된다. 호버는 버튼이 맡는다 */
+                              className="size-4 opacity-70"
                             />
                           </button>
                         </li>

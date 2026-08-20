@@ -268,7 +268,7 @@ export default function RouteRadio({
           390 을 살짝 넘어간다). 판정 카드 오른쪽에 붙는 좁은 칸이라 아이콘을 왼쪽에 두면
           글씨가 밀려 잘린다. -mr 로 오른쪽 여백을 먹어 확성기를 화면 가장자리까지 붙인다.
         */
-        className="-mr-2 flex w-full items-center justify-end gap-[4px] py-1 text-right transition active:scale-[0.99] disabled:opacity-40"
+        className="-mr-2 flex w-full items-center justify-end gap-[4px] py-1 text-right transition hover:opacity-50 active:scale-[0.99] disabled:opacity-40"
       >
         {/*
           칸이 좁아서 읽는 문장을 그대로 못 얹는다 (여기는 판정 카드 옆 100px 남짓이다).

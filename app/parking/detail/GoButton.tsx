@@ -39,7 +39,7 @@ export default function GoButton({ name, at }: { name: string; at: [number, numb
     <div className="mx-4 mt-6 shrink-0">
       <button
         onClick={go}
-        className="h-[52px] w-full rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.98]"
+        className="h-[52px] w-full rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
       >
         이 주차장까지 경로보기
       </button>

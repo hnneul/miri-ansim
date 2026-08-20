@@ -506,9 +506,12 @@ function Chip({ on, onClick, children }: { on: boolean; onClick?: () => void; ch
   /*
     호버는 꺼진 칩에만 준다. 켜진 칩은 눌러도 지금 상태 그대로라 미리 보여줄 게 없고,
     주황을 한 톤 낮추면 빨강으로 읽혀 경고처럼 보인다.
+
+    **꺼진 칩의 호버는 옅은 회색이다.** 주황(#fff0e6)은 이 앱에서 "앞으로 가는 문"의 색인데
+    (app/route/page.tsx 닫기 주석), 이건 목록을 거르는 스위치라 아무 데도 안 간다.
   */
   const cls = `flex h-10 shrink-0 items-center justify-center rounded-full px-4 text-[14px] leading-[22px] font-medium transition ${
-    on ? "bg-[#fc7f35] text-white" : "border border-[#e5e5e5] bg-white text-[#1f1f1f] hover:bg-[#fff0e6]"
+    on ? "bg-[#fc7f35] text-white" : "border border-[#e5e5e5] bg-white text-[#1f1f1f] hover:bg-[#f5f5f5]"
   }`;
   return onClick ? (
     <button onClick={onClick} aria-pressed={on} className={cls}>

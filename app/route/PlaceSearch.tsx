@@ -139,13 +139,14 @@ export default function PlaceSearch({
                     type="button"
                     onClick={() => setRecent((prev) => removeRecent(prev, r))}
                     aria-label={`최근 검색어에서 ${r} 삭제`}
-                    className="group shrink-0 rounded-full p-1 transition hover:bg-[#fff0e6] active:scale-90"
+                    className="shrink-0 p-1 transition hover:opacity-40 active:scale-90"
                   >
                     <img
                       src="/home/icon-close.svg"
                       alt=""
                       aria-hidden
-                      className="size-4 opacity-40 transition group-hover:opacity-80"
+                      /* 평소에도 옅다 — 목록에서 지우기가 이름보다 세면 안 된다. 호버는 버튼이 맡는다 */
+                      className="size-4 opacity-70"
                     />
                   </button>
                 </li>
