@@ -528,7 +528,7 @@ function Write({
         제목은 뒤로가기 오른쪽에 붙는다 (와이어프레임이 가운데 정렬이 아니다).
       */}
       <div className="flex h-11 shrink-0 items-center pr-6 pl-[9px]">
-        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90">
+        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90">
           <img src="/icon-arrow-left.svg" alt="" className="size-6" />
         </button>
         <h1 className="flex-1 text-[22px] leading-normal font-bold text-[#262626]">
@@ -832,7 +832,7 @@ function Detail({ record, onBack, onEdit }: { record: TripRecord; onBack: () => 
         뒤로·수정으로 나갈 문이 사라진다. 와이어프레임의 ••• 는 안 단다 (지울 문은 목록 카드의 ✕).
       */}
       <div className="flex h-[44px] shrink-0 items-center bg-white pl-[9px]">
-        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90">
+        <button onClick={onBack} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90">
           <img src="/icon-arrow-left.svg" alt="" className="size-6" />
         </button>
         <h1 className="flex-1 text-[21px] leading-normal font-bold text-[#1f1f1f]">여행 기록</h1>

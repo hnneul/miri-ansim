@@ -49,7 +49,7 @@ function Topic() {
             router.push(searchParams.get("back") === "intro" ? "/intro" : `/profile?${searchParams}`)
           }
           aria-label="뒤로"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full text-[22px] leading-none text-[#262626] transition hover:bg-[#fff0e6] active:scale-90"
+          className="flex size-11 shrink-0 items-center justify-center text-[22px] leading-none text-[#262626] transition hover:opacity-40 active:scale-90"
         >
           ‹
         </button>

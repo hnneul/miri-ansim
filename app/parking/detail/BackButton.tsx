@@ -14,7 +14,7 @@ export default function BackButton() {
     <button
       onClick={() => router.back()}
       aria-label="뒤로"
-      className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+      className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
     >
       <img src="/icon-arrow-left.svg" alt="" className="size-6" />
     </button>

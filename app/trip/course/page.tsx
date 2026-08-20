@@ -369,7 +369,7 @@ function Recommend({
     <Frame>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex h-11 shrink-0 items-center justify-between pr-[19px] pl-[15px]">
-          <button onClick={onBack} aria-label="뒤로" className="flex size-11 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90">
+          <button onClick={onBack} aria-label="뒤로" className="flex size-11 items-center justify-center transition hover:opacity-40 active:scale-90">
             <img src="/icon-arrow-left.svg" alt="" className="size-6" />
           </button>
           {/* 홈은 코스를 고른 뒤에만 (와이어프레임 07). 고르기 전에는 뒤로가 곧 나가는 길이다 */}

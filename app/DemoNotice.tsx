@@ -16,7 +16,9 @@
 export default function DemoNotice() {
   if (!process.env.NEXT_PUBLIC_DEMO_HERE) return null;
   return (
-    <p className="shrink-0 border-t border-[#ededed] bg-[#fff0e6] py-[9px] text-center text-[11px] leading-none text-[#8a5a3b]">
+    // mb-3 은 아래 화면의 첫 버튼(← / ✕)이 이 띠에 붙지 않게 하는 틈이다 —
+    // 44px 짜리 호버 원이 0px 로 맞닿으면 띠와 겹쳐 보인다 (app/StatusBar.tsx 의 h-3 과 같은 값)
+    <p className="mb-3 shrink-0 border-t border-[#ededed] bg-[#fff0e6] py-[9px] text-center text-[11px] leading-none text-[#8a5a3b]">
       시연을 위해 현재 위치를 제주국제공항으로 고정해 두었습니다
     </p>
   );

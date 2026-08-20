@@ -256,7 +256,7 @@ function Safelog() {
         <button
           onClick={() => setQuery(query === null ? "" : null)}
           aria-label={query === null ? "기록 검색" : "검색 닫기"}
-          className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+          className="ml-auto flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
         >
           <img
             src={query === null ? "/home/icon-search.svg" : "/home/icon-close.svg"}
@@ -331,7 +331,7 @@ function Header({ onBack }: { onBack: () => void }) {
       <button
         onClick={onBack}
         aria-label="뒤로"
-        className="z-10 flex size-11 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+        className="z-10 flex size-11 items-center justify-center transition hover:opacity-40 active:scale-90"
       >
         <img src="/icon-arrow-left.svg" alt="" className="size-6" />
       </button>

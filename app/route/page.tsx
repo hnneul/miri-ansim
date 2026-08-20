@@ -573,7 +573,7 @@ function Route() {
           <button
             onClick={() => setView("compare")}
             aria-label="뒤로"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+            className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
           >
             <img src="/icon-arrow-left.svg" alt="" className="size-6" />
           </button>
@@ -581,7 +581,7 @@ function Route() {
           <button
             onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="홈으로"
-            className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+            className="ml-auto flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
           >
             <img src="/route/icon-home.svg" alt="" className="size-6" />
           </button>
@@ -614,7 +614,7 @@ function Route() {
           <button
             onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="홈으로"
-            className="flex size-11 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+            className="flex size-11 items-center justify-center transition hover:opacity-40 active:scale-90"
           >
             <img src="/route/icon-home.svg" alt="" className="size-6" />
           </button>

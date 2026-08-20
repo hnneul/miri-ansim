@@ -278,7 +278,15 @@ function Shell({
 function Back({ onClick, title }: { onClick: () => void; title?: string }) {
   return (
     <div className="flex h-11 shrink-0 items-center gap-2 pl-[15px]">
-      <button onClick={onClick} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-[#fff0e6] active:scale-90">
+      {/*
+        **아이콘 버튼의 호버는 원을 안 깐다 — 아이콘만 흐려진다** (앱 전체 규칙, 18곳이 같다).
+        터치 영역 44px 은 그대로고 보이는 것만 바뀐다.
+
+        예전에는 옅은 주황 원(#fff0e6)이었는데, 상단 안내 띠 바로 아래 서는 자리에서 44px 원이
+        띠에 맞붙어 겹쳐 보였다. 원을 지우면 평소 배경이 투명이라 겹칠 면적 자체가 없다.
+        같은 색을 쓰는 카드·알약(홈 Quick, 필터 칩)은 아이콘 버튼이 아니라 그대로 둔다.
+      */}
+      <button onClick={onClick} aria-label="뒤로" className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90">
         <img src="/icon-arrow-left.svg" alt="" className="size-6" />
       </button>
       {title && <h1 className="text-[16px] leading-6 font-medium text-[#262626]">{title}</h1>}
@@ -395,7 +403,7 @@ function Tile({ icon, label, on, onClick }: { icon: string; label: string; on: b
       {/*
         시스템 이모지였다. 기기마다 다른 그림이 나오고(맥 Apple Color Emoji ↔ 윈도우 Segoe UI Emoji),
         가족·친구는 ZWJ 로 이어붙인 조합이라 지원이 없는 환경에서는 낱글자로 흩어졌다.
-        3D 캐릭터 옆에 납작한 이모지가 서는 것도 결이 안 맞았다 — 홈 quick-*.png 와 같은 방식으로 옮긴다.
+        홈 quick-*.png 와 같은 방식으로 옮긴다.
         alt 는 비운다: 바로 옆에 label 이 글자로 서 있어 읽어 주면 이름이 두 번 들린다.
       */}
       <img src={icon} alt="" className="size-[26px] shrink-0 object-contain" />
