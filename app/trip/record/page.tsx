@@ -269,7 +269,8 @@ function Record() {
 /** 상태바 + 흰 바탕. 두 화면이 같은 틀을 쓴다 (app/trip/course/page.tsx Frame 과 같은 이유). */
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-white">
+    // relative 다 — 알림 창(app/Confirm.tsx)이 폰 프레임 안에서만 덮어야 한다. 바깥은 브라우저 여백이다
+    <div className="relative flex min-h-0 flex-1 flex-col bg-white">
       <StatusBar tone="text-[#262626]" />
       {children}
     </div>
@@ -360,6 +361,15 @@ function Write({
    * 사진이 안 담긴 건 알려주면서 글이 통째로 안 담긴 건 아무 말도 안 하고 있었다.
    */
   const [저장실패, set저장실패] = useState(false);
+  /**
+   * 버튼 하나짜리 알림 창(app/Confirm.tsx). **alert() 를 대신한다** — 브라우저 confirm() 을
+   * 피하려고 그 창을 만들어 놓고 실패 알림만 alert() 였다. 같은 물건이라 같은 흠이 있다:
+   * 폰 프레임 밖에서 시스템 글꼴로 뜨고 "localhost:3000 내용:" 같은 줄이 붙는다.
+   *
+   * onClose 는 창을 닫은 **뒤에** 할 일이다 — 사진 알림은 저장이 끝난 뒤 뜨는데, 읽기도 전에
+   * 목록으로 넘어가면 못 담은 사진이 있다는 말을 아무도 못 본다.
+   */
+  const [알림, set알림] = useState<{ title: string; body: string; onClose?: () => void } | null>(null);
 
   /** 지난 여행 — 지금 고른 코스와 방금 다녀온 코스는 위에 이미 있으므로 뺀다 */
   const past = records
@@ -429,10 +439,18 @@ function Write({
       return set저장실패(true);
     }
 
-    // 사진은 이 기기에만 남는다. 자리가 없으면 기록은 남고 사진만 빠지므로 그 사실을 말해준다
-    if (!savePhotos(record.id, photos)) alert("사진이 많아 이 기기에 다 담지 못했어요. 기록은 저장됐어요.");
     // 기록이 됐으니 초안 자리는 비운다 — 안 지우면 목록 위에 같은 글이 초안으로 남는다
     if (draftId !== null) onDrafts(removeDraft(draftId));
+
+    // 사진은 이 기기에만 남는다. 자리가 없으면 기록은 남고 사진만 빠지므로 그 사실을 말해준다.
+    // 넘어가는 건 확인을 누른 뒤다 — 목록이 먼저 뜨면 이 말이 그 밑에 깔린 채로 사라진다
+    if (!savePhotos(record.id, photos))
+      return set알림({
+        title: "사진을 다 담지 못했어요",
+        body: "기록은 저장됐어요. 이 기기에 사진 넣을 자리가 부족해요.",
+        onClose: () => onSaved(next),
+      });
+
     onSaved(next);
   }
 
@@ -445,7 +463,7 @@ function Write({
     setDraftId(id);
     const next = saveDraft({ id, course, route, places, title, episode, body, photos });
     if (next) onDrafts(next);
-    else alert("임시 저장할 자리가 부족해요. 사진을 몇 장 빼고 다시 눌러주세요.");
+    else set알림({ title: "임시 저장할 자리가 부족해요", body: "사진을 몇 장 빼고 다시 눌러주세요." });
     return id;
   }
 
@@ -492,7 +510,7 @@ function Write({
             }}
             className="shrink-0 text-[13px] leading-normal font-medium text-[#7d7d7d] transition active:scale-95"
           >
-            {saved ? "저장됨" : "임시 저장"}
+            {saved && !알림 ? "저장됨" : "임시 저장"}
           </button>
         )}
       </div>
@@ -754,6 +772,18 @@ function Write({
         <Cta label="여행 기록 저장하기" onClick={save} />
         <div className="h-[35px] shrink-0" />
       </div>
+
+      {알림 && (
+        <Confirm
+          title={알림.title}
+          body={알림.body}
+          onCancel={() => {
+            const 다음 = 알림.onClose;
+            set알림(null);
+            다음?.();
+          }}
+        />
+      )}
     </Frame>
   );
 }
