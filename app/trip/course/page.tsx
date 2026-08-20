@@ -94,6 +94,26 @@ function CourseResult() {
   if ("error" in made)
     return (
       <Frame>
+        {/*
+          나가는 문 하나 — 홈. **뒤로 화살표는 안 붙인다**: 아래 큰 버튼이 "조건 다시 고르기"라
+          둘 다 /trip 으로 가서 같은 문이 둘이 된다.
+
+          홈이 필요한 이유는 조건을 바꿔도 또 못 만들 수 있어서다 ("하루 운전 시간 안에 갈 수 있는
+          곳이 없어요"는 하루 시간이 짧으면 무엇을 골라도 나온다). 그때 이 화면과 /trip 을
+          오가는 것 말고 나갈 길이 없었다. 길 비교가 흐름을 접는 문을 따로 두는 것과 같은 규칙이다
+          (app/route/page.tsx 홈 주석).
+
+          조건은 걷어내고 나간다 (나가는쿼리) — 안 그러면 홈에서 새 여행을 시작할 때 되살아난다.
+        */}
+        <div className="flex h-11 shrink-0 items-center justify-end pr-[19px] pl-[15px]">
+          <button
+            onClick={() => router.push(`/home?${나가는쿼리()}`)}
+            aria-label="메인화면으로"
+            className="flex size-11 items-center justify-center transition hover:opacity-40 active:scale-90"
+          >
+            <img src="/route/icon-home.svg" alt="" className="size-6" />
+          </button>
+        </div>
         <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
           <p className="text-[16px] leading-6 font-medium text-[#262626]">{made.error}</p>
         </div>
