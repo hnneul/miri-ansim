@@ -191,7 +191,7 @@ function Onboarding() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-gradient-to-b from-white from-[41.5%] to-[#d2eafe]">
+    <div className="flex flex-1 flex-col bg-white">
       <StatusBar tone="text-[#525252]" />
 
       {/* AppBar/Back — 44px 터치 영역 + 24px 화살표 (피그마 컴포넌트 설명 그대로) */}
