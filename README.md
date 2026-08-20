@@ -15,13 +15,16 @@
 
 지키는 원칙이 셋이다.
 
-- **모르면 말하지 않는다.** 확보하지 못한 값은 추정해 채우지 않는다. 판독 안 된 지점이 하나라도
-  있으면 "비보호 없음"이라 적지 않고 "확인 안 됨"이라 적는다.
+- **모르면 말하지 않는다.** 확보하지 못한 값은 추정해 채우지 않는다. 카카오에서 온 주차장은
+  유형을 모르니 "주차 쉬움" 배지를 안 붙이고(`parkingKind`), 값이 0인 위험요인은 "0km"라 적는 대신
+  근거 목록에서 뺀다(`risksOf`). 비교표는 확인해서 없는 것("없음")과 확인을 못 한 것("확인 안 됨")을
+  갈라 적고, 한 줄이 통째로 후자면 그 줄을 안 그린다.
 - **숫자는 계산이 정하고 AI 는 옮기기만 한다.** 추천점수·위험요인·비교표는 전부 결정론적 계산이고
   (`lib/score.ts`), AI 는 그 결과를 한국어 문장으로 바꿀 뿐이다. AI 응답은 `verify()` 가 걸러
   통과 못 하면 규칙 기반 문장으로 떨어진다.
-- **출처와 기준일을 밝힌다.** 화면에 뜨는 수치는 전부 출처가 붙어 있고, 그 출처는 코드가 데이터에서
-  직접 꺼낸다 (손으로 적은 날짜가 없다).
+- **출처와 기준일을 밝힌다.** 화면에 뜨는 수치에는 출처가 따라붙는다. 주차장처럼 원본이 날짜를
+  들고 있는 데이터는 코드가 거기서 꺼내 쓰고(`data/parking-data.json` 의 `source`), 표준노드링크처럼
+  원본에 없는 것만 `lib/route.ts` 에 문자열로 적어 둔다 — 새 원본을 받으면 그 줄도 같이 고친다.
 
 ## 화면
 
@@ -44,78 +47,20 @@
 
 ## 구조
 
-```mermaid
-flowchart LR
-  subgraph BR["브라우저 · app/**/page.tsx"]
-    ROUTE["/route<br>길 비교"]
-    OTHERS["/home · /destination · /parking<br>/nearby · /around · /calm · /trip"]
-    RECS["/safelog · /trip/record"]
-  end
-
-  subgraph SRV["서버 · app/**/actions.ts · app/api"]
-    CMP["compareRoutes"]
-    AIR["aiRadio"]
-    ACTS["hereNow · findPlace · findParkingNear<br>nearbySpots · calmNear · makeCourses"]
-    TTSAPI["/api/tts"]
-    RECAPI["/api/records<br>/api/drives"]
-  end
-
-  subgraph LIB["계산 · lib/ — 네트워크 없이 도는 순수 함수"]
-    RT["route.ts<br>후보 셋 중 같은 길 접기"]
-    AN["analyze.ts<br>급커브 · 차로수 · 고속주행"]
-    SC["score.ts<br>추천점수"]
-    BRF["briefing.ts<br>규칙 문장 · 음성 대본"]
-    AIL["ai.ts<br>프롬프트 · verify"]
-    ETC["spots · course · flow<br>poi · geocode"]
-  end
-
-  subgraph OUT["바깥"]
-    KAKAO["카카오<br>길찾기 · 로컬 · 지도"]
-    OPENAI["OpenAI"]
-    TTSX["Google TTS<br>→ Edge TTS"]
-    ITS["제주ITS"]
-    METEO["Open-Meteo"]
-    DB[("SQLite<br>~/miri-data")]
-  end
-
-  DAT["굳혀둔 데이터 · data/<br>jeju-link 37,063 · parking · spots<br>tamna · road-baseline · 판독표"]
-
-  ROUTE --> CMP
-  ROUTE --> AIR
-  ROUTE --> TTSAPI
-  ROUTE --> RECAPI
-  OTHERS --> ACTS
-  RECS --> RECAPI
-
-  CMP --> RT --> AN --> SC --> BRF
-  AIR --> AIL
-  ACTS --> ETC
-
-  RT --> KAKAO
-  ETC --> KAKAO
-  ETC --> ITS
-  ETC --> METEO
-  AIL --> OPENAI
-  TTSAPI --> TTSX
-  RECAPI --> DB
-
-  AN -.-> DAT
-  ETC -.-> DAT
-```
-
-세 가지 규칙이 이 그림을 만든다.
+화면 → 서버 액션 → `lib/` → 바깥, 네 층이다. 세 가지 규칙이 이 모양을 만든다.
 
 - **키와 큰 데이터는 서버에 둔다.** 카카오 REST 키는 브라우저로 못 나가고, 도로 링크
-  `jeju-link.json` 은 6.7MB 라 폰으로 내려보낼 수 없다. 그래서 화면이 서버 액션을 거친다.
-- **계산은 `lib/` 이 쥐고 화면은 그리기만 한다.** `lib/` 은 화면을 안 물고 있어서 `node` 로 바로
-  돌아가고, 그래서 `*.check.ts` 가 네트워크 없이 규칙을 전부 검증할 수 있다.
+  `jeju-link.json` 은 6.8MB 라 폰으로 내려보낼 수 없다. 그래서 화면이 서버 액션을 거친다.
+- **`lib/` 은 화면도 `data/` 도 안 문다.** 굳혀둔 값은 서버 액션이 import 해서 인자로 넘긴다 —
+  그래서 `lib/` 이 번들러 없이 `node` 로 바로 돌고, `*.check.ts` 가 네트워크 없이 규칙을 검증할 수 있다.
+  (예외는 `course.ts` · `unprotected.ts` · `scenario.ts` 셋이다. 뒤의 둘은 화면이 안 부른다.)
 - **AI 는 문장만 만든다.** 숫자와 추천은 `score.ts` 가 정하고, `ai.ts` 는 그 결과를 한국어로 옮긴 뒤
   `verify()` 를 통과해야 화면에 오른다. 못 통과하면 `briefing.ts` 의 규칙 문장이 그대로 나간다.
 
 ```
 app/          화면 (Next.js App Router). page.tsx 옆의 actions.ts 가 그 화면의 서버 액션이다
   api/        /api/records · /api/drives (기록 저장) · /api/tts (음성)
-lib/          계산·판정·저장소. 화면을 안 물고 있어서 node 로 바로 돌릴 수 있다
+lib/          계산·판정·저장소. 화면도 data/ 도 안 물어서 node 로 바로 돌릴 수 있다
   *.check.ts  네트워크 없는 검증
   *.smoke.ts  실제 API 확인 (키 필요)
 data/         굳혀둔 데이터와 원본 CSV
@@ -167,18 +112,20 @@ npm run dev
 | 파일 | 내용 | 출처 |
 |---|---|---|
 | `jeju-link.json` | 도로 링크 37,063개 (차로수·제한속도·도로명·좌표) | 표준노드링크 2026-07-16 |
-| `parking-data.json` | 주차장 1,572곳 | 공공데이터포털 제주시·서귀포시 2026-04-16 |
-| `parking-tags.json` | 위성사진으로 사람이 확인한 주차 형태 40곳 | 직접 판독 |
+| `parking-data.json` | 주차장 1,572곳. 그중 25곳은 위성사진으로 주차 형태를 사람이 확인해 붙였다 (`data/parking-tags.json` 을 빌드 때 합친다) | 공공데이터포털 제주시·서귀포시 2026-04-16 |
 | `tamna-data.json` | 탐나는전 가맹점 11,912곳 | 공공데이터포털 2026-03-31 |
-| `goodprice-data.json` | 착한가격업소 415곳 | jeju.go.kr 물가정보 (원본 417곳) |
-| `spots.json` | 대표 관광지 122곳 (사진 포함) | 한국관광공사 TourAPI + 사람이 정한 순서 |
+| `spots.json` | 대표 관광지 122곳 (그중 105곳은 사진도 있다) | 한국관광공사 TourAPI + 사람이 정한 순서 |
 | `jeju-signals.json` | 신호교차로 818곳 | 제주 신호기현황 |
 | `road-baseline.json` | 링크별 자유속도 8,522개 | 제주ITS 평일 7일 통계 |
-| `unprotected-left.json` | 비보호 좌회전 판독표 4,498줄 | 카카오맵 로드뷰 직접 판독 |
-| `route-data.json` | 굳혀둔 두 경로 분석 (실시간 실패 시 폴백) | 카카오모빌리티 길찾기 |
+| `route-data.json` | 굳혀둔 두 경로 분석. 앱은 안 읽고 `*.check.ts` 의 회귀 기준으로만 쓴다 | 카카오모빌리티 길찾기 |
 
 **실시간** — 카카오 길찾기(소요시간·혼잡), 제주ITS(링크 속도, 5분 캐시), Open-Meteo(날씨).
 전부 실패해도 `throw` 하지 않는다. 그 칸만 비고 화면은 그대로 뜬다.
+
+표에 없는데 커밋된 `data/*.json` 이 넷 있다. `tamna-geocode.json` 은 `build-tamna-data.mjs` 의
+지오코딩 캐시고, 나머지 셋(`unprotected-left` · `left-turn-candidates` · `goodprice-data`)은
+만들어 놓고 화면에 안 올린 것들이다 — 값이 틀려서가 아니라 쓸 자리를 못 찾아서 남겼다.
+만든 이유는 각각의 `scripts/build-*.mjs` 첫 주석에 있다.
 
 데이터를 다시 만들려면 `scripts/build-*.mjs` 를 돌린다. 각 스크립트 첫 주석에 실행 명령과
 원본 받는 법이 적혀 있다.
@@ -228,4 +175,4 @@ node --experimental-strip-types --env-file=.env.local lib/ai.smoke.ts
 - **로그인이 없다.** 기록은 브라우저마다 다른 사람으로 본다. 시크릿 모드는 창을 닫으면 다시 못 찾고,
   사진은 서버로 안 가고 그 기기에만 남는다.
 - 평행/직각 주차 구분은 원본에 구획 방식 칸이 없어 **주차장 유형으로 미룬 추정**이다 (위성으로
-  확인한 40곳만 확정). 화면 문구도 그만큼만 단정한다.
+  확인한 25곳만 확정). 화면 문구도 그만큼만 단정한다.
