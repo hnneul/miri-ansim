@@ -62,7 +62,7 @@ for (const [이름, p] of 자리) {
 
 // 전 지점이 빈손이면 커버리지 문제가 아니라 API·키가 죽은 것이다 — 그건 조용히 넘기면 안 된다.
 if (받은곳 === 0) {
-  console.error("\n❌ 6곳 전부 값 없음 — 키·응답 스키마를 확인할 것 (lib/flow.ts fetchSpeeds)");
+  console.error("\n❌ 6곳 전부 값 없음 — 키·응답 스키마를 확인할 것 (lib/flow.ts liveSpeeds)");
   process.exit(1);
 }
 console.log(`\n✅ ${받은곳}/6 지점에서 실시간 수신 (기준선 도로 ${Object.keys(baseline).length}개)`);

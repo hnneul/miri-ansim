@@ -91,7 +91,7 @@ export async function searchParkingNear([lat, lng]: [number, number], radiusM = 
 export type Spot = { name: string; at: [number, number]; addr: string | null; kind: string };
 
 /**
- * 관심 장소 하나의 검색 조건. lib/trip.ts INTERESTS 의 뒤 세 칸이 그대로 들어온다 —
+ * 관심 장소 하나의 검색 조건. lib/trip.ts THEMES 의 recipes 가 그대로 들어온다 —
  * 왜 셋 다 필요한지는 거기 주석에 있다.
  */
 export type Recipe = { query: string; code: string; kinds: readonly string[] };

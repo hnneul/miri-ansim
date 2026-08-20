@@ -7,7 +7,7 @@
 // 실제 모델 응답 확인은 lib/ai.smoke.ts 가 한다 (키가 필요해 따로 뒀다).
 
 import assert from "node:assert";
-import { verify, promptOf, factsOf, type Facts } from "./ai.ts";
+import { verify, promptOf, factsOf, 대본_최대글자, type Facts } from "./ai.ts";
 import { scoreRoutes, type DriverProfile, type RiskFactor } from "./score.ts";
 
 const 초보: DriverProfile = {
@@ -241,11 +241,11 @@ for (const bad of [
 ])
   assert.equal(verify(대본통째(bad), facts), null, `걸러야 한다: ${JSON.stringify(bad)}`);
 
-// 한 칸이 길면 버린다 — 귀로는 되감을 수 없어서 긴 문단은 어디를 듣는지 놓친다 (120자 상한)
+// 한 칸이 길면 버린다 — 귀로는 되감을 수 없어서 긴 문단은 어디를 듣는지 놓친다 (대본_최대글자)
 assert.equal(
   verify(대본바꿔("평화로 경유", 0, "큰길 위주로 이어지는 길이라 차선만 지키면 되는 편한 길인데요, ".repeat(4)), facts),
   null,
-  "120자를 넘는 대본 칸이 통과했다",
+  `${대본_최대글자}자를 넘는 대본 칸이 통과했다`,
 );
 
 // ★ 여기가 대본에만 있는 규칙이다.

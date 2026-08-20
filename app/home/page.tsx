@@ -61,7 +61,7 @@ function Home() {
   /** 지금 선 동네 ("제주시 아라이동"). 번지는 일부러 안 받는다 — 이유는 lib/geocode.ts areaAt 주석에. */
   const [area, setArea] = useState<string | null>(null);
   const [sky, setSky] = useState<string | null>(null);
-  /** 여행 기록 칸. 서버에서 익숙함 티어 버킷을 읽어온다 (lib/record.ts loadRecords) — 실패하면 빈 배열이라 ＋ 칸만 남는다. */
+  /** 여행 기록 칸. 이 브라우저 몫을 서버에서 읽어온다 (lib/record.ts loadRecords) — 실패하면 빈 배열이라 ＋ 칸만 남는다. */
   const [records, setRecords] = useState<TripRecord[]>([]);
 
   // 지도 오른쪽 위 버튼도 같은 걸 다시 부른다 — 권한을 뒤늦게 허용한 사람이 쓸 문 하나는 있어야 한다.
@@ -415,7 +415,7 @@ function Quick({
  *
  * 글자 크기는 와이어프레임(9.06px / 6.04px)을 그대로 옮기지 않고 13/10 으로 올렸다 —
  * 저 값은 디자인에서 2배 크기 컴포넌트를 축소해 붙이며 딸려온 숫자로 보이고, 실제 390px 화면에서는
- * 읽히지 않는다. 사진 대신 옅은 주황 바탕이다 — 기록에 아직 사진 칸이 없다 (기록 목록의 썸네일 자리와 같다).
+ * 읽히지 않는다.
  */
 function Record({ record, href }: { record: TripRecord; href: string }) {
   /*

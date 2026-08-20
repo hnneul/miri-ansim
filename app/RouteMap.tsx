@@ -163,7 +163,7 @@ type Props = {
 const KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
 
 /**
- * SDK 로딩. 한 화면에 지도가 여러 개(메인·주차·착한가격)라도 스크립트는 하나면 되므로
+ * SDK 로딩. 한 화면에 지도가 여러 개(메인·주차·탐나는전)라도 스크립트는 하나면 되므로
  * 모듈 전역 프로미스 하나로 묶는다. 인스턴스마다 resolve 를 나눠 받는다.
  *
  * next/script 를 쓰지 않는 이유 — 같은 src 를 LoadCache 로 묶는 규칙이 인스턴스 수에 따라

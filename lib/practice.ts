@@ -12,9 +12,9 @@
 // 급커브를 마지막에 두는 이유는 이 앱이 부담점수에서 급커브에 가장 큰 가중치를 주기 때문이다
 // (lib/score.ts BASE_SCORE — sharpCurve 12, narrowRoad 10). 화면마다 다른 순서를 말하면 안 된다.
 //
-// **모르는 것은 말하지 않는다.** 비보호 좌회전은 여기서 세지 않는다 — 로드뷰 판독표가
-// 굳혀둔 3구간에만 있어서(lib/unprotected.ts), 임의 도로에서 세면 "비보호 없음"이 확인한
-// 사실처럼 읽힌다. 초보에게 가장 어려운 항목인데도 빼는 이유다.
+// **비보호 좌회전은 여기서 세지 않는다.** 판독표(lib/unprotected.ts)는 경로 위의 좌회전 지점을
+// 방위까지 맞춰 조회하는 물건인데, 여기서 다루는 건 경로가 아니라 도로 하나라 물어볼 지점이 없다.
+// 초보에게 가장 어려운 항목인데도 빼는 이유다.
 
 import { distance, sharpCurves, simplify, type LatLng } from "./curvature.ts";
 import type { Link, LinkIndex } from "./analyze.ts";

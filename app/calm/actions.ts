@@ -2,7 +2,7 @@
 
 // 차 없는 길 — 지금 내 주변에서 차가 가장 적게 다니는 도로들.
 //
-// 서버여야 하는 이유는 /route, /around 와 같다: 도로 링크 판(data/jeju-link.json)이 7.4MB 라
+// 서버여야 하는 이유는 /route, /around 와 같다: 도로 링크 판(data/jeju-link.json)이 6.7MB 라
 // 폰으로 내려보낼 수 없다. 격자 인덱스는 lib/route.ts 의 linkIndex 가 인스턴스마다 한 번만
 // 만들고, 길 비교 화면과 그 한 벌을 나눠 쓴다.
 //
@@ -43,7 +43,7 @@ export type CalmNear = {
 export async function calmNear(lat: number, lng: number): Promise<CalmNear> {
   const index = linkIndex(LINKS as Link[]);
   const here: LatLng = [lat, lng];
-  // 셋이 같은 5분 캐시를 보므로 ITS 왕복은 한 번이다 (lib/flow.ts fetchSpeeds)
+  // 셋이 같은 5분 캐시를 보므로 ITS 왕복은 한 번이다 (lib/flow.ts liveSpeeds)
   const [live, calm, flow] = await Promise.all([
     liveSpeeds(),
     calmAt(index, here, BASELINE as Baseline, 1),

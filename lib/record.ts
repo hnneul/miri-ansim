@@ -1,7 +1,7 @@
 // 여행 기록 — 최종 와이어프레임 "여행 기록" 섹션(Figma 2765:1883)이 쓰는 데이터.
 //
-// 기록은 **서버**에 쌓는다 (/api/records → lib/records.db.ts). 익숙함 티어 셋이 곧 버킷이라,
-// 같은 티어를 고른 사람은 어느 기기로 들어와도 같은 목록을 본다 — 로그인 대신이다.
+// 기록은 **서버**에 쌓는다 (/api/records → lib/records.db.ts). 버킷은 브라우저가 스스로
+// 만든 id 하나다 (lib/me.ts) — 로그인 대신이다.
 // 방금 끝낸 코스의 **요약만** URL 로 넘긴다 — 코스 전체(장소 × 좌표 × 날짜)는 URL 에 담기
 // 너무 크고(app/trip/course/page.tsx 첫 주석), 기록에 필요한 건 이름 몇 개와 거리뿐이다.
 //
@@ -92,12 +92,6 @@ export function summaryOf(course: Course, origin: string): CourseSummary {
 /* ─────────────────────────────── 요약 ↔ URL ─────────────────────────────── */
 
 /**
- * 요약을 쿼리로. keep 에 지금 화면의 쿼리(프로필 등)를 주면 그대로 물려 나른다 —
- * 기록 화면이 끝나고 /home 으로 돌아갈 때 프로필이 살아 있어야 한다.
- *
- * route 는 r=a&r=b 로 하나씩 붙인다. "a,b" 로 이어 붙이면 이름에 쉼표가 든 장소에서 쪼개진다.
- */
-/**
  * toRecordQuery 가 싣는 키 전부.
  *
  * **기록 흐름 밖(홈)으로 나갈 때 걷어내는 데** 쓴다. 안 걷으면 홈 URL 에 눌어붙어 있다가,
@@ -126,6 +120,12 @@ export function homeQuery(keep: URLSearchParams | string): URLSearchParams {
   return q;
 }
 
+/**
+ * 요약을 쿼리로. keep 에 지금 화면의 쿼리(프로필 등)를 주면 그대로 물려 나른다 —
+ * 기록 화면이 끝나고 /home 으로 돌아갈 때 프로필이 살아 있어야 한다.
+ *
+ * route 는 r=a&r=b 로 하나씩 붙인다. "a,b" 로 이어 붙이면 이름에 쉼표가 든 장소에서 쪼개진다.
+ */
 export function toRecordQuery(s: CourseSummary, keep?: URLSearchParams | string): string {
   const q = new URLSearchParams(keep);
   q.set("c", s.course);
@@ -175,7 +175,7 @@ export function asRecord(v: unknown): TripRecord | null {
     title,
     // 옛 기록에는 없던 칸이라 없으면 빈 문자열이다 — 그 기록은 상세에서 소제목 없이 그려진다
     episode: (str(r.episode) ?? "").slice(0, EPISODE_MAX),
-    // 화면은 BODY_MAX 에서 막지만 API 는 공개라 그 상한을 여기서 다시 건다 (초안 loadDraft 와 같은 자리)
+    // 화면은 BODY_MAX 에서 막지만 API 는 공개라 그 상한을 여기서 다시 건다 (초안 asDraft 와 같은 자리)
     body: (str(r.body) ?? "").slice(0, BODY_MAX),
     route: r.route.filter((n): n is string => typeof n === "string"),
     places: r.places.filter((n): n is string => typeof n === "string"),

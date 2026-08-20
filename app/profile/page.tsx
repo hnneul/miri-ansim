@@ -29,7 +29,7 @@ export default function ProfilePage() {
 
 /**
  * 마스코트 이름. 와이어프레임이 "귤이 · 소형"으로 적어둔 그 자리다.
- * 경력에 따라 씨앗 → 새싹 → 감귤로 자라지만 이름은 그대로다 — 자라는 건 같은 캐릭터다.
+ * 경력에 따라 그림이 갈리지만(lib/profile.ts CHARACTERS) 이름은 그대로다 — 같은 캐릭터다.
  */
 const MASCOT = "귤이";
 

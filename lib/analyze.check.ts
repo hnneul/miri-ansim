@@ -38,7 +38,7 @@ const 인덱스 = Date.now() - t1;
 
 const 기존 = JSON.parse(readFileSync(`${DATA}route-data.json`, "utf8"));
 
-/** 재현돼야 하는 필드. 화면(lib/scenario.ts)이 실제로 읽는 것만 고른다. */
+/** 재현돼야 하는 필드. 근거 카드가 실제로 읽는 것만 고른다. */
 const 필드 = [
   "distanceKm", "durationMin", "matchedKm", "unmatchedKm",
   "sharpCurve.sections", "sharpCurve.km", "sharpCurve.windingKm", "sharpCurve.windingSections",

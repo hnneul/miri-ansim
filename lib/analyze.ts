@@ -183,17 +183,6 @@ const 잇는거리_M = 1500;
 const 최소구간_M = 150;
 
 /**
- * 구간을 지도에 그릴 선들.
- *
- * **멀리 떨어진 구간은 잇지 않는다.** 한 선으로 그으면 지나지도 않은 길이 칠해진다 —
- * 실측에서 좁은 구간 13.8km 가 금백조로와 비자림로에 흩어져 있었다.
- *
- * 조각 하나는 path[i] → path[i+1] 이다. 사이가 이어붙임_M 안이면 그 사이 좌표까지 넣어
- * 한 선으로 잇고, 넘으면 선을 끊는다.
- *
- * 지도용이므로 축약한다 — 원본 그대로면 좌표 수천 개가 브라우저로 나간다 (simplify 주석).
- */
-/**
  * 원본 좌표 범위 → **그려지는 선에서 잘라낸 좌표**.
  *
  * 여기가 중요하다. 경로선은 전체를 한 번 축약한 결과를 그리는데(Analysis.path), 구간을 원본에서
@@ -214,6 +203,13 @@ function 그린선(from: number, to: number, 번호: number[], 그린: LatLng[])
   return 그린.slice(lo, hi + 1);
 }
 
+/**
+ * 구간을 지도에 그릴 선들. 조각 하나는 path[i] → path[i+1] 이고, 사이가 잇는거리_M 안이면
+ * 그 사이 좌표까지 넣어 한 선으로 잇고 넘으면 끊는다.
+ *
+ * **멀리 떨어진 구간은 잇지 않는다.** 한 선으로 그으면 지나지도 않은 길이 칠해진다 —
+ * 실측에서 좁은 구간 13.8km 가 금백조로와 비자림로에 흩어져 있었다.
+ */
 function spansOf(xs: Spot[], path: LatLng[], 번호: number[], 그린: LatLng[]): LatLng[][] {
   if (!xs.length) return [];
 
@@ -304,12 +300,6 @@ export type Analysis = {
   roadKm: Record<string, number>;
 };
 
-/**
- * 카카오 길찾기 응답 하나 → 위험요인 분석.
- *
- * 최밀집 지점의 **지명은 여기서 붙이지 않는다**. 좌표→행정구역 변환이 또 하나의 API 호출이라
- * 순수 함수로 남겨두고, 호출하는 쪽이 필요할 때 붙인다 (지명 하드코딩 금지 원칙은 그대로).
- */
 /**
  * 안내 지점 세기.
  *
@@ -411,6 +401,12 @@ export function guideKind(guidance: string): keyof Analysis["guides"] | null {
   return null;
 }
 
+/**
+ * 카카오 길찾기 응답 하나 → 위험요인 분석.
+ *
+ * 최밀집 지점의 **지명은 여기서 붙이지 않는다**. 좌표→행정구역 변환이 또 하나의 API 호출이라
+ * 순수 함수로 남겨두고, 호출하는 쪽이 필요할 때 붙인다 (지명 하드코딩 금지 원칙은 그대로).
+ */
 export function analyze(
   route: {
     summary: { distance: number; duration: number };

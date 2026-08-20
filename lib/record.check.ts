@@ -146,7 +146,7 @@ assert.equal(고침.km, 0);
 assert.equal(고침.date, isoToday());
 assert.equal(고침.body, "");
 
-// 이야기는 500자에서 잘린다. 화면은 이미 막지만 API 가 공개라 여기서 다시 건다
+// 이야기는 BODY_MAX 에서 잘린다. 화면은 이미 막지만 API 가 공개라 여기서 다시 건다
 assert.equal(some(asRecord({ ...record, body: "가".repeat(BODY_MAX + 50) })).body.length, BODY_MAX);
 
 /* ─────────────────────────────── 주인 id (버킷 키) ─────────────────────────────── */

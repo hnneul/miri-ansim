@@ -58,8 +58,6 @@ export const TOPICS: Topic[] = [
     slug: "score",
     title: "추천점수 계산 기준",
     desc: "길 근거와 가중치 보기",
-    // AI 얘기는 뺐다 — 지금 문장을 만드는 건 규칙 대본이다 (app/route/actions.ts AI_대본 = false).
-    // 켜면 그때 되살린다. 안 하는 일을 한다고 적으면 나머지 설명까지 못 믿게 된다.
     lead: "같은 길도 운전 설정에 따라 점수가 다릅니다.\n아래 값으로 계산합니다.",
     blocks: [
       { h: "점수 방향" },
@@ -201,11 +199,7 @@ export const TOPICS: Topic[] = [
 
       { h: "밖으로 나가는 것" },
       /*
-        **여기는 실제로 요청이 나가는 곳만 적는다.** 세 줄이 다 어긋나 있었다 —
-
-        OpenAI 는 뺐다. 대본을 AI 로 만드는 길이 꺼져 있어(app/route/actions.ts AI_대본 = false)
-        지금은 한 번도 안 나간다. 안 보내는 곳을 "보냅니다"라고 적으면 나머지 줄까지 못 믿게 된다.
-        되켜면 여기도 같이 되살린다 — 그때는 groq · gemini 도 같이 봐야 한다 (lib/ai.ts askModel).
+        **여기는 실제로 요청이 나가는 곳만 적는다.**
 
         음성은 구글 하나가 아니다. 1순위가 Google Cloud TTS 고, 키가 없거나 실패하면
         마이크로소프트 읽어주기로 넘어간다 (app/api/tts/route.ts). 대본이 나가는 곳이 둘이다.

@@ -11,7 +11,7 @@ import { asOwner } from "@/lib/me";
 import { insert, listByOwner, remove } from "@/lib/records.db";
 
 /**
- * 받는 몸통의 최대 바이트. 기록 하나는 제목·이야기(500자)·장소 몇 개라 넉넉잡아 8KB 다.
+ * 받는 몸통의 최대 바이트. 기록 하나는 제목·이야기(lib/record.ts BODY_MAX)·장소 몇 개라 넉넉잡아 8KB 다.
  * 이걸 안 두면 공개 POST 로 수 MB 를 밀어 넣어 서버 메모리와 디스크를 채울 수 있다.
  * 자르지 않고 413 으로 되돌린다 — 잘라 저장하면 사용자는 다 저장된 줄 안다.
  */
