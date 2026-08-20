@@ -110,7 +110,8 @@ assert.equal(tradeoff("single", 느림, 빠름, "일반 길"), "");
 assert.equal(tradeoff("single", 빠름, 느림, "안심 길"), "");
 // 대안이 접힌 구간(noPick "alone") — 상대가 아예 없다. 비교 화면은 비우고 여기서 말한다:
 // 이 화면은 "왜 이 길인지" 보러 들어온 자리고, 아래 비교표의 상대 칸이 통째로 비어 있다.
-assert.equal(tradeoff("single", 느림, null, ""), "다른 길이 없어서 비교할 게 없어요");
+// 없는 것("비교할 게 없어요") 말고 있는 것을 말한다 — 이 줄의 임무는 "그래서 어떻다"다
+assert.equal(tradeoff("single", 느림, null, ""), "이 구간은 길이 하나예요");
 assert.equal(
   tradeoff("single", 느림, null, "", "tie"),
   "비교할 차이가 거의 없어 이 경로만 보여드려요",
