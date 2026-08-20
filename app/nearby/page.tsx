@@ -79,6 +79,12 @@ function Nearby() {
   const [here, setHere] = useState<LatLng>(JEJU_AIRPORT);
   /** 내 위치로 본 것인지. 거부당하면 공항 기준이라고 화면이 밝혀야 한다 — 안 그러면 거짓말이 된다. */
   const [내위치, set내위치] = useState(true);
+  /**
+   * 다시 불러오기 열쇠. 빈 화면이 "잠시 뒤에 다시 시도해 주세요"라고 하는데 조회는
+   * 마운트 때 한 번뿐이라, 뒤로 나갔다 들어오는 것 말고 다시 걸 방법이 없었다.
+   * 조회를 useCallback 으로 빼는 대신 이 값을 deps 에 두는 게 짧다 — alive 정리도 그대로 산다.
+   */
+  const [다시, 다시부르기] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -105,7 +111,7 @@ function Nearby() {
     };
     // 프로필은 URL 에 실려 오므로 화면이 사는 동안 바뀌지 않는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [다시]);
 
   /** 고른 곳으로 가는 길을 이미 만들어 둔 화면에 넘긴다 (app/destination/page.tsx 와 같은 키) */
   const 길비교로 = (s: Ranked) => {
@@ -190,7 +196,12 @@ function Nearby() {
         ) : list.length ? (
           list.map((s) => <Card key={s.name} spot={s} picked={s.name === 짚은곳} onGo={() => 길비교로(s)} />)
         ) : (
-          <Empty />
+          <Empty
+            onRetry={() => {
+              setList(null); // null 이어야 Skeleton 이 돌아온다 — 안 그러면 눌러도 화면이 그대로다
+              다시부르기((n) => n + 1);
+            }}
+          />
         )}
       </div>
     </div>
@@ -267,7 +278,7 @@ function Skeleton() {
   );
 }
 
-function Empty() {
+function Empty({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <p className="text-[15px] leading-[22px] text-[#7d7d7d]">
@@ -275,6 +286,17 @@ function Empty() {
         <br />
         잠시 뒤에 다시 시도해 주세요.
       </p>
+      {/*
+        말로만 권하지 않는다. 테두리 버튼인 이유는 이게 실패 화면이라서다 —
+        꽉 채운 주황은 "이걸 누르세요"인데, 여기서 권할 일은 다시 걸어보는 것 하나뿐이고
+        그마저도 될지 모른다. 높이 44 는 이 앱이 누르는 것에 주는 최소값이다.
+      */}
+      <button
+        onClick={onRetry}
+        className="mt-4 h-11 rounded-full border border-[#eae7e2] bg-white px-5 text-[14px] leading-[21px] font-medium text-[#262626] transition active:scale-[0.98]"
+      >
+        다시 불러오기
+      </button>
     </div>
   );
 }
