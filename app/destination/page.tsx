@@ -5,7 +5,6 @@
 // 세 장을 따로 그린 건 프로토타입 연결을 보여주려는 것이고, 실제로는 같은 화면이 상태만 바뀐다.
 //
 // 메인화면(/home)에서 목적지를 적고 들어오면 ?dest= 를 물고 오므로 곧장 세 번째 상태로 연다.
-// 출발지(?originLat/originLng)는 거리 표시("25km")에만 쓴다 — 없으면 그 줄만 빠진다.
 //
 // 지오코딩은 서버 액션(./actions.ts)을 거친다. 카카오 REST 키가 서버 전용이라 여기서 직접 못 부른다.
 
@@ -13,7 +12,6 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
-import { meters } from "@/lib/parking";
 import type { Place } from "@/lib/geocode";
 import { addRecent, loadRecent, removeRecent } from "@/lib/recent";
 import { findPlace, findPostal, recommendSpots, suggestPlaces } from "./actions";
@@ -745,7 +743,6 @@ function Destination() {
             <div ref={sheetBox} className="pointer-events-auto mt-auto">
               <PlaceSheet
                 place={place}
-                origin={origin}
                 /*
                  * 목적지 좌표까지 넘긴다 — 이름만 넘기면 주차장 화면이 지오코딩을 한 번 더 해야 하고,
                  * 같은 이름이 여러 곳이면 여기서 고른 곳과 다른 데가 잡힐 수 있다.
@@ -773,12 +770,10 @@ function Destination() {
  */
 function PlaceSheet({
   place,
-  origin,
   onParking,
   onStart,
 }: {
   place: Place;
-  origin: LatLng | null;
   onParking: () => void;
   onStart: () => void;
 }) {
@@ -790,19 +785,6 @@ function PlaceSheet({
    * null 로 뭉치면 도로명 없는 곳(우편번호가 원래 없는 곳)에서 펼칠 때마다 헛호출이 나간다.
    */
   const [postal, setPostal] = useState<string | null | undefined>(undefined);
-  /**
-   * 출발지에서 여기까지 — **직선거리다** (lib/parking.ts meters). 도로를 안 탄다.
-   *
-   * 그래서 화면에 "직선"을 붙여 적는다. 그냥 "25km" 로 두면 주행거리로 읽히는데,
-   * 바로 다음 화면(길 비교)이 카카오 길찾기가 준 진짜 주행거리를 띄우므로 두 화면이
-   * 같은 목적지를 두고 다른 숫자를 말하게 된다 — 제주는 해안도로·중산간이 굽어 차이가 크다.
-   *
-   * 여기서 진짜 거리를 받지 않는 이유: 길찾기는 서버 호출이라 이 줄이 비동기가 되는데,
-   * 목적지 시트는 훑고 지나가는 자리라 늦게 오는 숫자는 없느니만 못하다.
-   * 정확한 값은 한 탭 뒤에 있다.
-   */
-  const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
-
   // 목적지가 바뀌면 이전 장소의 우편번호가 남아 있으면 안 된다
   useEffect(() => {
     setOpenAddress(false);
@@ -867,8 +849,12 @@ function PlaceSheet({
               className="mt-[6px] flex min-w-0 items-center gap-[6px] text-left text-[14px] leading-[22px] font-medium text-[#9e9e9e] disabled:cursor-default"
             >
               <span className="min-w-0 truncate">
-                {/* 출발지를 모르면 거리 없이 지역만 — 모르는 값을 0km 로 적으면 거짓말이 된다 */}
-                {km !== null && <span className="mr-[11px]">직선 {km}km</span>}
+                {/*
+                  거리는 안 적는다. 여기서 낼 수 있는 값은 좌표 사이 직선거리뿐인데(lib/parking.ts
+                  meters) 제주는 해안도로·중산간이 굽어 주행거리와 크게 어긋난다 — 한 탭 뒤
+                  길 비교가 카카오 길찾기가 준 진짜 거리를 말하므로, 같은 목적지를 두고 두 화면이
+                  다른 숫자를 말할 자리였다. 여기는 어디인지만 말한다.
+                */}
                 {place.region}
               </span>
               {(place.road || place.jibun) && (
