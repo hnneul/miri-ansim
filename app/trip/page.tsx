@@ -263,10 +263,26 @@ function Shell({
       <DemoNotice />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
       {/* 본문과 버튼 사이 20 · 버튼 아래 안내까지 15 — 피그마 세로 좌표(710 → 730 → 793) 그대로 */}
+      {/*
+        **꺼진 버튼은 주황을 버린다.** 전에는 disabled:opacity-40 하나였는데, 주황(#ff7d32)에
+        걸리면 살구색이 되고 글자는 흰색 그대로라 대비가 1.6:1 이었다 — "다음"이 거의 안 읽힌다.
+        게다가 색이 활성 버튼과 같은 계열이라, 앱에서 주황을 "누르세요"로 배운 손은 눌러도 되는
+        버튼으로 읽는다. 누르고, 아무 일도 안 일어나고, 왜인지도 모른다.
+
+        회색 바탕 + 회색 글자로 바꾸면 **색만 보고 "지금은 못 누른다"가 읽힌다.** opacity 는 뗐다 —
+        투명도는 원래 색을 옅게 만들 뿐이라 "다른 상태"가 아니라 "같은 버튼이 흐린 것"으로 보인다.
+        (막는 조건 isReady 는 그대로다. 필수 셋을 채워야 넘어가는 건 의도한 구성이다.)
+      */}
       <button
         onClick={onNext}
         disabled={disabled}
-        className="mx-6 mt-5 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition active:scale-[0.98] disabled:opacity-40"
+        /*
+          호버는 **enabled: 를 붙여 켜진 것에만** 건다. :hover 는 disabled 버튼에도 걸리는 브라우저가
+          있어서 그냥 hover: 로 두면 꺼진 회색 버튼이 마우스만 올려도 주황으로 돌아온다 —
+          방금 회색으로 바꾼 이유가 그 자리에서 사라진다. (같은 파일 1238 줄의 CTA 는
+          꺼질 일이 없어서 hover: 하나로 충분하다.)
+        */
+        className="mx-6 mt-5 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition enabled:hover:bg-[#ff6114] active:scale-[0.98] disabled:bg-[#eae7e2] disabled:text-[#a8a29b]"
       >
         {label}
       </button>
