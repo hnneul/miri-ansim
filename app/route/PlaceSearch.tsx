@@ -27,6 +27,12 @@ export default function PlaceSearch({
 }) {
   const [found, setFound] = useState<Place[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
+  /**
+   * 지금 떠 있는 후보가 어느 검색어의 결과인가. null 이면 아직 안 왔다는 뜻이다 —
+   * 이게 없으면 "아직 안 옴"과 "찾아봤는데 없음"이 둘 다 빈 배열이라 구분되지 않는다
+   * (/destination 과 같은 규칙·같은 이유).
+   */
+  const [찾은말, set찾은말] = useState<string | null>(null);
 
   useEffect(() => setRecent(loadRecent()), []);
 
@@ -35,11 +41,19 @@ export default function PlaceSearch({
     먼저 보낸 긴 검색어의 결과가 나중에 도착해 목록을 덮는다.
   */
   useEffect(() => {
-    if (!text.trim()) return setFound([]);
+    if (!text.trim()) {
+      set찾은말(null);
+      return setFound([]);
+    }
 
     let alive = true;
+    set찾은말(null); // 글자가 바뀌면 앞 결과는 이 검색어의 것이 아니다
     const timer = setTimeout(() => {
-      suggestPlaces(text).then((r) => alive && setFound(r));
+      suggestPlaces(text).then((r) => {
+        if (!alive) return;
+        setFound(r);
+        set찾은말(text);
+      });
     }, TYPING_MS);
     return () => {
       alive = false;
@@ -88,8 +102,13 @@ export default function PlaceSearch({
               </li>
             ))}
           </ul>
+        ) : 찾은말 === text ? (
+          <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+            &lsquo;{text}&rsquo;은(는) 제주에서 못 찾았어요.
+            <br />
+            다른 이름이나 주소로 찾아보세요.
+          </p>
         ) : (
-          /* 아직 안 왔거나(디바운스 중) 제주에 없는 이름이다. 둘을 가려 말할 방법이 없어 한 줄로 둔다 */
           <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
         )
       ) : (

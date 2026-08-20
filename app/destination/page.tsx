@@ -70,6 +70,14 @@ function Destination() {
   const [recent, setRecent] = useState<string[]>([]);
   /** 타이핑 중에 뜨는 후보 목록 (HOME-01 a). 비어 있으면 최근 검색어 자리가 그대로 남는다. */
   const [suggest, setSuggest] = useState<Place[]>([]);
+  /**
+   * 지금 떠 있는 후보가 **어느 검색어의 결과인가.** null 이면 아직 안 왔다는 뜻이다.
+   *
+   * 이게 없으면 "아직 안 옴"과 "찾아봤는데 없음"을 못 가른다 — 둘 다 suggest 가 빈 배열이라
+   * 제주에 없는 이름을 친 사람이 **"검색 결과를 찾는 중…"을 영원히** 보고 있었다.
+   * 이 화면의 첫 번째 일이 목적지 찾기라, 그 실패가 침묵이면 안 된다.
+   */
+  const [찾은말, set찾은말] = useState<string | null>(null);
   /** 아직 아무것도 안 적었을 때 띄우는 추천 장소 이름 (./actions.ts recommendSpots). */
   const [spots, setSpots] = useState<string[]>([]);
   /*
@@ -183,11 +191,20 @@ function Destination() {
     먼저 보낸 긴 검색어의 결과가 나중에 도착해 목록을 덮는다.
   */
   useEffect(() => {
-    if (!searching || !text.trim()) return setSuggest([]);
+    if (!searching || !text.trim()) {
+      set찾은말(null);
+      return setSuggest([]);
+    }
 
     let alive = true;
+    // 글자가 바뀌면 앞 결과는 이 검색어의 것이 아니다 — 표시를 지워 "찾는 중"으로 되돌린다
+    set찾은말(null);
     const timer = setTimeout(() => {
-      suggestPlaces(text).then((found) => alive && setSuggest(found));
+      suggestPlaces(text).then((found) => {
+        if (!alive) return;
+        setSuggest(found);
+        set찾은말(text);
+      });
     }, TYPING_MS);
     return () => {
       alive = false;
@@ -622,8 +639,14 @@ function Destination() {
                       </li>
                     ))}
                   </ul>
+                ) : 찾은말 === text ? (
+                  /* 찾아봤는데 없다. 무엇을 하면 되는지까지 적는다 — "없음"만으로는 다음 손이 안 움직인다 */
+                  <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+                    &lsquo;{text}&rsquo;은(는) 제주에서 못 찾았어요.
+                    <br />
+                    다른 이름이나 주소로 찾아보세요.
+                  </p>
                 ) : (
-                  /* 아직 안 왔거나(디바운스 중) 제주에 없는 이름이다. 둘을 가려 말할 방법이 없어 한 줄로 둔다 */
                   <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
                 )
               ) : (

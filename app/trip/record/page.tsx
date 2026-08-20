@@ -395,6 +395,13 @@ function Write({
   const [adding, setAdding] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [saved, setSaved] = useState(false);
+  /**
+   * 서버가 기록을 안 받았다. **이걸 안 두면 저장된 척하고 넘어간다** —
+   * saveRecord 가 null 을 줘도 화면에서만 목록에 얹어 보여줬고(`next ?? [record, ...records]`),
+   * 사람은 저장된 줄 알고 나갔다가 새로고침에서 글이 사라진 걸 나중에야 알았다.
+   * 사진이 안 담긴 건 알려주면서 글이 통째로 안 담긴 건 아무 말도 안 하고 있었다.
+   */
+  const [저장실패, set저장실패] = useState(false);
 
   /** 지난 여행 — 지금 고른 코스와 방금 다녀온 코스는 위에 이미 있으므로 뺀다 */
   const past = records
@@ -447,14 +454,28 @@ function Write({
       body: body.trim(),
       km: editing?.km ?? summary?.km ?? 0,
     };
+    set저장실패(false);
     const next = await saveRecord(tier, record);
+
+    /*
+     * 서버가 안 받았으면 **여기서 멈춘다.**
+     *
+     * 전에는 `next ?? [record, ...records]` 로 화면에만 얹고 목록으로 넘겼다. 그러면 방금 쓴 글이
+     * 맨 위에 보이니까 사람은 저장된 줄 알고 나가고, 새로고침에서야 사라진 걸 안다 — 그때는
+     * 쓴 글이 이미 없다. 조용히 지는 것 중에 제일 나쁜 종류다.
+     *
+     * 대신 **초안으로 눌러두고** 작성 화면에 남는다. 다시 눌러보게 하려면 쓰던 글이 살아 있어야 한다.
+     */
+    if (!next) {
+      keepDraft();
+      return set저장실패(true);
+    }
+
     // 사진은 이 기기에만 남는다. 자리가 없으면 기록은 남고 사진만 빠지므로 그 사실을 말해준다
     if (!savePhotos(record.id, photos)) alert("사진이 많아 이 기기에 다 담지 못했어요. 기록은 저장됐어요.");
     // 기록이 됐으니 초안 자리는 비운다 — 안 지우면 목록 위에 같은 글이 초안으로 남는다
     if (draftId !== null) onDrafts(removeDraft(draftId));
-    // 서버가 안 받아줬으면(null) 이번 화면에서만 보여준다 — 목록이 통째로 비는 것보다 낫다.
-    // 새로고침하면 사라지는데, 그게 저장 안 됐다는 사실과 맞다 (lib/record.ts saveRecord 주석).
-    onSaved(next ?? [record, ...records]);
+    onSaved(next);
   }
 
   /**
@@ -743,6 +764,15 @@ function Write({
       </div>
 
       <div className="flex shrink-0 flex-col bg-white pt-3">
+        {/*
+          저장이 안 됐다는 사실과 **쓴 글은 살아 있다**는 사실을 같이 말한다 —
+          앞엣것만 말하면 방금 쓴 글이 날아간 줄 알고 화면을 떠난다.
+        */}
+        {저장실패 && (
+          <p className="mx-6 mb-2 shrink-0 text-center text-[12px] leading-normal text-rose-600">
+            지금은 저장하지 못했어요. 쓰던 글은 임시 저장해 뒀으니 잠시 뒤 다시 눌러주세요.
+          </p>
+        )}
         <Cta label="여행 기록 저장하기" onClick={save} />
         <div className="h-[35px] shrink-0" />
       </div>
