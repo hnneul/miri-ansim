@@ -163,10 +163,22 @@ export const STAPLE: Leg = { label: "제주 대표 관광지", query: "", code: 
  * 카드를 나눈다 (한 장은 테마, 한 장은 계절, 기본은 카드를 이끌지 않는다).
  */
 export function recipesFor(plan: TripPlan): Leg[] {
-  const theme = plan.themes[0] ?? null;
   const season = seasonOf(plan.start);
   const 줄: Leg[] = [
-    ...(theme === null ? [] : THEMES[theme].recipes).map((r): Leg => ({ ...r, role: "theme" })),
+    /*
+      **고른 테마를 전부 쓴다.** 전에는 plan.themes[0] 하나만 봤다 — 화면은 "복수 선택 가능"
+      배지를 달고 넷을 다 켜게 해주는데 코스에는 첫 테마만 들어갔다. 바다 + 먹거리를 고르면
+      바다 코스만 나왔고, 고른 순서가 결과를 정하는데 화면에는 순서 표시도 없었다.
+      고르게 해놓고 안 쓰는 값은 사용자 입장에서 답한 노력이 증발하는 것이다.
+
+      갈래가 늘면 카카오 호출도 는다 (갈래 × ANCHORS 4). 테마 넷을 다 골라도 서른 남짓이고
+      전부 병렬이며, 쿼터는 월 300만 중 앱 전체가 만 오천 남짓이라 여유가 있다
+      (lib/course.ts gatherCandidates 주석의 실측).
+
+      순서는 그대로 지킨다 — 첫 테마가 코스 제목의 중심이다 (lib/course.ts titleOf).
+      아래 dedupe 가 테마끼리 겹치는 갈래를 한 번으로 접는다.
+    */
+    ...plan.themes.flatMap((t) => THEMES[t]?.recipes ?? []).map((r): Leg => ({ ...r, role: "theme" })),
     ...(season ? SEASONS[season] : []).map((r): Leg => ({ ...r, role: "season" })),
     STAPLE,
   ];
