@@ -191,14 +191,26 @@ export function recipesFor(plan: TripPlan): Leg[] {
  *
  * "혼자"가 맨 앞이다 (04-B-2). 넷이던 때는 혼자 온 사람이 고를 칸이 없어 아무거나 눌러야 했다 —
  * 동행은 쉬는 자리를 정하는 입력이라(주차·화장실·먹을 곳) 없는 동행을 지어내면 코스가 그만큼 틀어진다.
+ *
+ * **fixed 는 그 말에 인원이 이미 들어 있는지다** (혼자 1 · 연인 2). 0 이면 몇 명인지 물어야 한다.
+ * 화면도 이 순서대로 2 × 2 로 앉는다 — 윗줄은 안 묻는 둘, 아랫줄은 묻는 둘이라
+ * 위를 고르면 카운터가 안 나오고 아래를 고르면 나오는 게 줄 단위로 읽힌다 (app/trip/page.tsx CompanionView).
+ *
+ * **"반려견"은 뺐다.** 고를 수는 있는데 코스는 하나도 안 달라졌다 — 반려견을 고른 사람이
+ * 기대하는 건 "들어갈 수 있는 곳"인데, 카카오 카테고리로는 동반 가능 여부를 알 수 없어서
+ * (lib/trip.ts 계절 주석과 같은 한계) 박물관·전시가 그대로 코스에 들어갔다.
+ * 가서야 못 들어가는 것보다 안 묻는 게 낫다. 사람이 만든 목록에 동반 가능 칸이 생기면 그때 되살린다.
  */
 export const COMPANIONS = [
-  { id: "solo", emoji: "🧳", label: "혼자" },
-  { id: "family", emoji: "👨‍👩‍👧", label: "가족" },
-  { id: "friend", emoji: "🧑‍🤝‍🧑", label: "친구" },
-  { id: "couple", emoji: "💛", label: "연인" },
-  { id: "pet", emoji: "🐶", label: "반려견" },
+  { id: "solo", emoji: "🧳", label: "혼자", fixed: 1 },
+  { id: "couple", emoji: "💛", label: "연인", fixed: 2 },
+  { id: "family", emoji: "👨‍👩‍👧", label: "가족", fixed: 0 },
+  { id: "friend", emoji: "🧑‍🤝‍🧑", label: "친구", fixed: 0 },
 ] as const;
+
+/** 인원이 말에 이미 들어 있는 동행이면 그 수, 아니면 0 (물어봐야 한다) */
+export const fixedHeads = (id: Companion | null): number =>
+  COMPANIONS.find((c) => c.id === id)?.fixed ?? 0;
 
 export type Companion = (typeof COMPANIONS)[number]["id"];
 
@@ -339,7 +351,8 @@ export const peopleTotal = (plan: TripPlan) => PEOPLE.reduce((sum, p) => sum + p
 export function companionLabel(plan: TripPlan): string | null {
   const found = COMPANIONS.find((c) => c.id === plan.companion);
   if (!found) return null;
-  return found.id === "solo" ? found.label : `${found.label} ${peopleTotal(plan)}명`;
+  // 인원이 말에 이미 든 동행(혼자·연인)은 수를 안 붙인다 — "연인 2명"은 같은 말을 두 번 한다
+  return found.fixed ? found.label : `${found.label} ${peopleTotal(plan)}명`;
 }
 
 /** "2시간 이내". 안 골랐으면 null */

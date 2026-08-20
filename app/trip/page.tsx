@@ -33,6 +33,7 @@ import {
   PEOPLE,
   THEMES,
   companionLabel,
+  fixedHeads,
   dayLabel,
   driveLabel,
   isReady,
@@ -712,11 +713,12 @@ function CompanionView({ plan, onBack, onApply }: DetailProps) {
   const draft = { ...plan, companion, people };
 
   /*
-    혼자면 인원을 안 묻는다 — "혼자"가 이미 한 명이라는 뜻이고, 그 옆에 0 부터 세는 카운터를
-    같이 두면 "혼자 + 성인 2명"이라는 말이 안 되는 조합을 만들 수 있다.
-    적용할 때 성인 1 로 못 박는다 (companionLabel 은 그때 인원을 안 붙인다).
+    **말에 인원이 이미 들어 있는 동행은 안 묻는다** — 혼자는 한 명, 연인은 두 명이다
+    (lib/trip.ts COMPANIONS 의 fixed). 그 옆에 0 부터 세는 카운터를 같이 두면
+    "연인 + 성인 5명" 같은 말이 안 되는 조합을 만들 수 있다.
+    적용할 때 성인 수로 못 박는다 (companionLabel 은 혼자일 때만 인원을 안 붙인다).
   */
-  const 혼자 = companion === "solo";
+  const 정해짐 = fixedHeads(companion);
   const total = PEOPLE.reduce((sum, p) => sum + people[p.key], 0);
 
   return (
@@ -725,20 +727,24 @@ function CompanionView({ plan, onBack, onApply }: DetailProps) {
       title={["누구와 함께 떠나나요?"]}
       subtitle="혼자 또는 함께, 동행에 맞춰 쉬는 장소도 추천해요."
       onBack={onBack}
-      label={companion ? "인원 설정 적용하기" : "동행을 골라주세요"}
-      onApply={() => onApply(혼자 ? { companion, people: { adult: 1, teen: 0, child: 0 } } : { companion, people })}
+      // 인원을 안 묻는 동행(혼자·연인)에서 "인원 설정"이라 하면 화면에 없는 걸 가리킨다
+      label={!companion ? "동행을 골라주세요" : 정해짐 ? "적용하기" : "인원 설정 적용하기"}
+      onApply={() =>
+        onApply(정해짐 ? { companion, people: { adult: 정해짐, teen: 0, child: 0 } } : { companion, people })
+      }
       /*
         인원이 0 명이면 못 넘어간다. 카운터가 0 에서 시작하니(04-B-2) 손대지 않고 나가면
         "가족 0명"이 되는데, 그건 고른 적 없는 조건이 아니라 **말이 안 되는** 조건이다.
       */
-      disabled={!companion || (!혼자 && total === 0)}
+      disabled={!companion || (!정해짐 && total === 0)}
     >
-      {/* 3 + 2. 여섯 칸 격자에 2칸씩·3칸씩 (Tile 주석) */}
-      <div className="grid grid-cols-6 gap-3.5 px-[23px]">
-        {COMPANIONS.map((c, i) => (
-          <div key={c.id} className={i < 3 ? "col-span-2" : "col-span-3"}>
-            <Tile emoji={c.emoji} label={c.label} on={companion === c.id} onClick={() => setCompanion(c.id)} />
-          </div>
+      {/*
+        2 × 2. 순서는 COMPANIONS 그대로다 — 윗줄은 인원을 안 묻는 둘(혼자·연인),
+        아랫줄은 묻는 둘(가족·친구). 윗줄을 고르면 카운터가 안 나오는 게 줄 단위로 읽힌다.
+      */}
+      <div className="grid grid-cols-2 gap-3.5 px-[23px]">
+        {COMPANIONS.map((c) => (
+          <Tile key={c.id} emoji={c.emoji} label={c.label} on={companion === c.id} onClick={() => setCompanion(c.id)} />
         ))}
       </div>
 
@@ -746,7 +752,7 @@ function CompanionView({ plan, onBack, onApply }: DetailProps) {
         인원은 동행을 고른 **뒤에** 나온다 (04-B-2). 처음부터 세 줄을 깔아두면 무엇부터
         해야 하는지가 안 읽히고, 동행을 안 고른 채 인원만 센 상태가 생긴다.
       */}
-      {companion && !혼자 && (
+      {companion && !정해짐 && (
         <>
           <p className="mt-8 px-[28px] text-[16px] leading-6 font-medium text-[#262626]">인원</p>
           <div className="mt-3 flex flex-col gap-3 px-[23px]">
@@ -761,7 +767,7 @@ function CompanionView({ plan, onBack, onApply }: DetailProps) {
           </div>
           {/* 버튼이 꺼져 있는 이유를 여기서 말한다 — "인원 설정 적용하기"가 흐린 채로만 있으면 왜인지 모른다 */}
           <p className="mt-3 px-[28px] text-[12px] leading-[18px] text-[#7d7d7d]">
-            {total ? companionLabel(draft) : "인원을 한 명 이상 세어주세요"}
+            {total ? companionLabel(draft) : "+ 를 눌러 인원을 정해주세요"}
           </p>
         </>
       )}
