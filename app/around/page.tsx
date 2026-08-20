@@ -325,7 +325,15 @@ function Around() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={label ? `${label} 주변` : "목적지 또는 주소 검색"}
+            /*
+              기준 장소를 여기 적지 않는다. 정해진 기준을 placeholder 로 그리면 연회색이라
+              "아직 안 채운 칸"으로 읽히는데, 실은 그 기준으로 목록이 이미 뽑혀 있다.
+              게다가 검색으로 정한 기준은 친 글자가 value 로 남아 진하게 뜨므로(search 가 query 를
+              안 비운다), 같은 칸이 상황에 따라 진짜 값과 회색 흉내를 오갔다.
+              이 칸은 "여기서 뭘 할 수 있나"만 말하고, 지금 어디 기준인지는 지도와
+              목록 머리글("현재 위치 주변 12곳", List scope)이 맡는다.
+            */
+            placeholder="목적지 또는 주소 검색"
             aria-label="기준 장소"
             className="min-w-0 flex-1 text-[14px] text-[#1f1f1f] outline-none placeholder:text-[#8a8a8a]"
           />
