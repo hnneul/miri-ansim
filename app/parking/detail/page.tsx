@@ -169,8 +169,10 @@ function Steps({ kind }: { kind: { parallel: boolean; confirmed: boolean } | nul
       </h2>
       {/* 목록·시트가 "확률이 높습니다"라고 말한 곳에서 상세만 단정하면 두 화면이 어긋난다 */}
       {!kind.confirmed && (
-        <p className="mx-4 mt-1 shrink-0 text-[11px] leading-relaxed text-[#9e9e9e]">
-          도로 밖에 따로 만든 주차장이라 직각주차일 확률이 높습니다. 공개 데이터로 추정한 값입니다.
+        <p className="mx-4 mt-1 shrink-0 text-[11px] leading-relaxed whitespace-pre-line text-[#9e9e9e]">
+          {/* 문장마다 줄을 나눈다 (app/text.ts). 여기는 글이 고정이라 \n 을 그대로 박는다 —
+              바깥에서 오는 문구는 그 자리에서 문장줄() 로 나눈다. */}
+          {"도로 밖에 따로 만든 주차장이라 직각주차일 확률이 높습니다.\n공개 데이터로 추정한 값입니다."}
         </p>
       )}
       <div className="mx-4 mt-3 grid shrink-0 grid-cols-2 gap-4">

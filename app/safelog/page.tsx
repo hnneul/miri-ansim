@@ -650,10 +650,10 @@ function Detail({ route, onBack }: { route: SafeDrive; onBack: () => void }) {
         <div>
           <p className="text-[10px] leading-none text-[#6e6e6e]">{dotted(route.date)} · 완료된 경로</p>
           <p className="mt-[12px] text-[17px] leading-[20px] font-bold text-[#1f1f1f]">{route.title}</p>
-          {/* 추천 경로가 곧 최단시간이면 "빠른 길보다 0분 더"가 된다 — 그때는 그 말을 뺀다 */}
+          {/* 추천 경로가 곧 최단시간이면 "일반 길보다 0분 더"가 된다 — 그때는 그 말을 뺀다 */}
           <p className="mt-[8px] text-[10px] leading-none text-[#6e6e6e]">
             {route.minutes}분 · {route.km}km
-            {route.slower > 0 && ` · 빠른 길보다 ${route.slower}분 더`}
+            {route.slower > 0 && ` · 일반 길보다 ${route.slower}분 더`}
           </p>
         </div>
         {/* 와이어프레임은 숫자 밑에 "낮음"을 달았지만 등급 말은 화면 어디에도 안 쓴다 */}

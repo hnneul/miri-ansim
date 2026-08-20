@@ -34,6 +34,7 @@ import {
   type ParkingSpot,
 } from "@/lib/parking";
 import PARKING from "@/data/parking-data.json";
+import { 문장줄 } from "../text";
 
 const LOTS = PARKING.spots as Lot[];
 
@@ -448,8 +449,8 @@ function Parking() {
           <div ref={listBox} className="min-h-0 flex-1 overflow-y-auto">
         {!dest ? (
           <div className="mx-4 mt-5">
-            <p className="text-[13px] leading-relaxed text-[#616161]">
-              어디 주변을 찾을지 몰라 목록을 만들지 못했습니다. 목적지를 먼저 골라주세요.
+            <p className="text-[13px] leading-relaxed whitespace-pre-line text-[#616161]">
+              {"어디 주변을 찾을지 몰라 목록을 만들지 못했습니다.\n목적지를 먼저 골라주세요."}
             </p>
             <button
               onClick={() => router.push(`/destination?${searchParams}`)}
@@ -470,8 +471,8 @@ function Parking() {
             되살리려면 onStreetBlind(spots) 로 이 자리에 한 줄 도로 넣으면 된다 (판정은 그대로 있다).
           */}
             {spots.length === 0 ? (
-              <p className="mx-4 mt-5 text-[13px] leading-relaxed text-[#616161]">
-                {emptyText(free || publicOnly)}
+              <p className="mx-4 mt-5 text-[13px] leading-relaxed whitespace-pre-line text-[#616161]">
+                {문장줄(emptyText(free || publicOnly))}
               </p>
             ) : (
               /* key 가 순번인 이유 — 원본 데이터에 이름도 좌표도 똑같은 행이 15쌍 있다
@@ -886,8 +887,8 @@ function Map({ pins, selected, onPick, onBlank, move, start, dest }: MapProps) {
       {/* z-0 이 쌓임 맥락을 만든다 — 카카오가 지도 안에 박는 z-index 가 이 상자 안에 갇힌다 */}
       <div ref={box} className="absolute inset-0 z-0" />
       {notice && (
-        <p className="absolute inset-x-0 top-1/2 z-0 px-8 text-center text-[13px] text-[#616161]">
-          {notice}
+        <p className="absolute inset-x-0 top-1/2 z-0 px-8 text-center text-[13px] whitespace-pre-line text-[#616161]">
+          {문장줄(notice)}
         </p>
       )}
     </>

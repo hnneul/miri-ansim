@@ -15,6 +15,7 @@ import RouteMap, { type LatLng } from "../RouteMap";
 import { 이어친목록, type Place } from "@/lib/geocode";
 import { addRecent, loadRecent, removeRecent } from "@/lib/recent";
 import { findPlace, findPostal, recommendSpots, suggestPlaces } from "./actions";
+import { 문장줄 } from "../text";
 
 /** 목적지를 못 골랐을 때 지도가 보고 있을 곳 — 제주 한가운데(한라산)라 섬이 통째로 담긴다. */
 const JEJU_CENTER: LatLng = [33.38, 126.55];
@@ -651,9 +652,9 @@ function Destination() {
 
           {(pending || error) && (
             <p
-              className={`pointer-events-auto mt-3 shrink-0 rounded-[8px] bg-white/90 px-6 py-1 text-[12px] leading-[18px] ${error ? "text-rose-600" : "text-[#525252]"}`}
+              className={`pointer-events-auto mt-3 shrink-0 rounded-[8px] bg-white/90 px-6 py-1 text-[12px] leading-[18px] whitespace-pre-line ${error ? "text-rose-600" : "text-[#525252]"}`}
             >
-              {error ?? "장소를 찾는 중…"}
+              {error ? 문장줄(error) : "장소를 찾는 중…"}
             </p>
           )}
 

@@ -770,8 +770,8 @@ function Write({
           앞엣것만 말하면 방금 쓴 글이 날아간 줄 알고 화면을 떠난다.
         */}
         {저장실패 && (
-          <p className="mx-6 mb-2 shrink-0 text-center text-[12px] leading-normal text-rose-600">
-            지금은 저장하지 못했어요. 쓰던 글은 임시 저장해 뒀으니 잠시 뒤 다시 눌러주세요.
+          <p className="mx-6 mb-2 shrink-0 text-center text-[12px] leading-normal whitespace-pre-line text-rose-600">
+            {"지금은 저장하지 못했어요.\n쓰던 글은 임시 저장해 뒀으니 잠시 뒤 다시 눌러주세요."}
           </p>
         )}
         <Cta label="여행 기록 저장하기" onClick={save} />
