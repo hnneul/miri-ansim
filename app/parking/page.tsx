@@ -261,8 +261,9 @@ function Parking() {
     q.set("to", spot.name);
     q.set("toLat", String(spot.at[0]));
     q.set("toLng", String(spot.at[1]));
-    // 길 비교에서 X 를 누르면 목적지를 고르던 화면으로 돌아간다 (app/route/page.tsx 닫기 주석)
-    q.set("back", "destination");
+    // 길 비교에서 X 를 누르면 **이 목록**으로 돌아온다 (app/route/page.tsx 닫기 주석).
+    // 예전에는 destination 이었다 — 주차장을 두세 곳 견줘 보려던 사람이 ✕ 한 번에 목록을 잃었다.
+    q.set("back", "parking");
     router.push(`/route?${q}`);
   }
 

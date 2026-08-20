@@ -29,6 +29,9 @@ export default function GoButton({ name, at }: { name: string; at: [number, numb
     q.set("to", name);
     q.set("toLat", String(at[0]));
     q.set("toLng", String(at[1]));
+    // ✕ 로 닫으면 주차장 목록으로 돌아간다. 안 실어 보내면 화이트리스트가 못 알아듣고 홈으로 튕겨
+    // 목적지·목록·상세 세 화면을 한 번에 건너뛴다 (목록의 "여기로 갈게요"와 같은 값이어야 한다).
+    q.set("back", "parking");
     router.push(`/route?${q}`);
   }
 

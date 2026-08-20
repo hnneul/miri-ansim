@@ -110,7 +110,9 @@ function Route() {
    * X 로 닫았을 때 돌아갈 화면. 넘어온 쪽이 ?back= 으로 알려준다.
    * **화이트리스트로만 받는다** — 쿼리에 온 주소를 그대로 push 하면 외부로 튕겨 보낼 수 있다.
    */
-  const 닫고갈곳 = ({ destination: "/destination", nearby: "/nearby" } as const)[query.back as "destination" | "nearby"] ?? "/home";
+  const 닫고갈곳 = ({ destination: "/destination", nearby: "/nearby", parking: "/parking" } as const)[
+    query.back as "destination" | "nearby" | "parking"
+  ] ?? "/home";
 
   /** 도착지 — 앞 화면에서 고른 주차장이다 (관광지가 아니라 차를 댈 자리로 길을 만든다). */
   const to = query.to ?? "도착지";
@@ -601,7 +603,7 @@ function Route() {
           그 빈칸을 그대로 두면 위가 휑해지고 카드도 그만큼 밀린다. 그렇다고 19 를 다 되찾으면
           이번엔 9:41 줄에 바짝 붙어 답답하다 — 8 만 당기고 11 은 숨 쉴 자리로 남긴다.
 
-          하는 일은 ✕ 와 다르다 — ✕ 는 **온 화면**으로 돌아가고(back 쿼리, 목적지·근처 주차장),
+          하는 일은 ✕ 와 다르다 — ✕ 는 **온 화면**으로 돌아가고(back 쿼리, 목적지·대표 관광지·주차장 목록),
           홈은 이 흐름을 통째로 접고 나간다. 외부 내비까지 다녀와 돌아온 사람에게 ✕ 만 주면
           목적지·주차장을 역순으로 되짚어야 첫 화면에 닿는다.
         */}
