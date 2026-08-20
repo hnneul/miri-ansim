@@ -2,7 +2,15 @@
 
 제주를 찾는 **초보 운전자**에게, 출발 전에 그 길이 어떤 길인지 미리 알려주는 웹앱.
 
-배포: <https://miriansim.duckdns.org>
+배포: <https://miriansim.duckdns.org>  
+스택: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · node:sqlite
+
+|  |  |
+|:--:|:--:|
+| <img src="docs/route.png" width="300" alt="길 비교 화면"> | <img src="docs/home.png" width="300" alt="메인 화면"> |
+| **길 비교** — 두 길의 추천점수를 나란히 놓고, 무엇이 둘을 갈랐는지 지도에 칠한다 | **메인** — 현위치·날씨와 네 갈래 입구 |
+| <img src="docs/parking.png" width="300" alt="주차장 화면"> | <img src="docs/nearby.png" width="300" alt="대표 관광지 화면"> |
+| **주변 주차장** — 목적지에서 걸어갈 거리 안, 평행주차를 피할 수 있는 곳부터 | **대표 관광지** — 같은 시각이라도 프로필에 따라 순서가 바뀐다 |
 
 ## 무엇을 하는 앱인가
 
@@ -144,6 +152,7 @@ lib/          계산·판정·저장소. 화면을 안 물고 있어서 node 로
 data/         굳혀둔 데이터와 원본 CSV
 scripts/      data/ 를 만드는 스크립트
 public/       아이콘·캐릭터·마커
+docs/         README 스크린샷 (앱이 안 읽는다)
 ```
 
 `lib` 이 계산을 쥐고 `app` 은 그리기만 한다. 빌드 스크립트와 런타임이 **같은 함수**(`lib/analyze.ts`)를
