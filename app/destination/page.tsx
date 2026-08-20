@@ -580,10 +580,10 @@ function Destination() {
               onClick={() => (searching ? history.back() : router.push(`/home?${searchParams}`))}
               aria-label={searching ? "검색 닫기" : "뒤로"}
               /*
-                -mx-1.5 가 p-1.5 만큼 도로 당긴다 — 커서 얹을 동그란 자리만 생기고 화살표 위치와
-                입력칸 사이 간격(gap-[10px])은 그대로다. 아래 ✕ 도 같은 값이라 둘이 짝이 맞는다.
+                44px 터치 영역을 -mx-2.5 로 도로 당긴다 — 화살표 위치와 입력칸 사이
+                간격(gap-[10px])은 그대로다. 아래 ✕ 도 같은 값이라 둘이 짝이 맞는다.
               */
-              className="-mx-1.5 shrink-0 p-1.5 transition hover:opacity-40 active:scale-90"
+              className="-mx-2.5 flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
@@ -612,7 +612,7 @@ function Destination() {
                 type="button"
                 onClick={openSearch}
                 aria-label="지우기"
-                className="-mx-1.5 shrink-0 p-1.5 transition hover:opacity-40 active:scale-90"
+                className="-mx-2.5 flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
               >
                 <img src="/home/icon-close-bold.svg" alt="" className="size-6" />
               </button>

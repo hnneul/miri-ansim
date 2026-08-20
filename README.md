@@ -108,14 +108,14 @@ npm run dev
 
 ### 환경 변수
 
-`.env.example` 이 원본이다. 대개는 없어도 그 기능만 조용히 빠지는데, `TTS_SIGN_SECRET` 하나는 예외다.
+`.env.example` 이 원본이다. 값이 없으면 해당 외부 기능만 빠지고 화면의 나머지 흐름은 계속 동작한다.
 
 | 이름 | 없으면 | 쓰는 곳 |
 |---|---|---|
 | `NEXT_PUBLIC_KAKAO_MAP_KEY` | 지도가 안 그려진다 | 카카오맵 JS SDK (브라우저 노출이 정상) |
 | `KAKAO_REST_API_KEY` | 길찾기·장소 검색이 멈추고, 카카오에서 덧붙이는 주차장이 빠진다 | 길찾기·지오코딩·로컬 검색 (**서버 전용**) |
 | `OPENAI_API_KEY` | 규칙 기반 음성 대본을 그대로 쓴다 | 검증된 경로 음성 대본 다듬기 (`lib/ai.ts`) |
-| `TTS_SIGN_SECRET` | **길 비교 화면이 안 뜬다** (대본 서명이 예외를 던진다) | `/api/tts` 대본 서명 (`lib/sign.ts`) |
+| `TTS_SIGN_SECRET` | 서버 음성 대신 기기 내장 한국어 음성을 쓴다 | `/api/tts` 대본 서명 (`lib/sign.ts`) |
 | `GCP_TTS_KEY` | 목소리가 Edge 로 바뀐다 | Google Cloud TTS 서비스 계정 (한 줄 JSON). 로컬은 `gcp-tts.json` 파일도 읽는다 |
 | `JEJU_ITS_API_KEY` | 실시간 흐름·연습 구간이 빈다 | 제주ITS 소통정보 |
 | `TOUR_API_KEY` | — | 관광지 사진 수집 (빌드 스크립트 전용) |

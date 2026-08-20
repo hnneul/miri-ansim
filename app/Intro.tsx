@@ -33,9 +33,13 @@ export function Legal({ tone }: { tone: string }) {
 }
 
 /** ONB-01 | 시작2 — 제목·설명은 위쪽에 붙고, 버튼은 아래에 붙는다. 사이는 flex-1 이 먹는다. */
-export default function Intro() {
+export default function Intro({ covered = false }: { covered?: boolean }) {
   return (
-    <div className="flex flex-1 flex-col bg-white">
+    <div
+      inert={covered || undefined}
+      aria-hidden={covered || undefined}
+      className="flex flex-1 flex-col bg-white"
+    >
       <StatusBar tone="text-[#525252]" />
 
       {/* 상태바(24px) 아래로 102px → 와이어프레임의 제목 top:126px */}

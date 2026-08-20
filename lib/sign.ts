@@ -15,6 +15,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /** 주소에 실리는 값이라 짧게 자른다. 64비트면 찍어서 맞힐 수 있는 크기가 아니다. */
 export const 서명길이 = 16;
 
+/** 비밀키가 없을 때 쓰는 비서명 표식. API 검증은 반드시 실패하지만 대본 모양은 유지한다. */
+const 서명없음 = "0".repeat(서명길이);
+
 /**
  * 대본 칸 앞에 서명을 붙인 꼴. `<서명 16자>.<대본>` 이다.
  *
@@ -23,8 +26,11 @@ export const 서명길이 = 16;
  * 바뀐다. 붙여 보내면 **쓰는 곳 한 군데**(RouteRadio)만 떼어 쓰면 된다.
  *
  * 길이가 고정이라 대본에 점이 들어 있어도 자르는 자리가 흔들리지 않는다.
+ * 비밀키가 없으면 API가 거부할 표식을 붙인다. 화면은 대본을 그대로 보여주고 음성만
+ * 브라우저 내장 한국어로 떨어지므로 경로 비교 전체가 설정 하나 때문에 멈추지 않는다.
  */
-export const 붙인칸 = (칸: string) => `${서명(칸)}.${칸}`;
+export const 붙인칸 = (칸: string) =>
+  `${process.env.TTS_SIGN_SECRET ? 서명(칸) : 서명없음}.${칸}`;
 
 function 비밀키(): string {
   const k = process.env.TTS_SIGN_SECRET;

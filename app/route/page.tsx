@@ -240,40 +240,45 @@ function Route() {
   const load = useCallback(async () => {
     if (!origin || !dest) return;
     setResult(null);
-    const found = await compareRoutes(
-      origin,
-      dest,
-      profile,
-      /*
-       * 대본 ⑤칸(도착해서 차를 댈 곳)의 재료다. dest 는 **주차장** 좌표고, destLat/destLng 는
-       * 원래 고른 **목적지** 좌표라 둘 사이가 걸어갈 거리다 — /destination → /parking 을 거쳐
-       * 오면서 쿼리에 그대로 실려 있다 (routeQuery 가 URLSearchParams 를 통째로 복사한다).
-       *
-       * query.to 가 없으면 주차장을 거쳐 온 흐름이 아니다. 그때는 넘기지 않는다 —
-       * 이름을 "도착지"로 지어내면 대본이 "차는 도착지에 대시면 됩니다"라고 말하게 된다.
-       */
-      query.to
-        ? {
-            name: query.to,
-            place: coord(query.destLat, query.destLng),
-            // 대본 ①칸이 부를 이름 — 주차장이 아니라 **원래 고른 목적지**다 ("성산일출봉").
-            // 목적지 화면이 실어 보낸 값이 여기까지 그대로 온다 (app/destination/page.tsx).
-            placeName: query.dest,
-          }
-        : undefined,
-      concerns,
-    );
-    setResult(found);
-    // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다.
-    // 부담 차이가 거의 없으면 비교를 접고, 소요시간이 짧은 한 길만 보여준다.
-    if (!("error" in found))
-      setPicked(
-        found.score.noPick === "tie"
-          ? efficientRoute(found.routes).id
-          : found.score.recommendedRoute === "fast"
-            ? "fast"
-            : "safe",
+    try {
+      const found = await compareRoutes(
+        origin,
+        dest,
+        profile,
+        /*
+         * 대본 ⑤칸(도착해서 차를 댈 곳)의 재료다. dest 는 **주차장** 좌표고, destLat/destLng 는
+         * 원래 고른 **목적지** 좌표라 둘 사이가 걸어갈 거리다 — /destination → /parking 을 거쳐
+         * 오면서 쿼리에 그대로 실려 있다 (routeQuery 가 URLSearchParams 를 통째로 복사한다).
+         *
+         * query.to 가 없으면 주차장을 거쳐 온 흐름이 아니다. 그때는 넘기지 않는다 —
+         * 이름을 "도착지"로 지어내면 대본이 "차는 도착지에 대시면 됩니다"라고 말하게 된다.
+         */
+        query.to
+          ? {
+              name: query.to,
+              place: coord(query.destLat, query.destLng),
+              // 대본 ①칸이 부를 이름 — 주차장이 아니라 **원래 고른 목적지**다 ("성산일출봉").
+              // 목적지 화면이 실어 보낸 값이 여기까지 그대로 온다 (app/destination/page.tsx).
+              placeName: query.dest,
+            }
+          : undefined,
+        concerns,
       );
+      setResult(found);
+      // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다.
+      // 부담 차이가 거의 없으면 비교를 접고, 소요시간이 짧은 한 길만 보여준다.
+      if (!("error" in found))
+        setPicked(
+          found.score.noPick === "tie"
+            ? efficientRoute(found.routes).id
+            : found.score.recommendedRoute === "fast"
+              ? "fast"
+              : "safe",
+        );
+    } catch {
+      // 서버 설정·외부 API에서 예상하지 못한 예외가 나도 로딩 문구에 영원히 머물지 않는다.
+      setResult({ error: "길 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요." });
+    }
     // profile·concerns 는 매 렌더 새 객체라 의존성에 넣으면 무한히 다시 부른다.
     // 둘 다 쿼리에서 나온 값이라 searchParams.toString() 이 이미 그 변화를 잡는다 (hard 포함).
     // eslint-disable-next-line react-hooks/exhaustive-deps
