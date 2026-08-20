@@ -1,36 +1,162 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 미리 안심
 
-## Getting Started
+제주를 찾는 **초보 운전자**에게, 출발 전에 그 길이 어떤 길인지 미리 알려주는 웹앱.
 
-First, run the development server:
+배포: <https://miriansim.duckdns.org>
+
+## 무엇을 하는 앱인가
+
+길을 대신 골라주는 앱이 아니다. **그 길에 뭐가 있는지 미리 알려주는 앱**이다.
+
+같은 구간이라도 운전 경력·제주 경험·차량 크기에 따라 부담이 다르다. 그래서 카카오 길찾기가 준
+후보들을 표준노드링크와 경로 좌표로 분석해 **추천점수**(높을수록 권할 만한 길)를 매기고,
+그 점수가 어떻게 나왔는지를 근거 카드·비교표·지도·음성 네 가지로 같이 보여준다.
+
+지키는 원칙이 셋이다.
+
+- **모르면 말하지 않는다.** 확보하지 못한 값은 추정해 채우지 않는다. 판독 안 된 지점이 하나라도
+  있으면 "비보호 없음"이라 적지 않고 "확인 안 됨"이라 적는다.
+- **숫자는 계산이 정하고 AI 는 옮기기만 한다.** 추천점수·위험요인·비교표는 전부 결정론적 계산이고
+  (`lib/score.ts`), AI 는 그 결과를 한국어 문장으로 바꿀 뿐이다. AI 응답은 `verify()` 가 걸러
+  통과 못 하면 규칙 기반 문장으로 떨어진다.
+- **출처와 기준일을 밝힌다.** 화면에 뜨는 수치는 전부 출처가 붙어 있고, 그 출처는 코드가 데이터에서
+  직접 꺼낸다 (손으로 적은 날짜가 없다).
+
+## 화면
+
+| 경로 | 하는 일 |
+|---|---|
+| `/` · `/intro` · `/onboarding` | 스플래시 → 소개 → 프로필 네 문항 (익숙함·제주 경험·차량 크기·부담 유형) |
+| `/home` | 메인. 현위치 지도·날씨, 빠르게 둘러보기 4칸, 여행 기록 |
+| `/destination` | 목적지 검색 (자동완성·최근 검색어·추천 장소) |
+| `/parking` · `/parking/detail` | 목적지 주변 주차장. 평행/직각 주차 확률과 주차 방법 |
+| `/route` | **길 비교**. 두 경로의 추천점수·근거·비교표·지도, 출발 전 음성 안내 |
+| `/nearby` | 대표 관광지를 "지금 운전 편한 순"으로 |
+| `/around` | 주변 탐나는전 캐시백 가맹점 |
+| `/calm` | 지금 차 없는 길·연습 구간 (단계별). 지금은 화면에서 여기로 가는 문이 없다 |
+| `/safelog` | 담아둔 주행 (길 안내로 넘어갈 때 자동으로 담긴다) |
+| `/trip` · `/trip/course` · `/trip/record` | 여행 코스 만들기 → 코스 추천 → 여행 기록 |
+| `/profile` · `/profile/[topic]` | 마이 화면과 서비스 정보 (점수 기준·데이터 출처·약관·개인정보) |
+
+프로필은 저장소 없이 **URL 쿼리로** 화면 사이를 흐른다 (`lib/profile.ts`). 링크 하나로 그대로
+재현·공유되고 새로고침에도 안 날아간다.
+
+## 시작하기
+
+Node 24 가 필요하다. `node:sqlite`(22.5+)와 타입 스트리핑(`--experimental-strip-types`)을 쓴다.
 
 ```bash
+npm ci
+cp .env.example .env.local   # 값을 채운다 (아래 표)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+<http://localhost:3000> 에서 열린다.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`npm run build` · `npm run start` 로 배포본과 같은 빌드를 확인할 수 있다.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 환경 변수
 
-## Learn More
+`.env.example` 이 원본이다. 대개는 없어도 그 기능만 조용히 빠지는데, `TTS_SIGN_SECRET` 하나는 예외다.
 
-To learn more about Next.js, take a look at the following resources:
+| 이름 | 없으면 | 쓰는 곳 |
+|---|---|---|
+| `NEXT_PUBLIC_KAKAO_MAP_KEY` | 지도가 안 그려진다 | 카카오맵 JS SDK (브라우저 노출이 정상) |
+| `KAKAO_REST_API_KEY` | 길찾기·검색·주차장이 통째로 빈다 | 길찾기·지오코딩·로컬 검색 (**서버 전용**) |
+| `OPENAI_API_KEY` | 규칙 기반 문장으로 떨어진다 | 요약·브리핑·판정·음성 대본 (`lib/ai.ts`) |
+| `TTS_SIGN_SECRET` | **길 비교 화면이 안 뜬다** (대본 서명이 예외를 던진다) | `/api/tts` 대본 서명 (`lib/sign.ts`) |
+| `GCP_TTS_KEY` | 목소리가 Edge 로 바뀐다 | Google Cloud TTS 서비스 계정 (한 줄 JSON). 로컬은 `gcp-tts.json` 파일도 읽는다 |
+| `JEJU_ITS_API_KEY` | 실시간 흐름·연습 구간이 빈다 | 제주ITS 소통정보 |
+| `TOUR_API_KEY` | — | 관광지 사진 수집 (빌드 스크립트 전용) |
+| `NEXT_PUBLIC_DEMO_HERE` | (평소엔 비워 둔다) | 시연용 현위치 고정 `"위도,경도"`. 값이 있으면 화면에 안내 띠가 뜬다 |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+기록 저장소는 SQLite 파일 하나다 (`~/miri-data/records.db`). 앱 폴더 밖이라 배포에 안 씻긴다.
+로그인이 없고, 버킷은 브라우저가 스스로 만든 id 하나다 (`lib/me.ts`).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 데이터
 
-## Deploy on Vercel
+**굳혀둔 값** — 커밋돼 있어서 네트워크 없이도 돈다.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| 파일 | 내용 | 출처 |
+|---|---|---|
+| `jeju-link.json` | 도로 링크 37,063개 (차로수·제한속도·도로명·좌표) | 표준노드링크 2026-07-16 |
+| `parking-data.json` | 주차장 1,572곳 | 공공데이터포털 제주시·서귀포시 2026-04-16 |
+| `parking-tags.json` | 위성사진으로 사람이 확인한 주차 형태 40곳 | 직접 판독 |
+| `tamna-data.json` | 탐나는전 가맹점 11,912곳 | 공공데이터포털 2026-03-31 |
+| `goodprice-data.json` | 착한가격업소 415곳 | jeju.go.kr 물가정보 (원본 417곳) |
+| `spots.json` | 대표 관광지 122곳 (사진 포함) | 한국관광공사 TourAPI + 사람이 정한 순서 |
+| `jeju-signals.json` | 신호교차로 818곳 | 제주 신호기현황 |
+| `road-baseline.json` | 링크별 자유속도 8,522개 | 제주ITS 평일 7일 통계 |
+| `unprotected-left.json` | 비보호 좌회전 판독표 4,498줄 | 카카오맵 로드뷰 직접 판독 |
+| `route-data.json` | 굳혀둔 두 경로 분석 (실시간 실패 시 폴백) | 카카오모빌리티 길찾기 |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**실시간** — 카카오 길찾기(소요시간·혼잡), 제주ITS(링크 속도, 5분 캐시), Open-Meteo(날씨).
+전부 실패해도 `throw` 하지 않는다. 그 칸만 비고 화면은 그대로 뜬다.
+
+데이터를 다시 만들려면 `scripts/build-*.mjs` 를 돌린다. 각 스크립트 첫 주석에 실행 명령과
+원본 받는 법이 적혀 있다.
+
+```bash
+node scripts/build-link-data.mjs                       # 표준노드링크 슬림본
+node --experimental-strip-types scripts/build-parking-data.mjs
+node --env-file=.env.local scripts/build-spots.mjs
+```
+
+## 검증
+
+테스트 프레임워크를 안 쓴다. `lib/*.check.ts` 가 `node:assert` 로 도는 실행 파일이고,
+**네트워크를 타지 않는다** — 계산과 신뢰 경계(URL·서버 응답·localStorage)만 본다.
+
+```bash
+for f in lib/*.check.ts; do node --experimental-strip-types "$f" || break; done
+```
+
+`lib/*.smoke.ts` 는 반대로 **바깥 API 가 아직 우리가 아는 모양으로 답하는가**를 본다.
+키가 필요해 CI 에 못 넣는다. 프롬프트·검색어·모델을 손봤을 때 손으로 한 번 돌린다.
+
+```bash
+node --experimental-strip-types --env-file=.env.local lib/ai.smoke.ts
+```
+
+## 배포
+
+`deploy.sh` 는 **GitHub `main` 에 있는 것만** 올린다 — 서버가 직접 받아가므로 커밋 안 한 변경은
+라이브로 안 나간다.
+
+```bash
+./deploy.sh
+```
+
+`.env.local` 과 `gcp-tts.json` 은 gitignore 라 따라가지 않는다. 서버에 이미 있고
+`git reset --hard` 가 untracked 파일을 안 건드려 그대로 남는다. 바꿔야 하면 `scp` 로 직접 올린다.
+
+새로 만든 `data/*.json` 을 앱이 import 하기 시작했다면 **반드시 커밋해야 한다.** 커밋 안 하면
+서버에 없어서 빌드가 깨진다.
+
+## 폴더
+
+```
+app/          화면 (Next.js App Router). page.tsx 옆의 actions.ts 가 그 화면의 서버 액션이다
+  api/        /api/records · /api/drives (기록 저장) · /api/tts (음성)
+lib/          계산·판정·저장소. 화면을 안 물고 있어서 node 로 바로 돌릴 수 있다
+  *.check.ts  네트워크 없는 검증
+  *.smoke.ts  실제 API 확인 (키 필요)
+data/         굳혀둔 데이터와 원본 CSV
+scripts/      data/ 를 만드는 스크립트
+public/       아이콘·캐릭터·마커
+```
+
+`lib` 이 계산을 쥐고 `app` 은 그리기만 한다. 빌드 스크립트와 런타임이 **같은 함수**(`lib/analyze.ts`)를
+쓰는 것도 그래서다 — 같은 경로에 다른 숫자가 나오면 근거 카드가 무너진다.
+
+코드 주석이 문서다. "왜 이렇게 했나"는 대부분 해당 파일 첫 주석이나 그 값 바로 위에 적혀 있다.
+
+## 알아둘 것
+
+- **내비게이션이 아니다.** 턴바이턴 안내는 카카오맵으로 넘긴다 — 고른 길로 안내되도록 출발지·경유지·
+  도착지를 함께 싣는다.
+- **제주 전용이다.** 검색은 제주 바운딩 박스로 제한되고, 부담 계산도 제주 도로 데이터에 묶여 있다.
+- **로그인이 없다.** 기록은 브라우저마다 다른 사람으로 본다. 시크릿 모드는 창을 닫으면 다시 못 찾고,
+  사진은 서버로 안 가고 그 기기에만 남는다.
+- 평행/직각 주차 구분은 원본에 구획 방식 칸이 없어 **주차장 유형으로 미룬 추정**이다 (위성으로
+  확인한 40곳만 확정). 화면 문구도 그만큼만 단정한다.
