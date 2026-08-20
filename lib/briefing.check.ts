@@ -65,7 +65,7 @@ assert.ok(
 // --- ④ 비교할 게 없을 때 ---
 // 부담이 비슷하면 추천하지 않는다 — 없는 차이를 믿고 길을 고르게 하지 않는다
 const 비슷 = 해석(초보, { fast, safe: { ...safe, risks: [risk("sharpCurve", "연속 급커브", 0.29)] } });
-assert.ok(비슷[0].includes("소요시간이 짧은 쪽이 낫습니다"), 비슷[0]);
+assert.ok(비슷[0].includes("더 효율적인 하나의 경로만 보여드립니다"), 비슷[0]);
 // "익숙한 길로 가세요"를 쓰면 안 된다 — 기본 프로필이 경력 1년·제주 처음이라 익숙한 길이 없어서
 // 여기까지 온 사람들이다. 이 줄이 지워진 문구를 계속 검사하다 깨져 있었다 (briefing.ts 못고른말 주석)
 assert.ok(!비슷[0].includes("익숙한 길"), 비슷[0]);
@@ -81,8 +81,8 @@ const 느림 = { id: "safe" as const, durationMin: 67 };
 const 빠름 = { id: "fast" as const, durationMin: 58 };
 
 // 추천받은 길: 더 걸리면 그 대가를 말하고, 더 빠르면 둘 다 얻었다고 말한다
-assert.equal(tradeoff("safe", 느림, 빠름), "빠른 길보다 9분 더, 대신 훨씬 편해요");
-assert.equal(tradeoff("fast", 빠름, 느림), "빠른 길보다 9분 빠르고, 부담도 적어요");
+assert.equal(tradeoff("safe", 느림, 빠름), "일반 길보다 9분 더, 대신 훨씬 편해요");
+assert.equal(tradeoff("fast", 빠름, 느림), "일반 길보다 9분 빠르고, 부담도 적어요");
 assert.equal(tradeoff("fast", { id: "fast", durationMin: 58 }, { durationMin: 58 }), "시간은 같은데 부담이 더 적어요");
 
 // 추천 안 된 길: 나무라지 않는다. 느리기까지 하면 시간 얘기를 아예 안 꺼낸다 —

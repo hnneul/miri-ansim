@@ -141,9 +141,16 @@ function Route() {
         : undefined,
     );
     setResult(found);
-    // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다
+    // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다.
+    // 부담 차이가 거의 없으면 비교를 접고, 소요시간이 짧은 한 길만 보여준다.
     if (!("error" in found))
-      setPicked(found.score.recommendedRoute === "fast" ? "fast" : "safe");
+      setPicked(
+        found.score.noPick === "tie"
+          ? efficientRoute(found.routes).id
+          : found.score.recommendedRoute === "fast"
+            ? "fast"
+            : "safe",
+      );
     // profile 은 매 렌더 새 객체라 의존성에 넣으면 무한히 다시 부른다. 쿼리가 그대로면 값도 그대로다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin?.[0], origin?.[1], dest?.[0], dest?.[1], searchParams.toString()]);
@@ -205,7 +212,16 @@ function Route() {
   }
 
   const routes = result && !("error" in result) ? result.routes : [];
-  const chosen = routes.find((r) => r.id === picked) ?? routes[0] ?? null;
+  /** 부담 차이가 거의 없으면 일반 경로 중 더 효율적인 한 길만 남긴다. */
+  const visibleRoutes =
+    result &&
+    !("error" in result) &&
+    result.score.noPick === "tie" &&
+    routes.length
+      ? [efficientRoute(routes)]
+      : routes;
+  const chosen =
+    visibleRoutes.find((r) => r.id === picked) ?? visibleRoutes[0] ?? null;
   const sheetH = SHEET_H[view];
 
   /**
@@ -327,8 +343,8 @@ function Route() {
             level={9}
             /* 근거 화면에서는 고른 길 하나만 그린다 — 그 길을 설명하는 자리라 나머지는 방해다 */
             routes={(view === "why"
-              ? routes.filter((r) => r.id === picked)
-              : routes
+              ? visibleRoutes.filter((r) => r.id === picked)
+              : visibleRoutes
             ).map((r) => ({
               path: r.path,
               color: r.color,
@@ -386,7 +402,7 @@ function Route() {
               {view === "why" && chosen ? (
                 <Why
                   route={chosen}
-                  other={result.routes.find((r) => r.id !== chosen.id) ?? null}
+                  other={visibleRoutes.find((r) => r.id !== chosen.id) ?? null}
                   score={
                     chosen.id === "fast"
                       ? result.score.fastScore
@@ -414,7 +430,7 @@ function Route() {
                     )}
 
                   <div className="mt-[18px] flex gap-[14px] px-4">
-                    {result.routes.map((r) => (
+                    {visibleRoutes.map((r) => (
                       <RouteCard
                         key={r.id}
                         route={r}
@@ -577,13 +593,11 @@ function Notice({ children, tone }: { children: string; tone?: "error" }) {
 }
 
 /**
- * 경로 카드 한 장 (와이어프레임 safe-route-card / fast-route-card).
+ * 경로 카드 한 장 (와이어프레임 safe-route-card / general-route-card).
  *
- * **이름을 데이터가 뒷받침하는 만큼만 붙인다.** 와이어프레임은 두 장을 "맞춤 안심 길"·"빠른 길"로
- * 못 박아 뒀는데, 여기 두 갈래는 카카오의 최단거리·최단시간 결과일 뿐이라 어느 쪽이 안심 길인지는
- * 점수를 매겨봐야 안다. 그래서 **점수가 추천한 쪽에만** "맞춤 안심 길"을 쓰고, 나머지는 도로 이름
- * ("번영로 경유")으로 둔다. 실측에서 부담 36점짜리가 35.9점짜리 옆에서 "맞춤 저부담" 배지를
- * 달고 있었던 적이 있다 (lib/route.ts routesFor 주석).
+ * 점수가 추천한 쪽은 "맞춤 안심 길", 비교 상대는 "일반 길"로 부른다. 어느 경로가 추천되는지는
+ * 데이터가 정하며, 실제 도로 이름은 두 카드 모두 보조 정보로 남긴다. 부담 차이가 거의 없을 때는
+ * 일반 길 한 장만 그린다.
  */
 /**
  * HOME-03 — 왜 이 길인가 (Figma 2153:1986).
@@ -657,7 +671,7 @@ function Why({
           </span>
         )}
         <span className="min-w-0 truncate text-[16px] font-bold text-[#1f1f1f]">
-          {recommended ? "맞춤 안심 길" : route.name}
+          {recommended ? "맞춤 안심 길" : "일반 길"}
         </span>
         {/*
           점수만 주황이다. 비교 화면의 카드에서는 검정인데(거기선 두 값을 나란히 재는 자리라
@@ -780,8 +794,8 @@ function RouteCard({
     <button
       onClick={onPick}
       aria-pressed={picked}
-      /* 높이를 130 으로 못 박지 않는다 — 추천 카드만 도로 이름 한 줄이 더 붙어서 글자가 잘렸다.
-         min-h 로 두면 둘이 같이 늘어난다 (나란한 flex 항목이라 키가 저절로 맞는다). */
+      /* 높이를 130 으로 못 박지 않는다 — 도로 이름이 길어져도 글자가 잘리지 않아야 한다.
+         min-h 로 두면 두 카드가 같이 늘어난다 (나란한 flex 항목이라 키가 저절로 맞는다). */
       className={`min-h-[130px] min-w-0 flex-1 rounded-[10px] px-3 pt-[14px] pb-[12px] text-left transition ${
         picked
           ? "border-2 border-[#fc7f35] bg-[#ffece1]"
@@ -795,7 +809,7 @@ function RouteCard({
           </span>
         )}
         <span className="min-w-0 truncate text-[15px] leading-none font-bold text-[#1f1f1f]">
-          {recommended ? "맞춤 안심 길" : route.name}
+          {recommended ? "맞춤 안심 길" : "일반 길"}
         </span>
         {/*
           › — 근거 화면(HOME-03)으로 가는 문. 와이어프레임이 두 카드 모두에 달아 둔 것이다.
@@ -807,7 +821,7 @@ function RouteCard({
         <span
           role="button"
           tabIndex={0}
-          aria-label={`${route.name} 근거 보기`}
+          aria-label={`${recommended ? "맞춤 안심 길" : "일반 길"} 근거 보기`}
           onClick={(e) => {
             e.stopPropagation();
             onWhy();
@@ -833,12 +847,21 @@ function RouteCard({
       <p className="mt-[14px] text-[13px] text-[#9e9e9e]">
         {route.durationMin}분 · {route.distanceKm}km
       </p>
-      {/* 추천 카드는 이름 자리를 "맞춤 안심 길"에 내줬으니 도로 이름을 여기로 내린다 */}
-      {recommended && (
-        <p className="mt-[2px] truncate text-[11px] text-[#bdbdbd]">
-          {route.name}
-        </p>
-      )}
+      {/* 두 카드 모두 역할명 아래에 실제 도로 이름을 보조 정보로 남긴다. */}
+      <p className="mt-[2px] truncate text-[11px] text-[#bdbdbd]">
+        {route.name}
+      </p>
     </button>
   );
+}
+
+/** 부담 차이가 거의 없을 때 남길 경로. 시간, 거리 순으로 더 효율적인 길을 고른다. */
+function efficientRoute(routes: LiveRoute[]): LiveRoute {
+  return routes.reduce((best, route) => {
+    const bestMinutes = best.durationMin ?? Number.POSITIVE_INFINITY;
+    const routeMinutes = route.durationMin ?? Number.POSITIVE_INFINITY;
+    if (routeMinutes !== bestMinutes)
+      return routeMinutes < bestMinutes ? route : best;
+    return route.distanceKm < best.distanceKm ? route : best;
+  });
 }
