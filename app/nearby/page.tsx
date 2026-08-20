@@ -89,12 +89,26 @@ function Nearby() {
   useEffect(() => {
     let alive = true;
     const 조회 = (p: LatLng, 내것: boolean) =>
-      nearbySpots(p[0], p[1], profile).then((r) => {
-        if (!alive) return;
-        set내위치(내것);
-        setHere(p);
-        setList(r);
-      });
+      nearbySpots(p[0], p[1], profile)
+        .then((r) => {
+          if (!alive) return;
+          set내위치(내것);
+          setHere(p);
+          setList(r);
+        })
+        /*
+          **실패도 화면까지 와야 한다.** 전에는 catch 가 없어서, 조회가 넘어지면 list 가 null 로
+          남아 스켈레톤이 영원히 뛰었다 — "지금 길 정보를 받지 못했어요"라고 말해야 할 바로 그
+          상황에서 화면이 아무 말도 안 했다. 빈손으로 떨어뜨려 Empty 와 다시 불러오기로 잇는다.
+          기준 위치는 실패해도 같이 옮긴다. 안 옮기면 위치를 거부당한 사람에게 공항 지도를
+          띄워놓고 "내 위치 기준"이라고 적게 된다.
+        */
+        .catch(() => {
+          if (!alive) return;
+          set내위치(내것);
+          setHere(p);
+          setList([]);
+        });
 
     if (!navigator.geolocation) {
       조회(JEJU_AIRPORT, false);
