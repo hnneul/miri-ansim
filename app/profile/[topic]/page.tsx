@@ -43,7 +43,11 @@ function Topic() {
       */}
       <div className="flex h-14 shrink-0 items-center border-b border-[#ededed] pr-4">
         <button
-          onClick={() => router.push(`/profile?${searchParams}`)}
+          // 시작 화면의 약관 줄에서 들어오면 거기로 돌려보낸다 (app/Intro.tsx Legal) —
+          // 기본값인 마이 화면으로 보내면 아직 프로필도 안 만든 사람이 온보딩을 건너뛴 자리에 떨어진다
+          onClick={() =>
+            router.push(searchParams.get("back") === "intro" ? "/intro" : `/profile?${searchParams}`)
+          }
           aria-label="뒤로"
           className="flex size-11 shrink-0 items-center justify-center rounded-full text-[22px] leading-none text-[#262626] transition hover:bg-[#fff0e6] active:scale-90"
         >

@@ -137,10 +137,17 @@ function Profile() {
       {/* 아래 두 줄은 바닥에 붙는다 — 프레임이 낮아지면 여기 여백부터 줄어든다 */}
       <div className="min-h-6 flex-1" />
 
+      {/*
+        전에는 "추천 순위를 만드는 데 쓰지 않고"라고 적혀 있었는데 **사실이 아니었다** —
+        lib/score.ts 의 expWeightOf 가 익숙함 티어로 위험 가중치를 곱하고(왕초보 ×1.6),
+        그 합이 recommendedRoute 를 정한다. 바로 위 "추천점수 계산 기준"(/profile/score)이
+        그 배수를 표로 설명하고 있어서, 한 화면 안에서 앱이 스스로를 반박하고 있었다.
+        신뢰를 말하는 자리라 틀린 문장의 무게가 더 크다. 실제로 하는 일만 적는다.
+      */}
       <p className="mx-4 shrink-0 rounded-[12px] bg-[#f5f7f7] px-4 py-[9px] text-center text-[12px] leading-normal text-[#616161]">
-        내 설정은 추천 순위를 만드는 데 쓰지 않고,
+        내 설정은 길의 부담을 나에게 맞춰 계산하는 데 쓰고,
         <br />
-        부담 설명을 나에게 맞추는 데만 사용해요.
+        주소창에만 실려 서버에 저장하지 않아요.
       </p>
 
       <p className="mt-[23px] shrink-0 pb-6 text-center text-[11px] leading-none font-medium text-[#616161]">

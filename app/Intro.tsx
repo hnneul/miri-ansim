@@ -8,11 +8,26 @@
 import Link from "next/link";
 import StatusBar from "./StatusBar";
 
-/** 이용약관·개인정보 처리방침. 두 화면 모두 하단 28px 자리에 같은 문구가 앉는다 (글자색만 다르다). */
+/**
+ * 이용약관·개인정보 처리방침. 두 화면 모두 하단 28px 자리에 같은 문구가 앉는다 (글자색만 다르다).
+ *
+ * **글자가 아니라 링크다.** 두 글은 이미 다 쓰여 있고 화면도 있는데(lib/serviceinfo.ts,
+ * /profile/terms · /profile/privacy) 정작 그 이름을 적어둔 여기서는 안 열렸다 —
+ * 접근성 트리에도 링크가 하나도 안 잡혔다.
+ *
+ * back=intro 를 달아 보낸다. 안 달면 그 화면의 ← 가 마이 화면으로 가는데(app/profile/[topic]),
+ * 여기는 아직 프로필을 만들기도 전이라 온보딩을 통째로 건너뛴 자리에 떨어진다.
+ */
 export function Legal({ tone }: { tone: string }) {
   return (
     <p className={`shrink-0 pb-7 text-center text-[11px] leading-4 font-medium ${tone}`}>
-      이용약관&nbsp;&nbsp;·&nbsp;&nbsp;개인정보 처리방침
+      <Link href="/profile/terms?back=intro" className="underline-offset-2 hover:underline">
+        이용약관
+      </Link>
+      &nbsp;&nbsp;·&nbsp;&nbsp;
+      <Link href="/profile/privacy?back=intro" className="underline-offset-2 hover:underline">
+        개인정보 처리방침
+      </Link>
     </p>
   );
 }

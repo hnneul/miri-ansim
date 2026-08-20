@@ -316,7 +316,13 @@ function Home() {
           icon="/home/quick-record.png"
           iconClass="size-[32px]"
           label="주행 저장"
-          sub="글쓰러 가기"
+          /*
+            "글쓰러 가기"였는데 /safelog 에는 쓸 자리가 없다 — 그 화면에서 사람이 할 수 있는 건
+            빼기(✕)와 나만의 길로 담기 둘뿐이고, 담기는 길 안내로 넘어갈 때 저절로 된다
+            (app/safelog/page.tsx 첫 주석). 글 쓰는 곳은 여행 기록(/trip/record)이고
+            홈에서는 아래 "여행 기록 ＋" 칸이 그리로 간다.
+          */
+          sub="달린 길 보기"
           href={`/safelog?${searchParams}`}
         />
         <Quick
