@@ -93,6 +93,21 @@ const 부담색 = "#D9663F";
 const 출발핀 = labeledPin("#fc7f35", "출발");
 const 도착핀 = labeledPin("#1f1f1f", "도착");
 
+/**
+ * 내비로 넘어간 시각을 적어 두는 자리. **useState 가 아니라 sessionStorage 인 이유** —
+ * 폰에서 카카오맵 앱이 앞으로 나오면 사파리가 뒤에 남은 우리 탭을 버릴 수 있고, 그러면
+ * 돌아왔을 때 페이지가 새로 로드돼 상태가 초기값으로 돌아간다. 길 안내는 30분씩 걸리니
+ * 드문 일이 아니다. 탭과 함께 사라지는 저장소라 다음 방문까지 남지도 않는다.
+ */
+const 떠남키 = "route:떠난때";
+
+/**
+ * 이만큼은 나가 있어야 "다녀왔다"고 친다. 누르자마자 마음이 바뀌어 돌아온 사람에게
+ * "운전은 괜찮으셨나요?"는 헛소리다. visibilitychange 는 알림을 확인하러 잠깐 나갔다 와도
+ * 오므로, 넘겼는지(떠남키)만으로는 못 거른다.
+ */
+const 다녀온최소 = 5 * 60 * 1000;
+
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function RoutePage() {
   return (
@@ -130,6 +145,16 @@ function Route() {
     const q = new URLSearchParams(searchParams);
     if (!q.get("dest") && query.to) q.set("dest", query.to);
     q.delete("back"); // 목적지부터 다시 고르는 자리라 "어디서 왔는지"가 쓸 데가 없다
+    /*
+      **손으로 정한 출발지도 버린다.** 이 문의 뜻이 "두 칸 다 마음에 안 든다"라, 출발지만 남으면
+      머리 줄의 ‹ 와 구별이 안 된다 — ‹ 는 "출발지는 그대로, 도착지만 다시"이고 이건 "처음부터"다.
+      좌표까지 지우는 이유: originName 만 지우면 손으로 고른 곳의 좌표가 남아 그게 "현재 위치"로
+      둔갑한다. 다음에 길을 볼 때 출발지는 브라우저에 다시 묻는다 (app/route/page.tsx origin).
+    */
+    for (const k of ["originName", "originLat", "originLng"]) q.delete(k);
+    // 검색 패널을 열어둔 채 연다 — "다시 고르기"를 눌렀으면 바로 칠 수 있어야 한다.
+    // 고른 곳(dest)은 패널 아래 그대로 남아, 무엇을 바꾸는 중인지 보이고 취소하면 되돌아온다.
+    q.set("search", "1");
     router.push(`/destination?${q}`);
   }
 
@@ -552,8 +577,43 @@ function Route() {
     router.push(`/parking?${q}`);
   }
 
+  /*
+   * 내비를 켜고 **돌아오면** 한 번 말을 건다.
+   *
+   * 여행 코스(app/trip/course)의 물음창과 자리는 같지만 **용건이 다르다** — 거기는 기록할지
+   * 묻고, 여기는 이미 담긴 걸 알린다. 담기() 가 넘기는 그 순간 주행 저장에 넣기 때문에,
+   * 여기서 "기록하시겠습니까?"를 물으면 이미 한 일을 또 묻는 거짓말이 된다.
+   * 그래서 두 화면의 말투가 갈리는 건 그대로 둔다.
+   *
+   * 5분을 안 채웠으면 안 띄우고 **적어둔 시각도 안 지운다** — 진짜 다녀온 뒤에 다시 오면
+   * 그때 뜬다. 지워 버리면 잠깐 돌아온 한 번에 기회가 통째로 날아간다.
+   */
+  const [물음, set물음] = useState(false);
+
+  useEffect(() => {
+    const 돌아옴 = () => {
+      if (document.visibilityState !== "visible") return;
+      const 떠난때 = Number(sessionStorage.getItem(떠남키));
+      if (!떠난때 || Date.now() - 떠난때 < 다녀온최소) return;
+      sessionStorage.removeItem(떠남키);
+      set물음(true);
+    };
+    // 탭이 버려졌다 새로 뜬 경우엔 이벤트가 안 온다 — 이 한 번이 유일한 기회다
+    돌아옴();
+    document.addEventListener("visibilitychange", 돌아옴);
+    // 팝업이 막혀 같은 탭에서 열렸으면(lib/parking.ts navigateTo) 이 문서가 떠났다 돌아온다 —
+    // 그 복귀는 visibilitychange 가 아니라 pageshow 로 온다 (bfcache).
+    window.addEventListener("pageshow", 돌아옴);
+    return () => {
+      document.removeEventListener("visibilitychange", 돌아옴);
+      window.removeEventListener("pageshow", 돌아옴);
+    };
+  }, []);
+
   function go() {
     if (!chosen || !dest) return;
+    // 돌아왔을 때 말을 걸 근거. 담기() 처럼 **떠나기 전에** 적는다 — 뒤에 적을 자리가 없다
+    sessionStorage.setItem(떠남키, String(Date.now()));
     /*
      * 내비를 열기 **전에** 담는다. 담기 안에는 기다리는 곳이 없어서 요청이 이 줄에서 곧장
      * 나가고, keepalive 가 그 뒤를 맡는다 — 문서를 떠난 뒤에도 요청이 끊기지 않는다.
@@ -1096,6 +1156,41 @@ function Route() {
         )}
       </div>
 
+      {/*
+        다녀온 뒤 한마디. **묻는 게 아니라 알리는 창이라** 닫아도 잃는 게 없다 —
+        주행 저장은 넘기는 순간 이미 담겼다(담기). 그래서 왼쪽이 "나중에"가 아니라 "닫기"다.
+        모양은 여행 코스의 물음창과 같은 값이다 (app/trip/course) — 같은 앱에서 같은 자리에
+        뜨는 창이 서로 다른 모서리·높이를 쓰면 그것만으로 다른 앱처럼 읽힌다.
+      */}
+      {물음 && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-8">
+          <div role="dialog" aria-modal aria-labelledby="다녀옴-제목" className="w-full rounded-[18px] bg-white px-6 pt-7 pb-5">
+            <h2 id="다녀옴-제목" className="text-center text-[17px] leading-[26px] font-bold text-[#262626]">
+              운전은 괜찮으셨나요?
+            </h2>
+            <p className="mt-2 text-center text-[13px] leading-5 text-[#7d7d7d]">
+              방금 다녀온 길은 주행 저장에
+              <br />
+              담아뒀어요. 언제든 다시 볼 수 있어요.
+            </p>
+            <div className="mt-6 flex gap-2.5">
+              {/* 오른쪽이 "다음으로 가는 자리"라는 이 앱의 규칙 — 여행 코스 물음창과 같다 */}
+              <button
+                onClick={() => set물음(false)}
+                className="h-12 flex-1 rounded-[10px] bg-[#f6f4f1] text-[15px] font-medium text-[#262626] transition hover:bg-[#eae7e2] active:scale-[0.98]"
+              >
+                닫기
+              </button>
+              <button
+                onClick={() => router.push("/safelog")}
+                className="h-12 flex-1 rounded-[10px] bg-[#ff7d32] text-[15px] font-bold text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
+              >
+                보러가기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

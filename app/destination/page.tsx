@@ -54,7 +54,10 @@ function Destination() {
   const origin: LatLng | null =
     query.originLat && query.originLng ? [Number(query.originLat), Number(query.originLng)] : null;
 
-  const [text, setText] = useState(query.dest ?? "");
+  // 검색 패널을 열고 들어왔으면(?search=1) 칸은 비운다 — 다시 고르러 온 자리라 옛 이름이 적혀
+  // 있으면 지우고 시작하게 된다 (openSearch 가 같은 이유로 값을 지운다). 고른 곳은 dest 에 남아
+  // 있어서 패널을 취소하면 그대로 돌아온다.
+  const [text, setText] = useState(query.search === "1" ? "" : (query.dest ?? ""));
   const [place, setPlace] = useState<Place | null>(null);
   /*
     검색 패널(두 번째 상태)이 떠 있는가.
@@ -151,6 +154,12 @@ function Destination() {
         next.set("toLat", String(found.coord[0]));
         next.set("toLng", String(found.coord[1]));
         for (const k of ["dest", "destLat", "destLng"]) next.delete(k);
+        /*
+          돌아올 자리를 여기서 정한다 — 안 정하면 앞 흐름이 남긴 값을 물고 가고, 그것도 없으면
+          ‹ 가 홈으로 튄다. 이 길로 온 사람은 **여기서** 도착지를 고르던 참이라 여기로 돌아와야
+          한다 (dest 가 없어 routing 상태로 열리므로 도착지 칸이 다시 비어 있다).
+        */
+        next.set("back", "destination");
         router.push(`/route?${next}`);
         return;
       }
@@ -259,6 +268,13 @@ function Destination() {
   */
   const synced = useRef<string | null>(null);
   useEffect(() => {
+    /*
+      **검색 패널이 떠 있는 동안에는 쉰다.** 패널이 지도를 덮고 있어 지금 맞춰봐야 보이지 않는데,
+      맞추는 길(choose)이 패널을 닫고 search 를 URL 에서 지운다 — 길 비교의 ✕("다시 고르기")가
+      dest 를 남긴 채 패널을 열어 보내면 뜨자마자 닫혀 버렸다. 닫히는 순간 이 effect 가 다시 돌아
+      그때 맞춘다 (searching 이 deps 에 있다). 그래서 패널을 취소하면 고른 곳이 그대로 돌아온다.
+    */
+    if (searching) return;
     if (!query.dest) {
       // 목적지가 비었다 — 나중에 같은 곳으로 되돌아와도 다시 맞출 수 있게 기억을 지운다
       synced.current = null;
@@ -267,7 +283,7 @@ function Destination() {
     if (synced.current === query.dest) return;
     synced.current = query.dest;
     search(query.dest);
-  }, [query.dest, search]);
+  }, [query.dest, search, searching]);
 
   /**
    * 고른 출발지. 목적지를 아직 안 골랐을 때 지도가 이걸 대신 보여준다 —
@@ -557,7 +573,17 @@ function Destination() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onFocus={() => setSearching(true)}
-              placeholder="장소를 검색해 주세요"
+              /*
+                **홈 검색바와 같은 문장이다** (app/home/page.tsx). 거기는 입력칸이 아니라 이 화면을
+                여는 버튼이라, 누른 문장이 그대로 적힌 칸이 나와야 "그 자리로 왔다"가 된다.
+                문구가 갈리면 다른 칸으로 옮겨온 것처럼 읽힌다 — 바꿀 때는 두 곳을 같이 고친다.
+
+                "장소" 만으로는 부족하다. 이 화면은 목적지도 고르고 출발지도 고르는데(시트의 "출발"),
+                예전에는 들어오는 문이 홈 검색바 하나뿐이라 손에 맥락이 남아 있었다. 길 비교의
+                ✕("출발지·도착지 다시 고르기")가 생기면서 **맥락 없이 떨어지는 입구**가 하나 늘었고,
+                그 사람에게는 이 칸이 둘 중 뭘 받는지 문구로만 말할 수 있다.
+              */
+              placeholder="가고 싶은 제주 장소를 검색해요"
               aria-label="목적지"
               className="min-w-0 flex-1 bg-transparent text-[15px] text-[#1f1f1f] outline-none placeholder:text-[#7d7d7d]"
             />
