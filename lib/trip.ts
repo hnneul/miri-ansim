@@ -127,7 +127,10 @@ export function seasonOf(start: string): Season | null {
 
 /** 갈래가 어디서 왔는지. 추천 카드를 이끌 수 있는 건 테마와 계절뿐이다 (lib/course.ts leadsOf) */
 export type Role = "theme" | "season" | "staple";
-export type Leg = Recipe & { role: Role };
+/** theme 은 이 갈래가 **어느 테마에서 나왔는지** (THEMES 인덱스). 계절·기본 갈래에는 없다 —
+ *  코스 제목이 "고른 첫 테마"가 아니라 그 카드가 앞세운 갈래를 따라가려면 이게 필요하다
+ *  (lib/course.ts titleOf). */
+export type Leg = Recipe & { role: Role; theme?: number };
 
 /**
  * 어느 테마를 골랐든 늘 같이 넣는 갈래. **테마는 코스의 중심을 정하지, 후보 전체를 정하지 않는다.**
@@ -178,7 +181,7 @@ export function recipesFor(plan: TripPlan): Leg[] {
       순서는 그대로 지킨다 — 첫 테마가 코스 제목의 중심이다 (lib/course.ts titleOf).
       아래 dedupe 가 테마끼리 겹치는 갈래를 한 번으로 접는다.
     */
-    ...plan.themes.flatMap((t) => THEMES[t]?.recipes ?? []).map((r): Leg => ({ ...r, role: "theme" })),
+    ...plan.themes.flatMap((t) => (THEMES[t]?.recipes ?? []).map((r): Leg => ({ ...r, role: "theme", theme: t }))),
     ...(season ? SEASONS[season] : []).map((r): Leg => ({ ...r, role: "season" })),
     STAPLE,
   ];

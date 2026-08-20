@@ -11,7 +11,7 @@
 import { meters } from "./parking.ts";
 import { searchSpotsNear, type Spot } from "./poi.ts";
 import { geocodePlace } from "./geocode.ts";
-import { THEMES, nightsOf, recipesFor, type Role, type TripPlan } from "./trip.ts";
+import { THEMES, nightsOf, recipesFor, type Leg, type Role, type TripPlan } from "./trip.ts";
 import SPOTS from "../data/spots.json" with { type: "json" };
 import type { LatLng } from "@/app/RouteMap";
 
@@ -235,7 +235,7 @@ export function buildCourses(plan: TripPlan, candidates: Candidate[]): Course[] 
   const reachable = candidates.filter((c) => c.must || 2 * driveMinutes(meters(origin, c.at)) <= capMin);
   if (!reachable.length) return [];
 
-  const leads = leadsOf(reachable);
+  const leads = leadsOf(reachable, recipesFor(plan));
   const courses: Course[] = [];
   /** 앞 카드들이 이미 쓴 자리. 이름이 아니라 좌표다 — 다음 카드를 다른 지역으로 보내려면 거리가 필요하다 */
   const used: LatLng[] = [];
@@ -281,12 +281,20 @@ export function buildCourses(plan: TripPlan, candidates: Candidate[]): Course[] 
  * "내가 고른 테마" 한 장과 "이 계절에 맞는 곳" 한 장이 된다. 한쪽이 비면(날짜를 모르거나
  * 테마를 안 골랐으면) 남은 줄이 그대로 이어 채운다.
  *
+ * **테마를 둘 이상 골랐으면 카드 둘을 테마가 나눠 갖는다** — 계절은 그 뒤다.
+ * 번갈아 세우면 두 장이 [첫 테마, 계절]이 되어 두 번째 테마가 카드를 영영 못 이끈다.
+ * 바다 + 먹거리를 고르면 "바다 · 해변" 과 "여름 계곡 코스" 가 나오고, 먹거리는 코스 안에
+ * 섞여 들어갈 뿐 어느 카드도 그 이름으로 열리지 않는다. 위에 적은 원칙이 여기서도 그대로다 —
+ * 계절은 우리가 얹은 것이고 테마는 사용자가 고른 것이다. 갈래가 둘인 테마가 카드를 다 먹는 걸
+ * 막으려던 규칙이지, 테마를 둘 고른 사람에게 계절을 끼워 넣으라는 규칙이 아니다.
+ * 그래서 **테마마다 대표 갈래 하나씩**만 앞줄에 세운다 (한 테마가 두 장을 먹지 않는다).
+ *
  * **기본 갈래(맛집·카페)는 카드를 못 이끈다.** 어디에나 있어서 후보가 제일 많은데, 그걸로
  * 카드를 세우면 "근처 맛집 코스"가 추천이 된다 — 밥은 하루를 채우는 것이지 하루의 이유가 아니다.
  *
  * 같은 줄 안에서는 후보가 많은 순, 같으면 표 순서로 — 순서가 흔들리면 코스도 흔들린다.
  */
-function leadsOf(candidates: Candidate[]): number[] {
+function leadsOf(candidates: Candidate[], recipes: Leg[]): number[] {
   const count = new Map<number, { n: number; role: Role | null }>();
   for (const c of candidates) {
     if (c.recipe === null) continue;
@@ -302,6 +310,17 @@ function leadsOf(candidates: Candidate[]): number[] {
 
   const 테마 = 줄세우기("theme");
   const 계절 = 줄세우기("season");
+
+  /* 테마마다 대표 갈래 하나 — 후보가 제일 많은 것이 그 테마를 대표한다 (줄이 이미 그 순서다) */
+  const 본것 = new Set<number>();
+  const 대표 = 테마.filter((i) => {
+    const t = recipes[i]?.theme;
+    if (t === undefined || 본것.has(t)) return false;
+    본것.add(t);
+    return true;
+  });
+  // 고른 테마가 둘 이상이면 앞의 두 자리는 서로 다른 테마 몫이다
+  if (대표.length >= 2) return [...대표, ...계절, ...테마.filter((i) => !대표.includes(i))];
 
   const out: number[] = [];
   for (let i = 0; i < Math.max(테마.length, 계절.length); i++) {
@@ -492,15 +511,24 @@ function dayAfter(start: string, add: number): string {
 
 /**
  * AI 가 이름을 못 지었을 때 남는 이름. 없는 감상 대신 무엇 중심인지만 말한다.
- * 갈래를 붙여야 두 카드가 구분된다 ("제주 먹거리 여행 · 시장" / "조용한 바다 여행 · 겨울 동백") —
- * 계절 갈래가 붙으면서 갈래는 늘 둘 이상이지만, 계절을 모르는 날짜면 하나일 수도 있다.
+ *
+ * **앞부분은 그 카드가 앞세운 갈래를 따라간다.** 예전에는 앞을 늘 `themes[0]` 로 박았는데,
+ * 그러면 카드 둘이 같은 여섯 글자로 열리고(목록에서 한 이름으로 읽힌다) 뒤가 계절 갈래일 때
+ * 앞뒤가 어긋났다 — 「조용한 바다」+「먹거리」를 고르면 "조용한 바다 여행 · 해변" 과
+ * "조용한 바다 여행 · 여름 계곡" 이 나왔다. 바다 여행인데 계곡이다.
+ *
+ *   · 테마 갈래가 이끌면 → 그 갈래의 **제 테마** + 갈래 ("제주 먹거리 여행 · 시장")
+ *   · 계절 갈래가 이끌면 → 계절 이름이 이미 갈래에 들어 있다 ("여름 계곡 코스")
+ *
+ * 기본 갈래(STAPLE)는 카드를 못 이끌지만(leadsOf), 갈래를 못 정한 코스가 남을 수 있어
+ * 그때는 고른 테마를, 그마저 없으면 "가볍게 도는 코스"를 쓴다.
  */
 function titleOf(plan: TripPlan, lead: number | null): string {
+  const leg = lead !== null ? recipesFor(plan)[lead] : undefined;
+  if (leg?.role === "season") return `${leg.label} 코스`;
+  if (leg?.role === "theme" && leg.theme !== undefined) return `${THEMES[leg.theme].label} · ${leg.label}`;
   const theme = plan.themes[0] ?? null;
-  const recipes = recipesFor(plan);
-  const base = theme === null ? "가볍게 도는 코스" : THEMES[theme].label;
-  const branch = lead !== null ? recipes[lead]?.label : undefined;
-  return recipes.length > 1 && branch ? `${base} · ${branch}` : base;
+  return theme === null ? "가볍게 도는 코스" : THEMES[theme].label;
 }
 
 /* ─────────────────────────── 화면 문구 ─────────────────────────── */
