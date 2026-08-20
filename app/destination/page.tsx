@@ -268,18 +268,22 @@ function Destination() {
   */
   const synced = useRef<string | null>(null);
   useEffect(() => {
-    /*
-      **검색 패널이 떠 있는 동안에는 쉰다.** 패널이 지도를 덮고 있어 지금 맞춰봐야 보이지 않는데,
-      맞추는 길(choose)이 패널을 닫고 search 를 URL 에서 지운다 — 길 비교의 ✕("다시 고르기")가
-      dest 를 남긴 채 패널을 열어 보내면 뜨자마자 닫혀 버렸다. 닫히는 순간 이 effect 가 다시 돌아
-      그때 맞춘다 (searching 이 deps 에 있다). 그래서 패널을 취소하면 고른 곳이 그대로 돌아온다.
-    */
-    if (searching) return;
     if (!query.dest) {
       // 목적지가 비었다 — 나중에 같은 곳으로 되돌아와도 다시 맞출 수 있게 기억을 지운다
       synced.current = null;
       return;
     }
+    /*
+      **검색 패널이 떠 있는 동안에는 맞추기를 미룬다.** 패널이 지도를 덮고 있어 지금 맞춰봐야
+      보이지 않는데, 맞추는 길(choose)이 패널을 닫고 search 를 URL 에서 지운다 — 길 비교의
+      ✕("다시 고르기")가 dest 를 남긴 채 패널을 열어 보내면 뜨자마자 닫혀 버렸다.
+      닫히는 순간 이 effect 가 다시 돌아 그때 맞춘다 (searching 이 deps 에 있다).
+
+      **위 기억 지우기보다 아래여야 한다.** 위에 두면 "출발"로 dest 가 비는 순간(그때는 패널이
+      열려 있다) synced 를 못 지우고, 뒤로 돌아와 같은 dest 가 실려도 "이미 맞췄다"며 건너뛰어
+      **빈 지도**가 남는다.
+    */
+    if (searching) return;
     if (synced.current === query.dest) return;
     synced.current = query.dest;
     search(query.dest);

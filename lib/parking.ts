@@ -319,12 +319,19 @@ export function navigateTo(
    * **반환값을 봐야 한다.** 팝업이 막히면 window.open 은 던지지 않고 조용히 null 을 준다 —
    * 버튼을 눌렀는데 화면에 아무 일도 안 일어나고 콘솔에도 아무것도 안 남는다.
    * 이 앱의 마지막 버튼 둘("이 길로 갈게요" · "이 코스로 여행하기")이 그 상태가 된다.
+   * 막혔으면 같은 탭에서 연다 — 돌아오는 길은 브라우저 뒤로가기가 맡는다.
    *
-   * 막혔으면 같은 탭에서 연다. 새 탭이 나은 이유(돌아올 화면이 남는다)는 그대로지만,
-   * 못 여는 것보다는 낫다 — 돌아오는 길은 브라우저 뒤로가기가 맡는다.
+   * **기능 문자열에 noopener 를 못 쓴다.** 그걸 주면 명세상 창이 정상으로 열려도 null 이 와서,
+   * 막힌 것과 열린 것을 가릴 수가 없다 — 그렇게 뒀더니 새 탭이 열리면서 이 탭까지 카카오맵으로
+   * 넘어갔다. 대신 열고 나서 opener 를 끊는다. 새 창이 window.opener 로 이 페이지를 건드리는 걸
+   * 막는 목적은 그대로 이루면서, 열렸는지는 반환값으로 알 수 있다.
    */
-  const opened = window.open(url, "_blank", "noopener");
-  if (!opened) location.href = url;
+  const opened = window.open(url, "_blank");
+  if (!opened) {
+    location.href = url;
+    return null;
+  }
+  opened.opener = null;
   return opened;
 }
 
