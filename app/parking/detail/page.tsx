@@ -88,8 +88,13 @@ export default async function ParkingDetailPage({ searchParams }: PageProps<"/pa
         **왜 없는지**를 여기서 밝힌다. 없는 값을 지어내지 않는다는 규칙은 그대로다.
       */}
       {!lot && (
-        <p className="mx-4 mt-3 shrink-0 rounded-[12px] bg-[#f7f7f7] p-4 text-[13px] leading-relaxed text-[#525252]">
-          공공데이터에 없는 곳이라 요금과 주차 방법을 확인하지 못했어요. 지도 앱에서 한 번 더 살펴보세요.
+        <p className="mx-4 mt-3 shrink-0 rounded-[12px] bg-[#f7f7f7] p-4 text-[13px] leading-relaxed whitespace-pre-line text-[#525252]">
+          {/*
+            문장마다 줄을 나눈다 (lib/serviceinfo.ts 와 같은 규칙). 한 줄로 흘리면 "…확인하지 /
+            못했어요. 지도 앱에서…" 처럼 서술어가 갈리고 문장 끝과 다음 문장 시작이 한 줄에 섞인다.
+            "확인하지 못했어요" 사이는 줄바꿈 없는 공백( )이라 두 어절이 늘 붙어 다닌다.
+          */}
+          {"공공데이터에 없는 곳이라 요금과 주차 방법을 확인하지 못했어요.\n지도 앱에서 한 번 더 살펴보세요."}
         </p>
       )}
 

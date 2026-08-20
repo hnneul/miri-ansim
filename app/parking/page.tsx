@@ -52,8 +52,16 @@ const SPACIOUS = 50;
 /**
  * 목록 밑에 붙는 출처. 날짜를 문자열로 박지 않고 데이터에서 꺼낸다 —
  * 데이터를 새로 받으면 화면 날짜도 같이 움직여야 한다.
+ *
+ * **두 사실을 가운뎃점으로 잇지 않고 줄로 나눈다.** 이어 붙였더니 폭이 모자랄 때 `·` 가 첫 줄
+ * 끝에 혼자 매달렸다 — 뒤에 올 말과 짝인 기호라 거기서 끊기면 오타처럼 보인다. 문장마다 줄을
+ * 나누는 건 이 앱이 이미 쓰는 규칙이다 (lib/serviceinfo.ts 첫 주석).
+ *
+ * "출처:" 라벨은 여기 안 넣는다 — 화면이 따로 세워야 **둘째 줄이 라벨 뒤에 맞춰 들어간다**
+ * (아래 렌더의 flex). 한 문자열로 두고 text-indent 로 내어쓰기를 하면 안 되는데,
+ * 그건 블록의 첫 줄만 밀고 강제 줄바꿈 뒤의 줄은 안 민다.
  */
-const SOURCE = `출처: ${PARKING.source} · 요금은 그 뒤로 바뀌었을 수 있습니다`;
+const SOURCE = [PARKING.source, "요금은 그 뒤로 바뀌었을 수 있습니다"];
 
 /** 목적지 없이 URL 로 들어왔을 때 지도가 볼 곳 — 제주시청. 그때는 목록 대신 안내만 뜬다. */
 const START: LatLng = [33.4996, 126.5312];
@@ -488,7 +496,14 @@ function Parking() {
               넉 달 전 요금을 오늘 값인 것처럼 보여주는 셈이 된다.
               목록 끝에 붙어 같이 스크롤된다 — 늘 보일 값어치는 없고, 끝까지 본 사람에게는 답이 된다.
             */}
-              <p className="mx-4 mt-3 mb-6 text-[11px] leading-[16px] text-[#9e9e9e]">{SOURCE}</p>
+              <p className="mx-4 mt-3 mb-6 flex gap-1 text-[11px] leading-[16px] text-[#9e9e9e]">
+                <span className="shrink-0">출처:</span>
+                <span>
+                  {SOURCE[0]}
+                  <br />
+                  {SOURCE[1]}
+                </span>
+              </p>
             </>
           )}
           </div>
