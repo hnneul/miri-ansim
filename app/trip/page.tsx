@@ -75,8 +75,15 @@ const HALO = [
   "top-[100px] left-[17%]", // 📷 왼쪽 아래
 ];
 
-/** 제주시청. 위치도 고른 곳도 없을 때 04-C 지도가 보는 자리 (메인화면과 같은 값·같은 이유) */
-const JEJU_CITY_HALL: LatLng = [33.4996, 126.5312];
+/**
+ * 섬 한가운데. 아직 아무것도 안 골랐을 때 04-C 지도가 보는 자리다
+ * (목적지 화면의 JEJU_CENTER 와 같은 값).
+ *
+ * 전에는 제주시청이었는데 그건 **북쪽 해안**이라, 208px 짜리 지도의 위 절반이 바다였고
+ * 서귀포·성산은 화면 밖이었다. 이 화면의 안내가 "지도를 눌러 고를 수 있어요" 라
+ * 남쪽에 묵는 사람은 지도를 끌어야 자기 자리가 나왔다.
+ */
+const JEJU_CENTER: LatLng = [33.38, 126.55];
 
 /**
  * 04-C 지도에 찍는 주황 점. 파일도 외부 요청도 안 늘어난다 (RouteMap MarkerIcon 주석).
@@ -915,8 +922,14 @@ function OriginView({ onBack, onApply }: Omit<DetailProps, "plan">) {
       <div className="mt-6">
         <div className="h-[208px] w-full">
           <RouteMap
-            center={picked?.at ?? JEJU_CITY_HALL}
-            level={picked?.at ? 5 : 9}
+            center={picked?.at ?? JEJU_CENTER}
+            /*
+              안 고른 상태는 **섬 전체**가 담기는 11 이다 (제주·서귀포·우도·차귀도까지).
+              목적지 화면도 같은 중심에 안 고른 상태를 쓰지만 거기는 10 이다 — 그쪽 지도는
+              화면을 꽉 채우는 세로 상자고 이건 208px 짜리 가로 띠라, 같은 축척이면 동서가
+              잘려 성산·한림이 화면 밖으로 나간다. 같은 뜻("섬 전체")을 상자 모양에 맞춰 옮긴 값.
+            */
+            level={picked?.at ? 5 : 11}
             routes={[]}
             markers={picked?.at ? [{ coord: picked.at, label: picked.name, icon: ORIGIN_PIN }] : []}
             className=""
