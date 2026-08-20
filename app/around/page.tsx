@@ -16,7 +16,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import { loadSdk, type LatLng } from "../RouteMap";
+import DemoNotice from "../DemoNotice";
+import { loadSdk, mapNotice, type LatLng } from "../RouteMap";
 import { findPlace } from "../destination/actions";
 import { tamnaAround, type Around as Nearby } from "./actions";
 import { type TamnaShop } from "@/lib/tamna";
@@ -272,6 +273,8 @@ function Around() {
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f2f5f0]">
+      {/* 지도를 가리지 않으려고 제목 줄을 뺀 화면이다 (아래 검색바 주석) — 이름은 읽히기만 하면 된다 */}
+      <h1 className="sr-only">가는 길 주변</h1>
       <Map
         pins={pins}
         selected={selected}
@@ -293,8 +296,14 @@ function Around() {
 
       {/* 지도가 화면을 꽉 채우고 나머지는 그 위에 뜬다 (/parking 과 같은 full-map) */}
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col">
-        <div className="pointer-events-auto px-4 text-[#1f1f1f] drop-shadow-[0_1px_2px_rgba(255,255,255,0.9)]">
-          <StatusBar tone="" />
+        {/*
+          상태바 자리는 흰 띠다 (/parking 과 같다). 전에는 지도가 맨 위까지 올라오고 시각·배터리가
+          그 위에 얹혀서, 글자가 안 묻히게 흰 그림자를 둘러야 했다 — 지도 무늬에 따라 읽히는
+          정도가 달라지는 임시방편이었다. 띠를 깔면 그 그림자도 같이 필요 없어진다.
+        */}
+        <div className="pointer-events-auto bg-white">
+          <StatusBar tone="text-[#525252]" />
+          <DemoNotice />
         </div>
 
         {/*
@@ -305,20 +314,28 @@ function Around() {
         */}
         <form
           onSubmit={search}
-          className="pointer-events-auto mx-[18px] flex h-[58px] shrink-0 items-center gap-2 rounded-[29px] bg-white pr-[18px] pl-3 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]"
+          className="pointer-events-auto mx-[18px] mt-3 flex h-[54px] shrink-0 items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]"
         >
           <button
             type="button"
             onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="뒤로"
-            className="shrink-0 transition active:scale-90"
+            className="-mx-1.5 shrink-0 p-1.5 transition hover:opacity-40 active:scale-90"
           >
             <img src="/icon-arrow-left.svg" alt="" className="size-6" />
           </button>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={label ? `${label} 주변` : "목적지 또는 주소 검색"}
+            /*
+              기준 장소를 여기 적지 않는다. 정해진 기준을 placeholder 로 그리면 연회색이라
+              "아직 안 채운 칸"으로 읽히는데, 실은 그 기준으로 목록이 이미 뽑혀 있다.
+              게다가 검색으로 정한 기준은 친 글자가 value 로 남아 진하게 뜨므로(search 가 query 를
+              안 비운다), 같은 칸이 상황에 따라 진짜 값과 회색 흉내를 오갔다.
+              이 칸은 "여기서 뭘 할 수 있나"만 말하고, 지금 어디 기준인지는 지도와
+              목록 머리글("현재 위치 주변 12곳", List scope)이 맡는다.
+            */
+            placeholder="목적지 또는 주소 검색"
             aria-label="기준 장소"
             className="min-w-0 flex-1 text-[14px] text-[#1f1f1f] outline-none placeholder:text-[#8a8a8a]"
           />
@@ -347,11 +364,17 @@ function Around() {
           // 눌러서 실패했는데 아무 말도 안 하는 버튼이 된다. 인자 없이 부른다.
           onClick={() => locate()}
           aria-label="현재 위치"
-          className={`pointer-events-auto mr-5 grid size-[46px] shrink-0 place-items-center self-end rounded-full bg-white text-[20px] text-[#2e9c85] shadow-[0_2px_8px_rgba(0,0,0,0.15)] active:bg-black/5 ${
+          /*
+            메인화면의 현위치 버튼과 **같은 그림 한 장**이다 (public/home/btn-locate.svg).
+            흰 원·테두리·그림자까지 그 안에 들어 있어서 여기서는 감쌀 것이 없다 —
+            전에는 글자 ◎ 를 흰 원으로 감싸 흉내 냈는데, 글꼴 글리프라 기기마다 굵기가
+            달라졌고 메인화면 것과도 굵기·색이 안 맞았다.
+          */
+          className={`pointer-events-auto mr-5 size-[44px] shrink-0 self-end transition hover:brightness-95 active:scale-90 ${
             open || selected ? "mb-[calc(62%+12px)]" : "mb-3"
           }`}
         >
-          ◎
+          <img src="/home/btn-locate.svg" alt="" className="size-full" />
         </button>
 
         {/* 목록 보기 — 시트를 여는 유일한 문이다 (/parking 의 "목록으로 보기"와 같다) */}
@@ -610,8 +633,10 @@ function ShopCard({ shop, walkM, onClick }: { shop: TamnaShop; walkM: number | n
  * 그림 자체가 /parking 의 핀과 **같은 값**이다 (거기 PIN·PIN_ON 을 그대로 가져왔다).
  * 두 지도가 같은 문법을 쓰면 한 화면에서 다른 화면으로 넘어가도 눈이 다시 배울 게 없다.
  *
- *   안 고른 것 — **납작하다.** 옅은 주황 채움 + 주황 테두리 + 주황 글자 t, 26px.
+ *   안 고른 것 — **납작하다.** 주황 채움 + 흰 테두리 + 흰 ₩, 26px. 흰 테두리가 있어야
+ *                지도의 주황 글씨(카카오가 가게 이름에 쓴다)와 안 섞이고, 붙은 핀끼리도 갈린다.
  *                여기에 입체를 주면 안 된다 — 스무 개가 다 볼록하면 지도가 단추판이 된다.
+ *                ₩ 인 이유: 탐나는전은 지역화폐라, 스무 개가 한꺼번에 말할 게 "여기서 쓴다" 다.
  *   고른 것   — **물방울 + 입체**, 40x58. 그러데이션(위 밝고 아래 어둡게) + 위쪽 흰 광택 타원
  *                + 발밑 접지 그림자 세 겹이다. 접지 그림자는 도형 둘레를 흐리게 하는 드롭섀도와
  *                다른 물건이라, 공중에 뜬 게 아니라 지도 위에 서 있는 것으로 읽힌다.
@@ -632,9 +657,9 @@ const pin = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURICompon
 
 const PIN = pin(
   `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 26 26">
-     <circle cx="13" cy="13" r="9" fill="#ffe0cb" stroke="#fc7f35" stroke-width="1.5"/>
+     <circle cx="13" cy="13" r="10" fill="#fc7f35" stroke="#fff" stroke-width="2"/>
      <text x="13" y="17.5" font-family="system-ui,sans-serif" font-size="12" font-weight="700"
-           fill="#fc7f35" text-anchor="middle">t</text>
+           fill="#fff" text-anchor="middle">₩</text>
    </svg>`,
 );
 
@@ -887,13 +912,7 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
     });
   }, [sdk, pins, selected]);
 
-  const notice = !process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
-    ? "NEXT_PUBLIC_KAKAO_MAP_KEY 가 없습니다 (.env.local 확인)"
-    : sdk === "loading"
-      ? "지도를 불러오는 중…"
-      : sdk === "error"
-        ? "지도를 불러오지 못했습니다 (키·도메인 등록 확인)"
-        : null;
+  const notice = mapNotice(sdk);
 
   return (
     <>

@@ -19,8 +19,12 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
+import DemoNotice from "../DemoNotice";
 import RouteMap, { type LatLng } from "../RouteMap";
-import { parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
+import { characterOf, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
+import { dotted, loadPhotos, loadRecords, type TripRecord } from "@/lib/record";
+import { me } from "@/lib/me";
+import { APP_FOOTER } from "@/lib/version";
 import { hereNow } from "./actions";
 
 /** 위치를 못 받았을 때 지도가 보는 곳. 제주시청이다 — 섬 한복판(한라산)보다 사람이 있는 자리다. */
@@ -57,6 +61,8 @@ function Home() {
   /** 지금 선 동네 ("제주시 아라이동"). 번지는 일부러 안 받는다 — 이유는 lib/geocode.ts areaAt 주석에. */
   const [area, setArea] = useState<string | null>(null);
   const [sky, setSky] = useState<string | null>(null);
+  /** 여행 기록 칸. 이 브라우저 몫을 서버에서 읽어온다 (lib/record.ts loadRecords) — 실패하면 빈 배열이라 ＋ 칸만 남는다. */
+  const [records, setRecords] = useState<TripRecord[]>([]);
 
   // 지도 오른쪽 위 버튼도 같은 걸 다시 부른다 — 권한을 뒤늦게 허용한 사람이 쓸 문 하나는 있어야 한다.
   const locate = useCallback(() => {
@@ -85,6 +91,16 @@ function Home() {
   }, []);
 
   useEffect(locate, [locate]);
+
+  // 기록 목록 화면(TRIP-09)과 같은 버킷을 읽는다 — 거기서 저장한 기록이 여기 위에 뜬다.
+  // me() 는 localStorage 를 보므로 **effect 안에서** 부른다 (서버에는 그 저장소가 없다).
+  useEffect(() => {
+    let 살아있나 = true;
+    loadRecords(me()).then((rs) => 살아있나 && setRecords(rs));
+    return () => {
+      살아있나 = false; // 늦게 온 옛 응답이 새 목록을 덮지 않게
+    };
+  }, []);
 
   /**
    * 검색바를 누르면 목적지 검색 화면을 연다 (수정 HOME-01 a).
@@ -119,12 +135,11 @@ function Home() {
 
       {/*
         brand/my page — 워드마크와 마이 화면 입구.
-        아바타는 와이어프레임에 박힌 그림 한 장이다 (avatar-my). 이전 버전은 경력에 따라 캐릭터가
-        갈렸지만(lib/profile.ts characterOf) 여기서는 누구에게나 같은 그림이다 — 프로필을 바꿔도
-        아바타는 안 바뀐다. 되살리려면 src 를 characterOf(profile.experienceYears).src 로 되돌리면 된다.
+        아바타는 익숙함 티어마다 갈린다 (lib/profile.ts characterOf). 누르면 열리는 마이 화면(app/profile)이
+        같은 그림을 크게 다시 보여주므로, 여기서 다른 얼굴이 뜨면 그 버튼이 내 프로필로 가는 입구로 안 읽힌다.
       */}
       <div className="flex h-[62px] shrink-0 items-center justify-between pr-5 pl-[29px]">
-        <p className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리 안심</p>
+        <h1 className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리 안심</h1>
         {/* 쿼리를 그대로 넘겨야 마이 화면에서 프로필을 되읽는다 (lib/profile.ts) */}
         <button
           onClick={() => router.push(`/profile?${searchParams}`)}
@@ -135,8 +150,8 @@ function Home() {
           */
           className="size-[44px] shrink-0 overflow-hidden rounded-full transition hover:ring-2 hover:ring-[#fc7f35] active:scale-95"
         >
-          {/* 원본이 세로로 긴 장면(1086x1448)이라 가운데를 정사각형으로 잘라 넣어뒀다 — 여기서는 그대로 채운다 */}
-          <img src="/character/avatar-my.png" alt="" className="size-full object-cover" />
+          {/* 배경까지 그려진 정사각 그림이라 그대로 원을 채운다 (마이 화면 94px 아바타와 같은 파일) */}
+          <img src={characterOf(profile.experienceYears).src} alt="" className="size-full object-cover" />
         </button>
       </div>
 
@@ -195,6 +210,15 @@ function Home() {
             routes={[]}
             markers={here ? [{ coord: here, label: "현위치", icon: MY_LOCATION }] : []}
             className=""
+            /*
+              화면 한가운데 208px 짜리 미리보기다 — 지도가 스크롤 제스처를 먹으면 안 된다.
+              데스크톱은 휠(wheelZoom), 폰은 끌기(interactive)가 그 자리를 먹는다. 둘 다 끈다.
+              여기는 마커도 빈 곳도 누를 일이 없어서 지도를 손짓에서 통째로 빼도 잃는 게 없다.
+              확대는 ＋/－ 버튼으로만 (zoomButtons).
+            */
+            wheelZoom={false}
+            interactive={false}
+            zoomButtons
           />
 
           {/*
@@ -214,11 +238,15 @@ function Home() {
           {/*
             그림 파일의 상자는 44 지만 눈에 보이는 동그라미는 그 안 36 이다 (나머지는 그림자 여백).
             상자를 36 으로 줄이면 버튼이 29px 로 쪼그라든다 — 44 로 두고 여백만큼 밀어 자리를 맞춘다.
+
+            그래서 호버도 배경색이 아니라 **그림째 살짝 어둡게**다. 흰 원이 그림 안에 있어서
+            버튼에 bg 를 깔면 원이 아니라 44 짜리 네모가 뜬다. brightness-95 면 원만 옅은 회색이
+            되고, 줌 버튼의 hover:bg-[#f5f5f5] 와 같은 정도로 보인다 (app/RouteMap.tsx).
           */}
           <button
             onClick={locate}
             aria-label="현재 위치로"
-            className="absolute top-[9px] right-[30px] z-10 size-[44px] transition active:scale-90"
+            className="absolute top-[9px] right-[30px] z-10 size-[44px] transition hover:brightness-95 active:scale-90"
           >
             <img src="/home/btn-locate.svg" alt="" className="size-full" />
           </button>
@@ -231,6 +259,8 @@ function Home() {
             {area ?? (geoError ? "위치를 확인할 수 없어요" : "위치 확인 중…")}
           </span>
         </div>
+
+        <DemoNotice />
       </div>
 
       <h2 className="mt-[13px] shrink-0 pl-[23px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">
@@ -241,17 +271,38 @@ function Home() {
         빠르게 둘러보기 4칸. 갈 화면이 없는 칸은 흐리게 두고 못 누르게 막는다 —
         눌리는데 아무 일도 없으면 시연에서 더 나쁘다.
 
-        첫 칸이 혼잡도에서 운전 TIP 으로 바뀌었다 (와이어프레임 2759:2219). 혼잡도는 실시간 도로
-        API 승인을 기다리는 중이라 화면이 없고, 팁은 만들 화면이 정해져 있다 —
-        둘 다 아직 흐린 칸이지만 나올 순서가 다르다. 되살리려면 quick-traffic.png 가 그대로 있다.
+        첫 칸이 "대표 관광지"다. 와이어프레임(2759:2125)의 혼잡도 자리인데, 혼잡도 자체는
+        만들지 않았다 — 제주ITS 로 재 보니 간선이 하루 종일 제한속도의 77~104% 로 흘러서
+        화면이 1년 내내 원활이 된다. 대신 같은 실시간 값을 관광지에 붙였다: 지금 소요시간과
+        정체를 재고, 거기에 **프로필별 운전 부담**을 얹어 줄 세운다 (app/nearby/page.tsx).
+        혼잡도로 관광지를 세우는 건 지도 앱도 하지만, 초보 기준으로 세우는 건 이 앱뿐이다.
+
+        sub 가 "운전 편한 순"인 이유 — "지금 편한 순"으로 뒀더니 무엇이 편한지 안 읽혔다.
+        가기 편한 건지 주차가 편한 건지 모른다. 이 앱이 재는 건 운전이라 그걸 밝힌다.
+
+        **여기서 카카오를 부르지 않는다.** 1등 관광지 이름을 실어 보이려면 홈을 열 때마다
+        길찾기를 10건 써야 하는데(무료 쿼터 일 10,000건), 도로명 하나 때문에 홈이 느려지고
+        쿼터가 샌다. 실시간 값은 칸을 눌러 들어가서 본다.
+
+        운전 TIP 은 팁 화면이 생기면 quick-tip.png 로 되돌리면 된다.
       */}
       <div className="mt-[10px] flex shrink-0 gap-[10px] pl-[23px]">
-        <Quick icon="/home/quick-tip.png" iconClass="size-[35px]" label="운전 TIP" sub="초보운전자" />
+        {/*
+          href 를 다시 붙였다. 뗐던 이유는 카카오 길찾기 쿼터였는데(후보 열 곳까지 각각 조회 —
+          lib/spots.ts BANDS 2+4+4 로 화면 한 번에 10건), 이 칸이 /nearby 로 가는 유일한 문이라
+          막아 두면 화면이 있어도 아무도 못 본다. 무료 쿼터가 일 10,000건이라 하루 1,000번 열어야
+          닿는다 — 홈을 열 때마다가 아니라 이 칸을 눌렀을 때만 나가므로 그 전 걱정과도 다르다.
+
+          아이콘은 혼잡도 시절의 사람 셋(quick-traffic.png)에서 섬으로 바꿨다 (Figma 4209:2018).
+          이 칸이 세는 건 길이 아니라 갈 곳이라, 관광지 그림이 라벨과 같은 말을 한다.
+          quick-traffic.png 는 남겨 뒀다 — 혼잡도 칸이 생기면 그 자리로 돌아간다.
+        */}
         <Quick
-          icon="/home/quick-record.png"
-          iconClass="size-[32px]"
-          label="주행 저장"
-          sub="글쓰러 가기"
+          icon="/home/quick-spot.png"
+          iconClass="size-[35px]"
+          label="대표 관광지"
+          sub="운전 편한 순"
+          href={`/nearby?${searchParams}`}
         />
         <Quick
           icon="/home/quick-tamna.png"
@@ -259,6 +310,19 @@ function Home() {
           label="탐나는전"
           sub="캐시백 매장"
           href={`/around?${searchParams}`}
+        />
+        <Quick
+          icon="/home/quick-record.png"
+          iconClass="size-[32px]"
+          label="주행 저장"
+          /*
+            "글쓰러 가기"였는데 /safelog 에는 쓸 자리가 없다 — 그 화면에서 사람이 할 수 있는 건
+            빼기(✕)와 나만의 길로 담기 둘뿐이고, 담기는 길 안내로 넘어갈 때 저절로 된다
+            (app/safelog/page.tsx 첫 주석). 글 쓰는 곳은 여행 기록(/trip/record)이고
+            홈에서는 아래 "여행 기록 ＋" 칸이 그리로 간다.
+          */
+          sub="달린 길 보기"
+          href={`/safelog?${searchParams}`}
         />
         <Quick
           icon="/home/quick-course.png"
@@ -272,28 +336,26 @@ function Home() {
       <h2 className="mt-[17px] shrink-0 pl-[22px] text-[18px] leading-[22px] font-bold text-[#1f1f1f]">여행 기록</h2>
 
       {/*
-        와이어프레임이 두 장을 채워 보여주던 걸 한 장 + ＋ 칸으로 줄였다 — 가짜 기록을 두 장
-        쌓아두는 것보다, 한 장으로 어떻게 보이는지만 알려주는 편이 정직하다.
-        record-1.png 는 되살릴 때를 위해 남겨뒀다.
+        실제로 저장한 기록이 최신순으로 뜬다 (서버 버킷, lib/record.ts). 목업 카드는 없앴다 —
+        가짜 기록 한 장이 내가 쓴 기록과 같은 자리에 섞이면 어느 쪽이 진짜인지 구분이 안 된다.
+        두 장까지만 보여준다. 나머지는 ＋ 칸으로 들어가는 목록(TRIP-09)의 몫이다.
       */}
       <div className="mt-[14px] flex shrink-0 flex-col gap-[10px] px-[21px]">
-        <Record photo="/home/record-2.png" title="중문 나들이" count={23} />
-        {/*
-          ＋ 칸은 기록 목록(TRIP-09)으로 들어가는 문이다. 요약 쿼리를 안 붙여야 완료 화면(TRIP-08)을
-          건너뛰고 목록부터 뜬다 — 완료 화면은 방금 다녀온 코스가 있을 때만 나오는 자리다
-          (app/trip/record/page.tsx 첫 주석). 프로필 쿼리는 그대로 물려 보낸다.
-        */}
+        {records.slice(0, 2).map((r) => (
+          /* 카드를 누르면 **그 기록의 상세**로 (open=<id>). ＋ 칸만 목록으로 간다 */
+          <Record key={r.id} record={r} href={`/trip/record?${searchParams}&open=${r.id}`} />
+        ))}
         <Link
           href={`/trip/record?${searchParams}`}
           aria-label="여행 기록 보기"
-          className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0] transition active:scale-[0.99]"
+          className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0] transition hover:bg-[#e5e5e5] active:scale-[0.99]"
         >
           <img src="/home/icon-add.svg" alt="" className="size-[40px]" />
         </Link>
       </div>
 
       <p className="mt-[17px] shrink-0 text-center text-[11px] leading-none font-medium text-[#616161]">
-        미리 안심 · 앱 버전 1.0.0
+        {APP_FOOTER}
       </p>
     </div>
   );
@@ -353,25 +415,42 @@ function Quick({
  *
  * 글자 크기는 와이어프레임(9.06px / 6.04px)을 그대로 옮기지 않고 13/10 으로 올렸다 —
  * 저 값은 디자인에서 2배 크기 컴포넌트를 축소해 붙이며 딸려온 숫자로 보이고, 실제 390px 화면에서는
- * 읽히지 않는다. 사진 위 흰 글씨라 아래쪽 어둠막도 함께 깐다 (밝은 하늘 사진이 오면 글자가 사라진다).
+ * 읽히지 않는다.
  */
-function Record({ photo, title, count, href }: { photo: string; title: string; count: number; href?: string }) {
-  const inner = (
-    <>
-      <img src={photo} alt="" className="size-full object-cover" />
-      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/55 to-transparent" />
-      <div className="absolute bottom-[10px] left-[14px] flex items-baseline gap-[8px]">
-        <span className="text-[13px] leading-none font-bold text-white">{title}</span>
-        <span className="text-[10px] leading-none text-[#e6e6e6]">사진 {count}장</span>
+function Record({ record, href }: { record: TripRecord; href: string }) {
+  /*
+    첫 사진을 카드에 깐다 — 기록 상세의 히어로와 같은 장이라, 홈에서 본 카드와 열어본 화면이 이어진다.
+    사진은 **기기에만** 있어서(lib/record.ts) 다른 기기에서는 없다. 그때는 옅은 주황 카드로 돌아간다 —
+    빈 회색 상자를 두면 사진을 못 불러온 것처럼 보인다.
+
+    localStorage 는 첫 그림 뒤에 읽는다 (렌더 중에 읽으면 서버가 그린 화면과 달라져 하이드레이션이 어긋난다).
+  */
+  const [shot, setShot] = useState<string | null>(null);
+  useEffect(() => setShot(loadPhotos(record.id)[0] ?? null), [record.id]);
+
+  const 아래 = `${record.course} · ${record.places.length}곳${record.km > 0 ? ` · ${record.km}km` : ""}`;
+
+  return (
+    <Link
+      href={href}
+      className="relative block h-[84px] overflow-hidden rounded-[11px] bg-[#fff0e6] transition active:scale-[0.98]"
+    >
+      {shot && (
+        <>
+          <img src={shot} alt="" className="absolute inset-0 size-full object-cover" />
+          {/* 사진 위 흰 글씨라 어둠막을 깐다 — 밝은 하늘 사진이 오면 글자가 사라진다 */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/25 to-black/10" />
+        </>
+      )}
+      <div className="relative px-[14px] py-[13px]">
+        <p className={`text-[10px] leading-none ${shot ? "text-white/80" : "text-[#7d7d7d]"}`}>{dotted(record.date)}</p>
+        <p className={`mt-[8px] truncate text-[13px] leading-none font-bold ${shot ? "text-white" : "text-[#1f1f1f]"}`}>
+          {record.title}
+        </p>
+        <p className={`mt-[8px] truncate text-[10px] leading-none ${shot ? "text-white/85" : "text-[#7d7d7d]"}`}>
+          {아래}
+        </p>
       </div>
-    </>
-  );
-  const box = "relative block h-[84px] overflow-hidden rounded-[11px]";
-  return href ? (
-    <Link href={href} className={`${box} transition active:scale-[0.98]`}>
-      {inner}
     </Link>
-  ) : (
-    <div className={box}>{inner}</div>
   );
 }

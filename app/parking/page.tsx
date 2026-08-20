@@ -21,7 +21,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import { loadSdk, type LatLng } from "../RouteMap";
+import { loadSdk, mapNotice, type LatLng } from "../RouteMap";
 import { findParkingNear } from "./actions";
 import {
   spotsAround,
@@ -52,8 +52,16 @@ const SPACIOUS = 50;
 /**
  * 목록 밑에 붙는 출처. 날짜를 문자열로 박지 않고 데이터에서 꺼낸다 —
  * 데이터를 새로 받으면 화면 날짜도 같이 움직여야 한다.
+ *
+ * **두 사실을 가운뎃점으로 잇지 않고 줄로 나눈다.** 이어 붙였더니 폭이 모자랄 때 `·` 가 첫 줄
+ * 끝에 혼자 매달렸다 — 뒤에 올 말과 짝인 기호라 거기서 끊기면 오타처럼 보인다. 문장마다 줄을
+ * 나누는 건 이 앱이 이미 쓰는 규칙이다 (lib/serviceinfo.ts 첫 주석).
+ *
+ * "출처:" 라벨은 여기 안 넣는다 — 화면이 따로 세워야 **둘째 줄이 라벨 뒤에 맞춰 들어간다**
+ * (아래 렌더의 flex). 한 문자열로 두고 text-indent 로 내어쓰기를 하면 안 되는데,
+ * 그건 블록의 첫 줄만 밀고 강제 줄바꿈 뒤의 줄은 안 민다.
  */
-const SOURCE = `출처: ${PARKING.source} · 요금은 그 뒤로 바뀌었을 수 있습니다`;
+const SOURCE = [PARKING.source, "요금은 그 뒤로 바뀌었을 수 있습니다"];
 
 /** 목적지 없이 URL 로 들어왔을 때 지도가 볼 곳 — 제주시청. 그때는 목록 대신 안내만 뜬다. */
 const START: LatLng = [33.4996, 126.5312];
@@ -261,6 +269,9 @@ function Parking() {
     q.set("to", spot.name);
     q.set("toLat", String(spot.at[0]));
     q.set("toLng", String(spot.at[1]));
+    // 길 비교에서 X 를 누르면 **이 목록**으로 돌아온다 (app/route/page.tsx 닫기 주석).
+    // 예전에는 destination 이었다 — 주차장을 두세 곳 견줘 보려던 사람이 ✕ 한 번에 목록을 잃었다.
+    q.set("back", "parking");
     router.push(`/route?${q}`);
   }
 
@@ -345,20 +356,21 @@ function Parking() {
             없앴다. 나가는 길(←)과 여기가 어디 주변인지(이름)와 무슨 화면인지(오른쪽 회색 글자)를
             한 줄이 다 말하는데, 그 위에 제목 줄을 또 두면 같은 말을 두 번 하면서 지도만 56px 잃는다.
 
-            테두리 대신 그림자다. 지도 위에 뜬 것은 떠 있어 보여야 하고, 얇은 회색 테두리는
-            지도의 도로·구획선에 묻힌다.
+            모양은 목적지 화면 검색바와 같다 (app/destination) — 높이 54 · 모서리 16 · 주황 테두리.
+            같은 흐름에서 연달아 나오는 같은 자리라, 화면이 바뀌었다고 바 모양이 달라지면
+            방금 보던 것과 지금 보는 것이 다른 물건처럼 보인다.
           */}
-          <div className="absolute inset-x-4 top-3 z-10 flex h-[54px] items-center gap-2 rounded-full bg-white pr-[18px] pl-2 shadow-[0_4px_16px_0_rgba(0,0,0,0.12)]">
+          <div className="absolute inset-x-4 top-3 z-10 flex h-[54px] items-center gap-[10px] rounded-[16px] border border-[#fc7f35] bg-white px-[14px] shadow-[0_3px_5px_0_rgba(0,0,0,0.07)]">
             <button
               onClick={() => router.push(`/destination?${searchParams}`)}
               aria-label="뒤로"
-              className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-[#fff0e6] active:scale-90"
+              className="-mx-1.5 shrink-0 p-1.5 transition hover:opacity-40 active:scale-90"
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
-            <span className="min-w-0 flex-1 truncate text-[15px] leading-[22px] font-medium text-[#1f1f1f]">
+            <h1 className="min-w-0 flex-1 truncate text-[15px] leading-[22px] font-medium text-[#1f1f1f]">
               {destName ?? "목적지"}
-            </span>
+            </h1>
             <span className="shrink-0 text-[12px] leading-none text-[#9e9e9e]">주변 주차장</span>
           </div>
 
@@ -484,7 +496,14 @@ function Parking() {
               넉 달 전 요금을 오늘 값인 것처럼 보여주는 셈이 된다.
               목록 끝에 붙어 같이 스크롤된다 — 늘 보일 값어치는 없고, 끝까지 본 사람에게는 답이 된다.
             */}
-              <p className="mx-4 mt-3 mb-6 text-[11px] leading-[16px] text-[#9e9e9e]">{SOURCE}</p>
+              <p className="mx-4 mt-3 mb-6 flex gap-1 text-[11px] leading-[16px] text-[#9e9e9e]">
+                <span className="shrink-0">출처:</span>
+                <span>
+                  {SOURCE[0]}
+                  <br />
+                  {SOURCE[1]}
+                </span>
+              </p>
             </>
           )}
           </div>
@@ -502,9 +521,12 @@ function Chip({ on, onClick, children }: { on: boolean; onClick?: () => void; ch
   /*
     호버는 꺼진 칩에만 준다. 켜진 칩은 눌러도 지금 상태 그대로라 미리 보여줄 게 없고,
     주황을 한 톤 낮추면 빨강으로 읽혀 경고처럼 보인다.
+
+    **꺼진 칩의 호버는 옅은 회색이다.** 주황(#fff0e6)은 이 앱에서 "앞으로 가는 문"의 색인데
+    (app/route/page.tsx 닫기 주석), 이건 목록을 거르는 스위치라 아무 데도 안 간다.
   */
   const cls = `flex h-10 shrink-0 items-center justify-center rounded-full px-4 text-[14px] leading-[22px] font-medium transition ${
-    on ? "bg-[#fc7f35] text-white" : "border border-[#e5e5e5] bg-white text-[#1f1f1f] hover:bg-[#fff0e6]"
+    on ? "bg-[#fc7f35] text-white" : "border border-[#e5e5e5] bg-white text-[#1f1f1f] hover:bg-[#f5f5f5]"
   }`;
   return onClick ? (
     <button onClick={onClick} aria-pressed={on} className={cls}>
@@ -629,7 +651,13 @@ function SpotCard({
         <div className="mx-[20px] mb-[20px] flex gap-1">
           <button
             onClick={onOpen}
-            className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+            /*
+              흰 알약의 호버는 **옅은 회색**이다. 옅은 주황(#fff0e6)이었는데, 그건 옆의
+              주황 알약("여기로 갈게요")이 하려던 일을 가리키는 색이라 흰 알약에 얹으면
+              둘이 같은 성격으로 보인다. 목적지 화면의 같은 짝(출발 · 근처 주차장 보기)이
+              이미 회색이라 앱 안에서도 갈려 있었다.
+            */
+            className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
           >
             자세히
           </button>
@@ -851,13 +879,7 @@ function Map({ pins, selected, onPick, onBlank, move, start, dest }: MapProps) {
     }
   }, [sdk, pins, selected, dest]);
 
-  const notice = !process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
-    ? "NEXT_PUBLIC_KAKAO_MAP_KEY 가 없습니다 (.env.local 확인)"
-    : sdk === "loading"
-      ? "지도를 불러오는 중…"
-      : sdk === "error"
-        ? "지도를 불러오지 못했습니다 (키·도메인 등록 확인)"
-        : null;
+  const notice = mapNotice(sdk);
 
   return (
     <>

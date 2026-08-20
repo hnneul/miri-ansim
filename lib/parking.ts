@@ -6,8 +6,9 @@
 // 확정이 아니라 확률이다. 그래서 문구도 단정하지 않고, 출처에 프록시임을 명시한다.
 // 생성 과정과 프록시 근거는 scripts/build-parking-data.mjs 주석에 있다.
 
-// 데이터(data/parking-data.json) 자체는 lib/scenario.ts 가 물린다. 여기는 판정 로직만 둬서
-// 번들러 없이도 검증이 돌아간다 — node --experimental-strip-types lib/parking.check.ts
+// 데이터(data/parking-data.json) 자체는 화면 쪽이 물린다 (app/route/actions.ts · app/parking).
+// 여기는 판정 로직만 둬서 번들러 없이도 검증이 돌아간다 —
+// node --experimental-strip-types lib/parking.check.ts
 
 /** 유료 주차장 요금 (data/parking-data.json). 무료면 통째로 없다. */
 export type Rate = {
@@ -208,10 +209,6 @@ export function nearestSpots(p: Parking, n = 5): ParkingSpot[] {
 export const walkMinutes = (m: number): number =>
   Math.max(1, Math.round(m / 67));
 
-/**
- * 하단 시트 배지("주차 쉬움"). parallelOdds 와 같은 프록시를 한 곳에만 쓴 것이다 —
- * 노외는 칸에 맞춰 대는 직각주차일 확률이 높다. 확정이 아니라 확률이라 배지도 단정하지 않는다.
- */
 /** 주차 형태 판정. confirmed 면 위성으로 사람이 본 값이고, 아니면 주차장유형으로 추정한 값이다. */
 export type ParkingKind = { parallel: boolean; confirmed: boolean };
 
@@ -259,29 +256,6 @@ export function onStreetBlind(
 /** 카카오 링크에 실을 한 점. 이름은 화면에 뜨는 라벨일 뿐이고 길을 정하는 건 좌표다. */
 export type NaviPoint = { name: string; at: [number, number] };
 
-/**
- * 카카오맵 길찾기로 넘긴다. 길을 정하고 나서 실제로 "가는" 길은 이거 하나다.
- *
- * 이 앱에 턴바이턴 안내를 만들 이유가 없다 — 초보 운전자도 내비는 이미 쓰던 걸 쓴다.
- * 여기가 답하는 질문은 "어느 주차장이냐 · 어느 길이냐"까지고, 거기서 끊는 게 맞다.
- *
- * **형식이 셋이고 실을 수 있는 게 다르다.** 예전에는 `/link/to/` 만 써서 도착지만 넘겼는데,
- * 그러면 카카오가 출발지도 경로도 자기 기준으로 다시 잡는다 — 부담 36점 길을 골라 놓고
- * 68점 길로 안내되는 것이다. 그러면 앞의 두 화면이 한 탭에 무의미해진다.
- *
- *   /link/to/{도착}                     도착지만
- *   /link/from/{출발}/to/{도착}          출발지까지
- *   /link/by/car/{출발}/{경유...}/{도착}  경유지까지 (최대 5개)
- *
- * 실측으로 확인했다 (제주공항→서귀포시청): 경유지 없이 52.5km 평화로, 516로 위에 경유지를
- * 하나 찍으면 43.5km 516로로 바뀐다. 라벨은 지어낸 문자열이어도 되고 좌표가 경로를 정한다.
- *
- * **앱 스킴(kakaomap://)은 안 쓴다.** 경유지가 웹 링크로 되므로 앱 설치 여부·데스크톱 여부를
- * 가릴 필요가 없다 — 노트북 브라우저에서도 그대로 먹는다.
- *
- * 이름에 쉼표가 든 곳이 있어("함덕리 1002-83, 1004-5, 6") 반드시 인코딩해야 한다 —
- * 카카오 링크가 쉼표로 이름·위도·경도를 가르기 때문에 안 하면 좌표가 밀린다.
- */
 /** 카카오 링크가 받는 경유지 개수 상한 */
 const VIA_MAX = 5;
 
@@ -310,11 +284,52 @@ export function naviLink(
   return `https://map.kakao.com/link/${path}`;
 }
 
+/**
+ * 카카오맵 길찾기로 넘긴다. 길을 정하고 나서 실제로 "가는" 길은 이거 하나다.
+ *
+ * 이 앱에 턴바이턴 안내를 만들 이유가 없다 — 초보 운전자도 내비는 이미 쓰던 걸 쓴다.
+ * 여기가 답하는 질문은 "어느 주차장이냐 · 어느 길이냐"까지고, 거기서 끊는 게 맞다.
+ *
+ * **형식이 셋이고 실을 수 있는 게 다르다.** 예전에는 `/link/to/` 만 써서 도착지만 넘겼는데,
+ * 그러면 카카오가 출발지도 경로도 자기 기준으로 다시 잡는다 — 부담 36점 길을 골라 놓고
+ * 68점 길로 안내되는 것이다. 그러면 앞의 두 화면이 한 탭에 무의미해진다.
+ *
+ *   /link/to/{도착}                     도착지만
+ *   /link/from/{출발}/to/{도착}          출발지까지
+ *   /link/by/car/{출발}/{경유...}/{도착}  경유지까지 (최대 5개)
+ *
+ * 실측으로 확인했다 (제주공항→서귀포시청): 경유지 없이 52.5km 평화로, 516로 위에 경유지를
+ * 하나 찍으면 43.5km 516로로 바뀐다. 라벨은 지어낸 문자열이어도 되고 좌표가 경로를 정한다.
+ *
+ * **앱 스킴(kakaomap://)은 안 쓴다.** 경유지가 웹 링크로 되므로 앱 설치 여부·데스크톱 여부를
+ * 가릴 필요가 없다 — 노트북 브라우저에서도 그대로 먹는다.
+ *
+ * 이름에 쉼표가 든 곳이 있어("함덕리 1002-83, 1004-5, 6") 반드시 인코딩해야 한다 —
+ * 카카오 링크가 쉼표로 이름·위도·경도를 가르기 때문에 안 하면 좌표가 밀린다.
+ */
 export function navigateTo(
   dest: NaviPoint,
   opts: { from?: NaviPoint; via?: NaviPoint | NaviPoint[] } = {},
 ) {
-  return window.open(naviLink(dest, opts), "_blank", "noopener");
+  const url = naviLink(dest, opts);
+  /*
+   * **반환값을 봐야 한다.** 팝업이 막히면 window.open 은 던지지 않고 조용히 null 을 준다 —
+   * 버튼을 눌렀는데 화면에 아무 일도 안 일어나고 콘솔에도 아무것도 안 남는다.
+   * 이 앱의 마지막 버튼 둘("이 길로 갈게요" · "이 코스로 여행하기")이 그 상태가 된다.
+   * 막혔으면 같은 탭에서 연다 — 돌아오는 길은 브라우저 뒤로가기가 맡는다.
+   *
+   * **기능 문자열에 noopener 를 못 쓴다.** 그걸 주면 명세상 창이 정상으로 열려도 null 이 와서,
+   * 막힌 것과 열린 것을 가릴 수가 없다 — 그렇게 뒀더니 새 탭이 열리면서 이 탭까지 카카오맵으로
+   * 넘어갔다. 대신 열고 나서 opener 를 끊는다. 새 창이 window.opener 로 이 페이지를 건드리는 걸
+   * 막는 목적은 그대로 이루면서, 열렸는지는 반환값으로 알 수 있다.
+   */
+  const opened = window.open(url, "_blank");
+  if (!opened) {
+    location.href = url;
+    return null;
+  }
+  opened.opener = null;
+  return opened;
 }
 
 /** 초보가 편한 쪽(직각)인가. 배지 하나를 붙일지 말지에만 쓴다. */

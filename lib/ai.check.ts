@@ -7,7 +7,7 @@
 // 실제 모델 응답 확인은 lib/ai.smoke.ts 가 한다 (키가 필요해 따로 뒀다).
 
 import assert from "node:assert";
-import { verify, promptOf, factsOf, type Facts } from "./ai.ts";
+import { verify, promptOf, factsOf, 대본_최대글자, type Facts } from "./ai.ts";
 import { scoreRoutes, type DriverProfile, type RiskFactor } from "./score.ts";
 
 const 초보: DriverProfile = {
@@ -32,13 +32,13 @@ const risk = (type: RiskFactor["type"], label: string, exposure: number): RiskFa
 // 좌회전 12번 → 3번이 "굽은 길이 많다"보다 훨씬 구체적인 이유다 (lib/ai.ts RouteFacts.비교).
 const 경로 = [
   { name: "5.16도로 경유", badge: "내비 최단거리", durationMin: 63, distanceKm: 43, risks: [risk("sharpCurve", "연속 급커브", 0.29)],
-    stats: { turns: 12, unprotected: 2, roundabouts: 2, sharpCurves: 17, narrow: 0.31, highSpeedKm: 0 } },
+    stats: { turns: 12, unprotected: 2, roundabouts: 2, sharpCurveKm: 2.5, narrow: 0.31, highSpeedKm: 0 } },
   { name: "평화로 경유", badge: "맞춤 저부담", durationMin: 58, distanceKm: 52.8, risks: [risk("highSpeed", "고속주행 구간", 0.48)],
-    stats: { turns: 3, unprotected: 0, roundabouts: 0, sharpCurves: 0, narrow: 0.03, highSpeedKm: 25.4 } },
+    stats: { turns: 3, unprotected: 0, roundabouts: 0, sharpCurveKm: 0, narrow: 0.03, highSpeedKm: 25.4 } },
 ];
 const result = scoreRoutes(초보, 경로[0], 경로[1]);
 /**
- * 도착지 주차장 — 대본 ④칸의 재료.
+ * 도착지 주차장 — 대본 ⑤칸의 재료.
  * **추정 평행**(노상)으로 잡았다. 여기가 대본이 거짓말하기 제일 쉬운 자리라서다 —
  * 확인됨=false 인데 "평행주차입니다"라고 단정하면 초보에게 정반대 방법을 가르치게 된다.
  */
@@ -54,14 +54,31 @@ const prompt = promptOf(facts);
 // --- ① 사실 묶음에 필요한 게 다 담기는가 ---
 assert.equal(facts.경로.length, 2);
 assert.equal(facts.추천경로, "평화로 경유", "추천은 계산이 정한 값이어야 한다");
-assert.ok(facts.운전자조건.includes("운전경력 1년 이하"), "가중치 조건이 빠졌다");
+assert.ok(facts.운전자조건.includes("익숙함 왕초보"), "가중치 조건이 빠졌다");
 assert.ok(facts.경로[0].요인[0].행동수칙.includes("커브"), "행동수칙을 AI에게 줘야 한다");
 // 프롬프트에 사실이 실제로 들어갔는가 — 숫자 검증이 이 문자열을 기준으로 돈다
 assert.ok(prompt.includes("63") && prompt.includes("52.8"), "소요시간·거리가 프롬프트에 없다");
 // 요인별 점수는 주지 않는다 — 모델이 다른 경로의 점수를 붙이는 걸 막으려고 뺐다
-// 여는 따옴표까지 붙여 본다 — 그냥 `점수":` 로 보면 경로 단위 `"부담점수":` 에 걸린다
+// 여는 따옴표까지 붙여 본다 — 그냥 `점수":` 로 보면 경로 단위 `"추천점수":` 에 걸린다
 assert.ok(!prompt.includes('"점수":'), "요인에 점수가 실려 있다");
-assert.ok(prompt.includes('"부담점수":'), "경로 단위 부담점수는 있어야 한다");
+assert.ok(prompt.includes('"추천점수":'), "경로 단위 추천점수는 있어야 한다");
+
+// --- 부담 유형 (온보딩 4단계) ---
+// 원래 라벨이 프롬프트에도 들어가야 점수뿐 아니라 설명의 우선순위도 사용자 선택과 맞는다.
+assert.deepEqual(facts.부담유형, [], "안 고르면 빈 배열이어야 한다");
+{
+  // 0 좁은 골목길 · 2 급경사·굽은 길 · 5 해당 없음
+  const 고름 = factsOf("제주공항 → 서귀포 매일올레시장", 초보, result, 경로, 도착, [0, 2, 5]);
+  assert.deepEqual(
+    고름.부담유형,
+    ["좁은 골목길", "급경사·굽은 길"],
+    '"해당 없음"은 고른 게 아니라 안 고르겠다는 답이라 빠져야 한다',
+  );
+  assert.ok(promptOf(고름).includes("좁은 골목길"), "부담 유형이 프롬프트에 안 실렸다");
+  // 숫자 검증(숫자가사실에있나)이 프롬프트를 기준으로 도는데, 라벨에 숫자가 섞이면
+  // 모델이 그 숫자를 사실로 알고 문장에 쓸 수 있다. CONCERNS 에 숫자를 넣지 않는다.
+  assert.ok(!/\d/.test(고름.부담유형.join("")), "부담 유형 라벨에 숫자가 있다");
+}
 
 // 요인은 부담이 큰 순서여야 한다. 두 경로에 같은 이름의 요인이 있을 때가 함정이다 —
 // breakdown 을 factor 만으로 찾으면 항상 fast 행이 잡혀 safe 의 정렬이 뒤집힌다.
@@ -79,12 +96,12 @@ assert.equal(같은이름.경로[1].요인[0].이름, "고속주행 구간", "sa
 assert.equal(같은이름.경로[0].요인[0].이름, "연속 급커브", "fast 요인 정렬이 틀렸다");
 
 // --- ② 정상 응답은 통과한다 ---
-// 숫자는 이 픽스처가 실제로 계산한 값이어야 한다 (fast 35.3 / safe 24.4).
-// 처음엔 실제 화면에서 본 63.5를 적었다가 ④의 검증에 걸렸다 — 검증기가 의도대로 동작한다는 뜻이다.
+// 숫자는 이 픽스처가 실제로 계산한 값이어야 한다 (추천점수 fast 66.6 / safe 77).
+// 처음엔 실제 화면에서 본 값을 적었다가 ④의 검증에 걸렸다 — 검증기가 의도대로 동작한다는 뜻이다.
 const 정상 = {
-  summary: "5.16도로 경유는 5분 더 걸리고 부담점수도 35.3점으로 더 높습니다.",
+  summary: "5.16도로 경유는 5분 더 걸리고 추천점수도 66.6점으로 더 낮습니다.",
   briefing: [
-    "평화로 경유를 추천합니다. 5.16도로 경유는 부담점수 35.3점으로 부담이 더 큽니다.",
+    "평화로 경유를 추천합니다. 5.16도로 경유는 추천점수 66.6점으로 부담이 더 큽니다.",
     "고속주행 구간이 부담이 큽니다. 주변 차가 빨라도 무리해서 속도를 맞출 필요는 없습니다.",
   ],
   // 경로별 판정. 경로 이름으로 맞춘다 — 순서만 믿으면 뒤집혀도 스키마를 통과한다.
@@ -223,11 +240,11 @@ for (const bad of [
 ])
   assert.equal(verify(대본통째(bad), facts), null, `걸러야 한다: ${JSON.stringify(bad)}`);
 
-// 한 칸이 길면 버린다 — 귀로는 되감을 수 없어서 긴 문단은 어디를 듣는지 놓친다 (120자 상한)
+// 한 칸이 길면 버린다 — 귀로는 되감을 수 없어서 긴 문단은 어디를 듣는지 놓친다 (대본_최대글자)
 assert.equal(
   verify(대본바꿔("평화로 경유", 0, "큰길 위주로 이어지는 길이라 차선만 지키면 되는 편한 길인데요, ".repeat(4)), facts),
   null,
-  "120자를 넘는 대본 칸이 통과했다",
+  `${대본_최대글자}자를 넘는 대본 칸이 통과했다`,
 );
 
 // ★ 여기가 대본에만 있는 규칙이다.
@@ -298,10 +315,10 @@ assert.ok(
   "stats 없이도 비교 키가 사실 묶음에 남았다",
 );
 
-// --- ②-5 도착지 주차장 (대본 ④칸) ---
+// --- ②-5 도착지 주차장 (대본 ⑤칸) ---
 assert.equal(facts.도착?.주차형태?.확인됨, false, "추정을 확정으로 넘기면 안 된다");
 assert.ok(prompt.includes("평행주차") && prompt.includes("매일올레시장"), "도착 사실이 프롬프트에 없다");
-// 주차장을 안 거쳐 온 흐름이면 통째로 빠진다 — 그때 대본은 ④칸을 쓰지 않는다
+// 주차장을 안 거쳐 온 흐름이면 통째로 빠진다 — 그때 대본은 ⑤칸을 쓰지 않는다
 assert.equal(factsOf("무주차장", 초보, result, 경로).도착, undefined);
 
 // --- ③ 확인되지 않은 요인을 말하면 버린다 (계획서 원칙) ---
@@ -349,7 +366,7 @@ assert.ok(
         { 경로: "5.16도로 경유", 판정: "좁은 교행 구간이 있어 마주 오는 차가 있으면 비켜서야 합니다." },
         { 경로: "평화로 경유", 판정: "이 길을 추천합니다. 좁은 교행 구간이 짧습니다." },
       ],
-      // 도착 사실이 없는 facts 다 — ④칸 없이 세 칸으로도 통과해야 한다
+      // 도착 사실이 없는 facts 다 — ⑤칸 없이 세 칸으로도 통과해야 한다
       radio: [
         {
           경로: "5.16도로 경유",

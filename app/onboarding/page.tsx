@@ -1,11 +1,15 @@
 "use client";
 
-// 프로필 온보딩 — 최종 와이어프레임 ONB 섹션에 그려진 네 장(운전 빈도·제주 경험·차량 크기·부담 유형)이 전부다.
+// 프로필 온보딩 — 와이어프레임 ONB 섹션의 네 장(익숙함·제주 경험·차량 크기·부담 유형)이 전부다.
 // 그려지지 않은 화면을 지어내면 와이어프레임과 앱이 갈라진다.
 //
-// 여기서 묻지 않는 나머지 프로필 값(운전 경력·주행 시간대)은 DEFAULT_PROFILE 로 남는다 —
-// 기본값이 가장 부담 큰 쪽(초보·주간)이라 모르는 값을 안전한 척 계산하지는 않는다.
-// 고정된 값이므로 마이 화면(app/profile)도 경력을 적지 않는다 — 안 바뀌는 줄을 설정처럼 보여줄 수 없다.
+// 첫 장은 원래 "일주일에 며칠 운전하나요"였다. 그걸로는 왕초보/초보/익숙이 안 갈려서 —
+// 매일 모는 사람도 낯선 길은 무섭다 — 자기 인식을 직접 묻는 것으로 바꿨다. 첫 장 주석 참고.
+//
+// 여기서 묻지 않는 주행 시간대는 DEFAULT_PROFILE 의 "day" 로 남는다. 부담이 큰 쪽은
+// 야간(×1.15)이므로 이건 보수적인 기본값이 아니다 — 관광객이 대부분 낮에 움직인다고 보고
+// 문항을 안 늘린 판단이고, 그래서 야간 가중치는 앱에서 켜지지 않는다. 계산 기준 화면도
+// 그 줄을 안 적는다 (lib/serviceinfo.ts). 묻게 되면 둘을 같이 되살린다.
 //
 // 고른 값은 URL 쿼리로 메인화면(/home)에 넘기고, 거기서 목적지를 붙여 /result 까지 그대로 흘러간다
 // (lib/profile.ts). 저장소가 따로 없어서 새로고침하면 처음부터지만, 네 탭짜리 플로우라
@@ -14,11 +18,11 @@
 // 좌표는 390x844 절대배치를 flex 로 옮겼다 (app/page.tsx 와 같은 이유 — .phone 높이가
 // 노트북에서 844 보다 낮아질 수 있고, 그때 여백(flex-1)부터 줄어야 버튼이 안 잘린다).
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import type { DriverProfile } from "@/lib/score";
-import { CONCERNS, DEFAULT_PROFILE, toProfileQuery } from "@/lib/profile";
+import { CONCERNS, DEFAULT_PROFILE, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
 
 type Step = {
   /** "N / 4" 옆에 붙는 부가 문구 (마지막 단계 "여러 개 선택 가능") */
@@ -40,16 +44,31 @@ type Step = {
 
 const STEPS: Step[] = [
   {
-    title: ["일주일에 며칠 정도", "운전하시나요?"],
-    subtitle: "최근 한 달을 떠올려 가장 가까운 횟수를 골라주세요.",
-    hint: "최근 한 달의 평균 운전 일수를 숫자로 골라주세요.",
-    // 점수의 빈도 값은 low/medium/high 셋뿐이라 네 선택지를 접는다.
-    // 경계(1~2일)는 낮은 쪽으로 — 빈도를 높게 잡으면 부담 가중치가 빠져 위험이 과소 계상된다.
+    title: ["운전이 얼마나", "익숙하신가요?"],
+    subtitle: "지금 내 느낌과 가장 가까운 쪽을 골라주세요.",
+    hint: "익숙한 정도는 부담 계산과 길 설명에 함께 쓰여요.",
+    // 전에는 이 자리가 "일주일에 며칠 운전하나요"였다. 빈도는 익숙함의 대리 지표라서 자주 어긋난다 —
+    // 매일 출퇴근만 하는 사람도 낯선 길은 무섭고, 반대도 있다. 그래서 대리 지표 대신 직접 묻는다.
+    //
+    // 한 문항이 두 값을 정한다: 점수용 티어(experienceYears → lib/score.ts EXP_WEIGHT)와
+    // 브리핑 말투용 빈도(drivingFrequency → lib/briefing.ts 조건말). 빈도는 점수에 안 들어간다 —
+    // 같은 대답 하나를 두 번 곱하면 초보만 부풀기 때문이다 (lib/score.ts weight 주석).
     options: [
-      { label: "0일", desc: "거의 운전하지 않아요", patch: { drivingFrequency: "low" } },
-      { label: "1~2일", desc: "주말이나 필요할 때만 해요", patch: { drivingFrequency: "low" } },
-      { label: "3~4일", desc: "일주일의 절반 정도 해요", patch: { drivingFrequency: "medium" } },
-      { label: "5~7일", desc: "거의 매일 운전해요", patch: { drivingFrequency: "high" } },
+      {
+        label: "왕초보",
+        desc: "아직 운전이 무서워요",
+        patch: { experienceYears: 1, drivingFrequency: "low" },
+      },
+      {
+        label: "초보",
+        desc: "낯선 길은 긴장돼요",
+        patch: { experienceYears: 3, drivingFrequency: "medium" },
+      },
+      {
+        label: "익숙",
+        desc: "처음 가는 길도 괜찮아요",
+        patch: { experienceYears: 10, drivingFrequency: "high" },
+      },
     ],
   },
   {
@@ -85,16 +104,58 @@ const STEPS: Step[] = [
     hint: "선택 내용은 경로 추천과 길 설명에 반영되며 언제든 바꿀 수 있어요.",
     multi: true,
     // 선택지는 마이 화면과 공유한다 (lib/profile.ts CONCERNS) — 거기서 되보여 주므로 문구가 갈리면 안 된다.
-    // 고른 인덱스는 hard= 로 실려 점수 가중치에 탄다 (lib/profile.ts CONCERN_RISK → lib/score.ts weight).
+    // 고른 인덱스는 hard= 로 실려 점수 가중치와 AI 길 설명에 함께 쓰인다.
     options: CONCERNS,
   },
 ];
 
-export default function Onboarding() {
+/**
+ * 이미 있는 프로필 → 단계별 선택 인덱스. 마이 화면의 "프로필 수정"으로 들어오면 네 문항을
+ * 처음부터 다시 답하게 하지 않는다.
+ *
+ * **접힌 선택지는 첫 자리로 편다.** patch 가 값 하나로 접히는 자리가 둘 있다 —
+ * 제주 경험 "아직 없음"·"1회"가 둘 다 false, 차량 "소형차"·"중형차"가 둘 다 sedan.
+ * 되돌릴 때 어느 쪽을 골랐는지는 URL 에 남아 있지 않으므로 앞의 것을 짚는다. 점수는 같고,
+ * 사용자가 다르게 골랐다면 그 자리에서 다시 누르면 된다.
+ * ponytail: 고른 자리를 그대로 되살리려면 쿼리에 인덱스를 따로 실어야 한다 — 점수가 안 갈려서 안 했다.
+ */
+function picksOf(sp: URLSearchParams): number[][] {
+  const query = Object.fromEntries(sp);
+  const profile = parseProfile(query);
+  return STEPS.map((s) =>
+    s.multi
+      ? parseConcerns(query)
+      : // patch 의 모든 값이 프로필과 같은 첫 선택지. 없으면 빈 배열이라 다음 버튼이 잠긴 채로 남는다
+        [
+          s.options.findIndex((o) =>
+            Object.entries(o.patch ?? {}).every(([k, v]) => profile[k as keyof DriverProfile] === v),
+          ),
+        ].filter((i) => i >= 0),
+  );
+}
+
+export default function OnboardingPage() {
+  // useSearchParams 는 경계를 요구한다 (/nearby · /calm 과 같은 모양)
+  return (
+    <Suspense>
+      <Onboarding />
+    </Suspense>
+  );
+}
+
+function Onboarding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  /**
+   * 고치러 들어온 것인가. 프로필 쿼리를 달고 온 경우다 (app/profile 의 "프로필 수정").
+   * 처음 만드는 사람은 쿼리가 없어 선택이 비어 있고, 그래서 다음 버튼도 잠긴 채 시작한다.
+   */
+  const 고치는중 = searchParams.has("exp");
   const [step, setStep] = useState(0);
   // 단계별 선택된 옵션 인덱스. 단일 선택 단계는 길이 0 또는 1, multi 단계만 여러 개.
-  const [picks, setPicks] = useState<number[][]>(STEPS.map(() => []));
+  const [picks, setPicks] = useState<number[][]>(() =>
+    고치는중 ? picksOf(searchParams) : STEPS.map(() => []),
+  );
   const cur = STEPS[step];
   const picked = picks[step];
 
@@ -113,7 +174,7 @@ export default function Onboarding() {
   function goNext() {
     if (step < STEPS.length - 1) return setStep(step + 1);
     // 각 단계의 patch 를 겹쳐 프로필 완성. 다음 버튼이 선택 전엔 잠겨 있어 빠진 단계는 없다.
-    // 여기서 안 묻는 경력·시간대는 DEFAULT_PROFILE 값 그대로 나간다 (파일 첫 주석 참고).
+    // 여기서 안 묻는 시간대는 DEFAULT_PROFILE 값 그대로 나간다 (파일 첫 주석 참고).
     const profile = STEPS.reduce<DriverProfile>(
       (acc, s, idx) => ({ ...acc, ...s.options[picks[idx][0]]?.patch }),
       DEFAULT_PROFILE,
@@ -123,15 +184,25 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-gradient-to-b from-white from-[41.5%] to-[#d2eafe]">
+    <div className="flex flex-1 flex-col bg-white">
       <StatusBar tone="text-[#525252]" />
 
       {/* AppBar/Back — 44px 터치 영역 + 24px 화살표 (피그마 컴포넌트 설명 그대로) */}
       <div className="mx-4 flex h-14 shrink-0 items-center gap-3">
         <button
-          onClick={() => (step === 0 ? router.push("/") : setStep(step - 1))}
+          /*
+            1단계의 뒤로가 어디로 가느냐는 **어디서 왔느냐**에 달렸다. 처음 만드는 사람은
+            소개 화면으로 돌아가고(스플래시 없는 주소 — app/intro/page.tsx), 고치러 온 사람은
+            들고 온 프로필 그대로 마이 화면으로 되돌아간다. 전에는 둘 다 /intro 로 나가서,
+            잘못 눌러 들어온 사람이 프로필을 통째로 잃고 온보딩을 다시 통과해야 했다.
+          */
+          onClick={() =>
+            step > 0
+              ? setStep(step - 1)
+              : router.push(고치는중 ? `/profile?${searchParams}` : "/intro")
+          }
           aria-label="뒤로"
-          className="flex size-11 shrink-0 items-center justify-center"
+          className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
         >
           <img src="/icon-arrow-left.svg" alt="" className="size-6" />
         </button>
@@ -176,7 +247,6 @@ export default function Onboarding() {
                 }`}
               >
                 <span className={`text-[14px] leading-[22px] font-bold ${on ? "" : "text-[#1f1f1f]"}`}>
-                  {on && "✓ "}
                   {o.label}
                 </span>
                 <span className={`text-[11px] leading-[17px] ${on ? "" : "text-[#525252]"}`}>{o.desc}</span>

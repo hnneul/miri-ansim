@@ -5,7 +5,6 @@
 // 세 장을 따로 그린 건 프로토타입 연결을 보여주려는 것이고, 실제로는 같은 화면이 상태만 바뀐다.
 //
 // 메인화면(/home)에서 목적지를 적고 들어오면 ?dest= 를 물고 오므로 곧장 세 번째 상태로 연다.
-// 출발지(?originLat/originLng)는 거리 표시("25km")에만 쓴다 — 없으면 그 줄만 빠진다.
 //
 // 지오코딩은 서버 액션(./actions.ts)을 거친다. 카카오 REST 키가 서버 전용이라 여기서 직접 못 부른다.
 
@@ -13,10 +12,9 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import RouteMap, { type LatLng } from "../RouteMap";
-import { meters } from "@/lib/parking";
-import type { Place } from "@/lib/geocode";
+import { 이어친목록, type Place } from "@/lib/geocode";
 import { addRecent, loadRecent, removeRecent } from "@/lib/recent";
-import { findPlace, findPostal, suggestPlaces } from "./actions";
+import { findPlace, findPostal, recommendSpots, suggestPlaces } from "./actions";
 
 /** 목적지를 못 골랐을 때 지도가 보고 있을 곳 — 제주 한가운데(한라산)라 섬이 통째로 담긴다. */
 const JEJU_CENTER: LatLng = [33.38, 126.55];
@@ -56,7 +54,10 @@ function Destination() {
   const origin: LatLng | null =
     query.originLat && query.originLng ? [Number(query.originLat), Number(query.originLng)] : null;
 
-  const [text, setText] = useState(query.dest ?? "");
+  // 검색 패널을 열고 들어왔으면(?search=1) 칸은 비운다 — 다시 고르러 온 자리라 옛 이름이 적혀
+  // 있으면 지우고 시작하게 된다 (openSearch 가 같은 이유로 값을 지운다). 고른 곳은 dest 에 남아
+  // 있어서 패널을 취소하면 그대로 돌아온다.
+  const [text, setText] = useState(query.search === "1" ? "" : (query.dest ?? ""));
   const [place, setPlace] = useState<Place | null>(null);
   /*
     검색 패널(두 번째 상태)이 떠 있는가.
@@ -70,6 +71,29 @@ function Destination() {
   const [recent, setRecent] = useState<string[]>([]);
   /** 타이핑 중에 뜨는 후보 목록 (HOME-01 a). 비어 있으면 최근 검색어 자리가 그대로 남는다. */
   const [suggest, setSuggest] = useState<Place[]>([]);
+  /**
+   * 지금 떠 있는 후보가 **어느 검색어의 결과인가.** null 이면 아직 안 왔다는 뜻이다.
+   *
+   * 이게 없으면 "아직 안 옴"과 "찾아봤는데 없음"을 못 가른다 — 둘 다 suggest 가 빈 배열이라
+   * 제주에 없는 이름을 친 사람이 **"검색 결과를 찾는 중…"을 영원히** 보고 있었다.
+   * 이 화면의 첫 번째 일이 목적지 찾기라, 그 실패가 침묵이면 안 된다.
+   */
+  const [찾은말, set찾은말] = useState<string | null>(null);
+  /**
+   * 그 검색어를 **물어보기는 했나**. false 면 목록이 빈 이유가 "제주에 없어서"가 아니라
+   * 카카오에 못 물어봐서다 (타임아웃·네트워크·키). 없다고 단정하면 안 되는 자리다
+   * (./actions.ts suggestPlaces).
+   */
+  const [물어봤나, set물어봤나] = useState(true);
+  /** 마지막으로 결과가 나온 검색어와 그 목록. 치는 중에 붙들 근거다 (lib/geocode.ts 이어친목록) */
+  const 앞결과 = useRef<{ 말: string; 목록: Place[] }>({ 말: "", 목록: [] });
+  /** 아직 아무것도 안 적었을 때 띄우는 추천 장소 이름 (./actions.ts recommendSpots). */
+  const [spots, setSpots] = useState<string[]>([]);
+  /*
+    최근 검색어에 이미 있는 이름은 뺀다 — 한 화면에 같은 이름이 두 번 뜨면 둘 중 하나가
+    고장 난 것처럼 읽힌다. 서버가 여덟보다 넉넉히 주므로 걷어내도 여덟 개가 찬다.
+  */
+  const 추천장소 = spots.filter((s) => !recent.includes(s)).slice(0, 8);
   const input = useRef<HTMLInputElement>(null);
 
   // 시트가 지도 아래쪽을 얼마나 덮는지. 지도가 그만큼 위로 잡아야 마커가 시트에 안 걸린다.
@@ -85,6 +109,14 @@ function Destination() {
 
   // localStorage 는 서버에 없다 — 화면이 뜬 뒤에 읽는다 (lib/recent.ts 가 깨진 값까지 막는다)
   useEffect(() => setRecent(loadRecent()), []);
+
+  /*
+    추천 장소는 고정 목록이라 한 번만 받는다. data/spots.json 이 36KB 라 화면으로 직접 들여오면
+    그게 통째로 번들에 실린다 — 여덟 줄 때문에 그럴 값어치가 없어 서버에서 잘라 받는다.
+  */
+  useEffect(() => {
+    recommendSpots().then(setSpots);
+  }, []);
 
   /**
    * 출발지를 손으로 정하고 **도착지를 찾는 중**인가 (시트의 "출발"을 누른 뒤).
@@ -130,6 +162,12 @@ function Destination() {
         next.set("toLat", String(found.coord[0]));
         next.set("toLng", String(found.coord[1]));
         for (const k of ["dest", "destLat", "destLng"]) next.delete(k);
+        /*
+          돌아올 자리를 여기서 정한다 — 안 정하면 앞 흐름이 남긴 값을 물고 가고, 그것도 없으면
+          ‹ 가 홈으로 튄다. 이 길로 온 사람은 **여기서** 도착지를 고르던 참이라 여기로 돌아와야
+          한다 (dest 가 없어 routing 상태로 열리므로 도착지 칸이 다시 비어 있다).
+        */
+        next.set("back", "destination");
         router.push(`/route?${next}`);
         return;
       }
@@ -168,11 +206,24 @@ function Destination() {
     먼저 보낸 긴 검색어의 결과가 나중에 도착해 목록을 덮는다.
   */
   useEffect(() => {
-    if (!searching || !text.trim()) return setSuggest([]);
+    if (!searching || !text.trim()) {
+      set찾은말(null);
+      앞결과.current = { 말: "", 목록: [] };
+      return setSuggest([]);
+    }
 
     let alive = true;
+    // 글자가 바뀌면 앞 결과는 이 검색어의 것이 아니다 — 표시를 지워 "찾는 중"으로 되돌린다
+    set찾은말(null);
     const timer = setTimeout(() => {
-      suggestPlaces(text).then((found) => alive && setSuggest(found));
+      suggestPlaces(text).then((found) => {
+        if (!alive) return;
+        const 목록 = found.places.length ? found.places : 이어친목록(앞결과.current, text);
+        if (목록.length) 앞결과.current = { 말: text, 목록 };
+        setSuggest(목록);
+        set물어봤나(found.물어봤나);
+        set찾은말(text);
+      });
     }, TYPING_MS);
     return () => {
       alive = false;
@@ -234,10 +285,21 @@ function Destination() {
       synced.current = null;
       return;
     }
+    /*
+      **검색 패널이 떠 있는 동안에는 맞추기를 미룬다.** 패널이 지도를 덮고 있어 지금 맞춰봐야
+      보이지 않는데, 맞추는 길(choose)이 패널을 닫고 search 를 URL 에서 지운다 — 길 비교의
+      ✕("다시 고르기")가 dest 를 남긴 채 패널을 열어 보내면 뜨자마자 닫혀 버렸다.
+      닫히는 순간 이 effect 가 다시 돌아 그때 맞춘다 (searching 이 deps 에 있다).
+
+      **위 기억 지우기보다 아래여야 한다.** 위에 두면 "출발"로 dest 가 비는 순간(그때는 패널이
+      열려 있다) synced 를 못 지우고, 뒤로 돌아와 같은 dest 가 실려도 "이미 맞췄다"며 건너뛰어
+      **빈 지도**가 남는다.
+    */
+    if (searching) return;
     if (synced.current === query.dest) return;
     synced.current = query.dest;
     search(query.dest);
-  }, [query.dest, search]);
+  }, [query.dest, search, searching]);
 
   /**
    * 고른 출발지. 목적지를 아직 안 골랐을 때 지도가 이걸 대신 보여준다 —
@@ -261,6 +323,48 @@ function Destination() {
       ? [query.originLat, query.originLng]
       : null,
   );
+
+  /**
+   * 지도의 핀을 눌렀다 = **여기로 간다.**
+   *
+   * 시트의 「근처 주차장 보기」와 다른 길이다. 저건 "관광지에 갔다가 차를 어디 대나"를 푸는
+   * 흐름이라 주차장을 한 번 거치는데, 핀을 누르는 건 찾은 그 자리로 곧장 가겠다는 뜻이다
+   * (choose 의 routing 갈래가 하는 일과 같다 — 거기는 출발지를 이미 손으로 정한 경우다).
+   *
+   * **출발지는 현재 위치다.** 손으로 고른 출발지가 있으면 걷어낸다 — 규칙은 setStart(null) 과
+   * 같다: 처음 실려 온 현재 위치를 도로 앉히고, 그것도 없으면 셋을 다 지워 길 비교 화면이
+   * 스스로 위치를 잡게 둔다.
+   *
+   * dest* 를 지우는 이유는 choose 와 같다. 그건 관광지 좌표 자리인데 여기서는 도착지가 곧
+   * 목적지라, 남겨두면 대본이 "차를 대고 옛 관광지까지 걸어간다"고 말한다.
+   */
+  function goStraight(found: Place) {
+    setRecent((prev) => addRecent(prev, found.label));
+    const next = new URLSearchParams(searchParams);
+    next.set("to", found.label);
+    next.set("toLat", String(found.coord[0]));
+    next.set("toLng", String(found.coord[1]));
+    /*
+      **돌아올 자리를 여기서 정한다.** 예전에는 back 을 손대지 않아서, 앞 흐름이 남기고 간 값이
+      그대로 실려 갔다 — 그러면 ✕ 가 엉뚱한 화면으로 가고, 마침 destination 이 실려 있으면
+      dest 를 지운 채 이 화면으로 돌아와 **빈 지도**가 떴다 (고른 곳이 URL 에서 사라져서다).
+
+      dest 는 남긴다. 이 화면이 그 값으로 고른 곳을 되찾는다(아래 synced effect).
+      좌표(destLat/destLng)는 지운다 — 그건 "차를 대고 목적지까지 걸어갈" 거리의 재료인데
+      (app/route/page.tsx 대본 ⑤칸), 여기서는 도착지가 곧 목적지라 걸어갈 구간이 없다.
+    */
+    next.set("back", "destination");
+    next.set("dest", found.label);
+    for (const k of ["destLat", "destLng", "search"]) next.delete(k);
+    if (fromHome.current) {
+      next.set("originLat", fromHome.current[0]);
+      next.set("originLng", fromHome.current[1]);
+      next.delete("originName");
+    } else {
+      for (const k of ["originLat", "originLng", "originName"]) next.delete(k);
+    }
+    router.push(`/route?${next}`);
+  }
 
   function openSearch() {
     setSearching(true);
@@ -316,6 +420,8 @@ function Destination() {
 
   return (
     <div className="flex flex-1 flex-col">
+      {/* 검색바가 이 화면의 머리다 — 글자로 된 제목이 없어서 이름만 따로 읽힌다 */}
+      <h1 className="sr-only">목적지 입력</h1>
       {/*
         상태바는 지도 밖에 둔다 — 와이어프레임도 Map/Placeholder 가 상태바 아래(y:32)에서 시작한다.
         지도를 상태바 뒤까지 깔면 시각·배터리가 지도 상호명과 겹쳐 양쪽 다 안 읽힌다.
@@ -337,10 +443,24 @@ function Destination() {
             center={focus?.coord ?? JEJU_CENTER}
             level={focus ? 5 : 10}
             routes={[]}
+            /*
+              시트를 닫는 길. ✕ 를 뺀 자리를 지도 빈 곳이 받는다 — /around·/route·/parking 이
+              쓰는 것과 같은 문이라 이 앱에서 시트를 접는 손짓이 화면마다 갈리지 않는다.
+              (검색바를 눌러도 시트는 가려진다. 그건 다시 고르러 가는 길이고, 이건 그냥 접는 길이다.)
+            */
+            onBlank={() => setPlace(null)}
             /* 캐릭터 핀은 목적지 것이다 — 출발지는 기본 마커로 찍어 둘이 안 헷갈리게 한다 */
             markers={
               place
-                ? [{ coord: place.coord, label: place.label, icon: MASCOT }]
+                ? [
+                    {
+                      coord: place.coord,
+                      label: place.label,
+                      icon: MASCOT,
+                      /* 핀이 곧 "여기로 갈게요" 버튼이다 (goStraight) */
+                      onClick: () => goStraight(place),
+                    },
+                  ]
                 : start
                   ? [{ coord: start.coord, label: `${start.label} (출발)` }]
                   : []
@@ -462,7 +582,7 @@ function Destination() {
                 -mx-1.5 가 p-1.5 만큼 도로 당긴다 — 커서 얹을 동그란 자리만 생기고 화살표 위치와
                 입력칸 사이 간격(gap-[10px])은 그대로다. 아래 ✕ 도 같은 값이라 둘이 짝이 맞는다.
               */
-              className="-mx-1.5 shrink-0 rounded-full p-1.5 transition hover:bg-[#fff0e6] active:scale-90"
+              className="-mx-1.5 shrink-0 p-1.5 transition hover:opacity-40 active:scale-90"
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
@@ -471,7 +591,17 @@ function Destination() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onFocus={() => setSearching(true)}
-              placeholder="장소를 검색해 주세요"
+              /*
+                **홈 검색바와 같은 문장이다** (app/home/page.tsx). 거기는 입력칸이 아니라 이 화면을
+                여는 버튼이라, 누른 문장이 그대로 적힌 칸이 나와야 "그 자리로 왔다"가 된다.
+                문구가 갈리면 다른 칸으로 옮겨온 것처럼 읽힌다 — 바꿀 때는 두 곳을 같이 고친다.
+
+                "장소" 만으로는 부족하다. 이 화면은 목적지도 고르고 출발지도 고르는데(시트의 "출발"),
+                예전에는 들어오는 문이 홈 검색바 하나뿐이라 손에 맥락이 남아 있었다. 길 비교의
+                ✕("출발지·도착지 다시 고르기")가 생기면서 **맥락 없이 떨어지는 입구**가 하나 늘었고,
+                그 사람에게는 이 칸이 둘 중 뭘 받는지 문구로만 말할 수 있다.
+              */
+              placeholder="가고 싶은 제주 장소를 검색해요"
               aria-label="목적지"
               className="min-w-0 flex-1 bg-transparent text-[15px] text-[#1f1f1f] outline-none placeholder:text-[#7d7d7d]"
             />
@@ -481,7 +611,7 @@ function Destination() {
                 type="button"
                 onClick={openSearch}
                 aria-label="지우기"
-                className="-mx-1.5 shrink-0 rounded-full p-1.5 transition hover:bg-[#fff0e6] active:scale-90"
+                className="-mx-1.5 shrink-0 p-1.5 transition hover:opacity-40 active:scale-90"
               >
                 <img src="/home/icon-close-bold.svg" alt="" className="size-6" />
               </button>
@@ -562,15 +692,78 @@ function Destination() {
                       </li>
                     ))}
                   </ul>
+                ) : 찾은말 === text ? (
+                  /*
+                    찾아봤는데 없다. 무엇을 하면 되는지까지 적는다 — "없음"만으로는 다음 손이 안 움직인다.
+                    **못 물어본 경우는 갈라 말한다**: 네트워크가 죽었을 뿐인데 "그런 곳 없어요"라고
+                    단정하면 앱이 거짓말을 한다 (./actions.ts suggestPlaces).
+                  */
+                  물어봤나 ? (
+                    /*
+                      **"제주에 없다"고는 안 한다.** 카카오가 0을 준 건 "이 조각으로는 못 맞췄다"까지고,
+                      실제로 "스타벅"은 0인데 "스타벅스"는 세 곳이 나온다. 엔터로 확정할 때만(findPlace)
+                      사유를 단정한다 — 거긴 다 친 뒤다.
+                    */
+                    <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+                      &lsquo;{text}&rsquo;로는 못 찾았어요.
+                      <br />
+                      이름을 조금 더 적어보세요.
+                    </p>
+                  ) : (
+                    <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">
+                      지금은 장소를 찾아볼 수 없어요.
+                      <br />
+                      잠시 뒤에 다시 쳐보세요.
+                    </p>
+                  )
                 ) : (
-                  /* 아직 안 왔거나(디바운스 중) 제주에 없는 이름이다. 둘을 가려 말할 방법이 없어 한 줄로 둔다 */
                   <p className="py-2 text-[13px] leading-[22px] text-[#9e9e9e]">검색 결과를 찾는 중…</p>
                 )
               ) : (
-                /* 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */
-                recent.length > 0 && (
+                <>
+                  {/*
+                    추천 장소. 여기가 예전에는 **빈 화면**이었다 — 최근 검색어가 없으면(첫 사용자,
+                    지우고 난 뒤) 검색 패널에 아무것도 없어서, 메인화면 검색바를 눌러 들어온 사람이
+                    받는 첫 화면이 백지 한 장이었다. "뭘 검색해야 하나"에 답이 없다.
+
+                    고른 기준은 거리가 아니라 유명세다 (./actions.ts recommendSpots 주석에 이유가 있다).
+                    **최근 검색어 위에 둔다.** 칩 여덟 개는 세 줄로 끝나지만 최근 검색어는 한 줄에 하나라,
+                    열 개가 차면 그것만으로 화면을 넘긴다 — 아래에 두면 추천이 통째로 접힌 밖으로 밀린다.
+                    개수가 0~10 으로 출렁이는 쪽보다 늘 같은 높이인 쪽이 위에 있어야 자리도 안 흔들린다.
+
+                    누르면 최근 검색어와 같은 길로 간다 (setText + search). 좌표를 안고 곧장 넘어가지
+                    않는 이유도 위 주석에 있다 — 주소 배지가 틀리느니 카카오에 한 번 묻는 게 낫다.
+                  */}
+                  {추천장소.length > 0 && (
+                    <>
+                      <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">
+                        제주에서 많이 찾는 곳
+                      </h2>
+                      {/* 칩이라 줄바꿈으로 흐른다 — 이름 길이가 제각각이라(섭지코지 ↔ 제주동문시장) 격자로 두면 빈칸이 남는다 */}
+                      <div className="mt-[10px] flex flex-wrap gap-2">
+                        {추천장소.map((name) => (
+                          <button
+                            key={name}
+                            onClick={() => {
+                              setText(name);
+                              search(name);
+                            }}
+                            /* 호버 색은 빠르게 둘러보기 칸과 같은 #fff0e6 이다 — 이 앱에서 "얹혀 있다"는 뜻으로 이미 쓰는 색이다 */
+                            className="h-[32px] shrink-0 rounded-full border border-[#e5e0db] bg-white px-[13px] text-[13px] leading-none text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-95"
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* 최근 검색어. 없으면 목록째 빠진다 (빈 제목만 남으면 고장 난 것처럼 보인다) */}
+                  {recent.length > 0 && (
                   <>
-                    <h2 className="text-[14px] leading-[22px] font-bold text-[#1f1f1f]">최근 검색어</h2>
+                    <h2 className={`text-[14px] leading-[22px] font-bold text-[#1f1f1f] ${추천장소.length > 0 ? "mt-6" : ""}`}>
+                      최근 검색어
+                    </h2>
                     <ul className="mt-2">
                       {recent.map((r) => (
                         /*
@@ -594,24 +787,25 @@ function Destination() {
                             onClick={() => forget(r)}
                             aria-label={`최근 검색어에서 ${r} 삭제`}
                             /*
-                              호버는 회색 동그라미다 — 지우는 버튼이라 주황(앱의 진행 색)으로 물들면
-                              누르면 뭔가 진행되는 것처럼 읽힌다 (route-editor 의 닫기 상자와 같은 규칙).
-                              흐려둔 아이콘도 커서를 올리면 또렷해져서, 어느 줄을 겨누고 있는지가 보인다.
+                              호버에 동그라미를 안 깐다 — 앱의 아이콘 버튼 규칙이다(app/trip/page.tsx Back 주석).
+                              커서를 올리면 ✕ 가 더 흐려져서, 어느 줄을 겨누고 있는지가 보인다.
                             */
-                            className="group shrink-0 rounded-full p-1 transition hover:bg-[#fff0e6] active:scale-90"
+                            className="shrink-0 p-1 transition hover:opacity-40 active:scale-90"
                           >
                             <img
                               src="/home/icon-close.svg"
                               alt=""
                               aria-hidden
-                              className="size-4 opacity-40 transition group-hover:opacity-80"
+                              /* 평소에도 옅다 — 목록에서 지우기가 이름보다 세면 안 된다. 호버는 버튼이 맡는다 */
+                              className="size-4 opacity-70"
                             />
                           </button>
                         </li>
                       ))}
                     </ul>
                   </>
-                )
+                  )}
+                </>
               )}
             </div>
           )}
@@ -621,8 +815,6 @@ function Destination() {
             <div ref={sheetBox} className="pointer-events-auto mt-auto">
               <PlaceSheet
                 place={place}
-                origin={origin}
-                onClose={() => setPlace(null)}
                 /*
                  * 목적지 좌표까지 넘긴다 — 이름만 넘기면 주차장 화면이 지오코딩을 한 번 더 해야 하고,
                  * 같은 이름이 여러 곳이면 여기서 고른 곳과 다른 데가 잡힐 수 있다.
@@ -650,14 +842,10 @@ function Destination() {
  */
 function PlaceSheet({
   place,
-  origin,
-  onClose,
   onParking,
   onStart,
 }: {
   place: Place;
-  origin: LatLng | null;
-  onClose: () => void;
   onParking: () => void;
   onStart: () => void;
 }) {
@@ -669,8 +857,6 @@ function PlaceSheet({
    * null 로 뭉치면 도로명 없는 곳(우편번호가 원래 없는 곳)에서 펼칠 때마다 헛호출이 나간다.
    */
   const [postal, setPostal] = useState<string | null | undefined>(undefined);
-  const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
-
   // 목적지가 바뀌면 이전 장소의 우편번호가 남아 있으면 안 된다
   useEffect(() => {
     setOpenAddress(false);
@@ -696,7 +882,7 @@ function PlaceSheet({
         없는 동작을 있는 것처럼 말하는 표시라, 잡아당겨 본 사람에게는 고장으로 읽힌다.
         (주차장 화면의 손잡이는 눌러서 실제로 목록이 오르내린다 — 거기는 남는다.)
       */}
-      <div className="flex items-start justify-between gap-3 pr-[15px] pl-[30px]">
+      <div className="flex items-start pr-[15px] pl-[30px]">
         <div className="min-w-0">
           {/*
             유형 뱃지는 이름 뒤에 붙는다. 카테고리가 없는 곳이 있어 그때는 통째로 빠지고,
@@ -735,8 +921,12 @@ function PlaceSheet({
               className="mt-[6px] flex min-w-0 items-center gap-[6px] text-left text-[14px] leading-[22px] font-medium text-[#9e9e9e] disabled:cursor-default"
             >
               <span className="min-w-0 truncate">
-                {/* 출발지를 모르면 거리 없이 지역만 — 모르는 값을 0km 로 적으면 거짓말이 된다 */}
-                {km !== null && <span className="mr-[11px]">{km}km</span>}
+                {/*
+                  거리는 안 적는다. 여기서 낼 수 있는 값은 좌표 사이 직선거리뿐인데(lib/parking.ts
+                  meters) 제주는 해안도로·중산간이 굽어 주행거리와 크게 어긋난다 — 한 탭 뒤
+                  길 비교가 카카오 길찾기가 준 진짜 거리를 말하므로, 같은 목적지를 두고 두 화면이
+                  다른 숫자를 말할 자리였다. 여기는 어디인지만 말한다.
+                */}
                 {place.region}
               </span>
               {(place.road || place.jibun) && (
@@ -772,14 +962,6 @@ function PlaceSheet({
             )}
           </div>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="닫기"
-          /* 이미 회색 바탕이라 옅은 주황이 안 읽힌다 — 한 톤 진한 회색(테두리와 같은 색)으로 눌린다 */
-          className="grid size-[30px] shrink-0 place-items-center rounded-full border border-[#d6d6d6] bg-[#e5e5e5] text-[15px] leading-none text-[#525252] transition hover:bg-[#fff0e6]"
-        >
-          ✕
-        </button>
       </div>
 
       {/*
@@ -791,7 +973,7 @@ function PlaceSheet({
       <div className="mt-[11px] flex gap-1 px-4">
         <button
           onClick={onStart}
-          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#fff0e6] active:scale-[0.98]"
+          className="h-10 shrink-0 rounded-full border border-[#e5e5e5] bg-white px-4 text-[14px] leading-[22px] font-bold text-[#1f1f1f] transition hover:bg-[#f5f5f5] active:scale-[0.98]"
         >
           출발
         </button>

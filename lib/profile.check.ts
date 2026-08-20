@@ -61,17 +61,17 @@ assert.ok(parseConcerns({ hard: "0,1,2,3,4,5,6,7" }).every((i) => CONCERNS[i]));
 // --- 부담 유형 → 위험 타입 (점수 가중치로 넘어가는 매핑) ---
 // 승인된 표 그대로. 여기가 새면 사용자가 고른 긴장되는 길과 다른 위험에 가중치가 붙는다.
 assert.deepEqual(fearedRisksOf([0]), ["narrowRoad"]); // 좁은 골목길
-assert.deepEqual(fearedRisksOf([1]), ["complexJunction"]); // 복잡한 교차로
-assert.deepEqual(fearedRisksOf([2]), ["steepSlope", "sharpCurve"]); // 급경사·굽은 길 (둘)
+assert.deepEqual(fearedRisksOf([1]), [], "복잡한 교차로는 현재 경로 점수 데이터가 없다");
+assert.deepEqual(fearedRisksOf([2]), ["sharpCurve"]); // 급경사·굽은 길 중 실제 데이터가 있는 급커브
 assert.deepEqual(fearedRisksOf([3]), ["sharpCurve"]); // 어두운 길 → 곡률로 대신
 assert.deepEqual(fearedRisksOf([4]), [], "주차 어려운 곳은 경로 점수 대응이 없다");
 assert.deepEqual(fearedRisksOf([5]), [], "해당 없음은 대응이 없다");
 // 급경사·굽은 길 + 어두운 길이 둘 다 급커브를 가리켜도 한 번만 (스택 안 함)
-assert.deepEqual(fearedRisksOf([2, 3]), ["steepSlope", "sharpCurve"]);
+assert.deepEqual(fearedRisksOf([2, 3]), ["sharpCurve"]);
 
 // parseProfile 이 hard= 를 fearedRisks 로 옮긴다 — 여기서 점수 경로에 실제로 닿는다
 assert.deepEqual(parseProfile({ hard: "0" }).fearedRisks, ["narrowRoad"]);
-assert.deepEqual(parseProfile({ hard: "2,3" }).fearedRisks, ["steepSlope", "sharpCurve"]);
+assert.deepEqual(parseProfile({ hard: "2,3" }).fearedRisks, ["sharpCurve"]);
 // 대응이 없으면(주차·없음만, 또는 아무것도) 키째 빠진다 — 위 deepEqual(parseProfile({}), DEFAULT) 이 이걸 지킨다
 assert.equal("fearedRisks" in parseProfile({}), false);
 assert.equal("fearedRisks" in parseProfile({ hard: "4,5" }), false);

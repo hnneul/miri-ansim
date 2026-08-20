@@ -3,7 +3,7 @@
 // course.check.ts 와 역할이 다르다. 저기는 "짜인 코스가 규칙을 지키는가"를 네트워크 없이 보고,
 // 여기는 "카카오가 실제로 쓸 만한 후보를 주는가"를 본다.
 //
-// 이게 따로 필요한 이유 — 관심 장소의 검색 조건(lib/trip.ts INTERESTS 의 query·code·kinds)은
+// 이게 따로 필요한 이유 — 관심 장소의 검색 조건(lib/trip.ts THEMES 의 recipes)은
 // 실제 응답을 보고 정한 값이라 카카오 쪽이 바뀌면 조용히 망가진다. 후보가 0곳이 되어도
 // buildCourses 는 얌전히 빈 배열을 돌려주므로, 화면에는 그냥 "코스를 못 만들었어요"만 뜬다.
 // 검색어를 손봤을 때 여기를 한 번 돌려 후보가 여전히 걸리는지 확인한다.
@@ -22,7 +22,7 @@ const plan: TripPlan = {
   end: "2026-08-16",
   origin: "제주국제공항",
   originAt: [33.507, 126.493],
-  theme: 3, // 감성 명소 — 갈래가 둘(카페·전시)이다
+  themes: [3], // 감성 명소 — 갈래가 둘(카페·전시)이다
   musts: ["성산일출봉"],
   driveHours: DRIVE_HOURS_TEST,
 };
@@ -30,7 +30,7 @@ const plan: TripPlan = {
 const { candidates, missing } = await gatherCandidates(plan);
 
 console.log(`\n후보 ${candidates.length}곳 · 좌표 못 찾은 곳 ${missing.length}`);
-const recipes = plan.theme === null ? [] : THEMES[plan.theme].recipes;
+const recipes = plan.themes.length ? THEMES[plan.themes[0]].recipes : [];
 recipes.forEach((recipe, r) => {
   const mine = candidates.filter((c) => c.recipe === r);
   console.log(`  ${recipe.label.padEnd(8)} ${String(mine.length).padStart(2)}곳  ${mine.slice(0, 4).map((c) => c.name).join(", ")}`);

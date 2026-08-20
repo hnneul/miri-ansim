@@ -16,15 +16,27 @@ export default function StatusBar({ tone }: { tone: string }) {
     // pt/pb 가 아일랜드 자리를 만든다. pt-[18px]+leading-[22px] 로 시각의 세로 중심이 29 —
     // 아일랜드 중심(11+37/2 = 29.5)과 맞는다. 아래 pb 까지 더한 59 는 실제 아이폰의
     // safe area top 과 같은 값이라, 이 아래로는 어느 화면이 와도 아일랜드를 안 건드린다.
-    <div className={`flex shrink-0 items-center justify-between pt-[18px] pb-[19px] ${tone}`}>
-      <span className="w-[133px] text-center text-[17px] leading-[22px] font-semibold">9:41</span>
-      {/* 신호·와이파이·배터리. 와이어프레임은 ● ◒ ▮ 문자로 자리만 잡아뒀던 곳이다 */}
-      <span aria-hidden className="flex w-[133px] items-center justify-center gap-[5px]">
-        <Signal />
-        <Wifi />
-        <Battery />
-      </span>
-    </div>
+    // **진짜 폰(<480px)에서는 통째로 접는다.** 위에 제 살 붙은 상태바가 이미 있어서 시각이
+    // 둘로 보이고, 여기 잡아둔 59(safe area top)도 그 자리에 이미 있는 여백과 겹쳐 두 번 빈다.
+    // 다이내믹 아일랜드 목업(globals.css .phone::before)이 이미 같은 규칙으로 꺼진다 — 거기 주석이
+    // "진짜 폰에는 제 살 붙은 아일랜드가 있으니 이 블록째 꺼진다"고 적어둔 그 규칙이다.
+    <>
+      {/*
+        **접은 자리에 숨 쉴 틈 12 만 남긴다.** 통째로 없애 봤더니 바로 아래 ← / ✕ 의 44px 호버 원이
+        위 요소(시연 안내 띠·브라우저 주소창)에 0px 로 붙어서 겹쳐 보였다. 59 를 다 되찾으면 접은
+        뜻이 없어지고, 0 이면 버튼이 천장에 닿는다 — 이 줄이 두 화면 모두에서 그 사이를 잡는다.
+      */}
+      <div className="h-3 shrink-0 min-[480px]:hidden" />
+      <div className={`hidden shrink-0 items-center justify-between pt-[18px] pb-[19px] min-[480px]:flex ${tone}`}>
+        <span className="w-[133px] text-center text-[17px] leading-[22px] font-semibold">9:41</span>
+        {/* 신호·와이파이·배터리. 와이어프레임은 ● ◒ ▮ 문자로 자리만 잡아뒀던 곳이다 */}
+        <span aria-hidden className="flex w-[133px] items-center justify-center gap-[5px]">
+          <Signal />
+          <Wifi />
+          <Battery />
+        </span>
+      </div>
+    </>
   );
 }
 

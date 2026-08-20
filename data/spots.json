@@ -1,0 +1,1466 @@
+[
+ {
+  "name": "함덕해수욕장",
+  "category": "바다",
+  "at": [
+   33.543062,
+   126.669239
+  ],
+  "addr": "제주 제주시 조천읍 조함해안로 525",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/00/3354600_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "협재해수욕장",
+  "category": "바다",
+  "at": [
+   33.394314,
+   126.239652
+  ],
+  "addr": "제주 제주시 한림읍 협재리",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/66/3096066_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "금능해수욕장",
+  "category": "바다",
+  "at": [
+   33.390449,
+   126.23589
+  ],
+  "addr": "제주 제주시 한림읍 금능길 119-10",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource_photo/09/3515409_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "곽지해수욕장",
+  "category": "바다",
+  "at": [
+   33.45064,
+   126.304678
+  ],
+  "addr": "제주 제주시 애월읍 곽지리 1565",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/30/3053130_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "이호테우해수욕장",
+  "category": "바다",
+  "at": [
+   33.497377,
+   126.452691
+  ],
+  "addr": "제주 제주시 이호일동 1665-13",
+  "kind": "해수욕장",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "김녕해수욕장",
+  "category": "바다",
+  "at": [
+   33.557439,
+   126.759314
+  ],
+  "addr": "제주 제주시 구좌읍 해맞이해안로 7-6",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/91/3480191_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "월정리해수욕장",
+  "category": "바다",
+  "at": [
+   33.556469,
+   126.795805
+  ],
+  "addr": "제주 제주시 구좌읍 월정리 33-3",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/93/4075293_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "세화해수욕장",
+  "category": "바다",
+  "at": [
+   33.525144,
+   126.860256
+  ],
+  "addr": "제주 제주시 구좌읍 해녀박물관길 27",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/21/3481321_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "표선해수욕장",
+  "category": "바다",
+  "at": [
+   33.327511,
+   126.837425
+  ],
+  "addr": "제주 서귀포시 표선면 표선리",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/01/3034601_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "중문색달해수욕장",
+  "category": "바다",
+  "at": [
+   33.245038,
+   126.411499
+  ],
+  "addr": "제주 서귀포시 색달동 3039",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/13/3552513_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "화순금모래해수욕장",
+  "category": "바다",
+  "at": [
+   33.240032,
+   126.333589
+  ],
+  "addr": "제주 서귀포시 안덕면 화순해안로 69",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/52/3023852_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "신양섭지해수욕장",
+  "category": "바다",
+  "at": [
+   33.435103,
+   126.923473
+  ],
+  "addr": "제주 서귀포시 성산읍 섭지코지로 88",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/02/3024202_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "한담해안산책로",
+  "category": "바다",
+  "at": [
+   33.46198,
+   126.310569
+  ],
+  "addr": "제주 제주시 애월읍 애월리 2489-3",
+  "kind": "관광",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource_photo/66/3587666_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "용머리해안",
+  "category": "바다",
+  "at": [
+   33.23166,
+   126.314724
+  ],
+  "addr": "제주 서귀포시 안덕면 사계리 112-3",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/80/4055080_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "주상절리대",
+  "category": "바다",
+  "at": [
+   33.237985,
+   126.426011
+  ],
+  "addr": "제주 서귀포시 이어도로 36-30",
+  "kind": "바위",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "쇠소깍",
+  "category": "바다",
+  "at": [
+   33.252516,
+   126.623443
+  ],
+  "addr": "제주 서귀포시 하효동 1459",
+  "kind": "하천",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/99/3536099_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "성산일출봉",
+  "category": "자연",
+  "at": [
+   33.459135,
+   126.940538
+  ],
+  "addr": "제주 서귀포시 성산읍 성산리 78",
+  "kind": "산봉우리",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/82/2944282_image3_1.bmp",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "섭지코지",
+  "category": "자연",
+  "at": [
+   33.423938,
+   126.930609
+  ],
+  "addr": "제주 서귀포시 성산읍 섭지코지로 107",
+  "kind": "바위",
+  "thumb": null,
+  "imageRights": ""
+ },
+ {
+  "name": "만장굴",
+  "category": "자연",
+  "at": [
+   33.528378,
+   126.771616
+  ],
+  "addr": "제주 제주시 구좌읍 만장굴길 182",
+  "kind": "동굴",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/55/3354155_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "비자림",
+  "category": "자연",
+  "at": [
+   33.490408,
+   126.809988
+  ],
+  "addr": "제주 제주시 구좌읍 비자숲길 55",
+  "kind": "자연휴양림",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/06/4075306_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "사려니숲길",
+  "category": "자연",
+  "at": [
+   33.422033,
+   126.626497
+  ],
+  "addr": "제주 제주시 조천읍 교래리 산 137-1",
+  "kind": "숲",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/18/4072718_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "절물자연휴양림",
+  "category": "자연",
+  "at": [
+   33.439153,
+   126.628011
+  ],
+  "addr": "제주 제주시 명림로 584",
+  "kind": "자연휴양림",
+  "thumb": null,
+  "imageRights": ""
+ },
+ {
+  "name": "새별오름",
+  "category": "자연",
+  "at": [
+   33.366278,
+   126.357731
+  ],
+  "addr": "제주 제주시 애월읍 봉성리 산 59-8",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/28/4088628_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "금오름",
+  "category": "자연",
+  "at": [
+   33.354572,
+   126.305839
+  ],
+  "addr": "제주 제주시 한림읍 금악리 산 1-1",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/35/3352435_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "용눈이오름",
+  "category": "자연",
+  "at": [
+   33.45988,
+   126.832683
+  ],
+  "addr": "제주 제주시 구좌읍 종달리 산 28",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource_photo/86/2610186_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "다랑쉬오름",
+  "category": "자연",
+  "at": [
+   33.477686,
+   126.821536
+  ],
+  "addr": "제주 제주시 구좌읍 세화리 산 6",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/09/3527909_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "산굼부리",
+  "category": "자연",
+  "at": [
+   33.432574,
+   126.693832
+  ],
+  "addr": "제주 제주시 조천읍 교래리 166-2",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/55/3354255_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "산방산",
+  "category": "자연",
+  "at": [
+   33.241564,
+   126.31337
+  ],
+  "addr": "제주 서귀포시 안덕면 사계리 산 16",
+  "kind": "산",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/53/4055053_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "송악산",
+  "category": "자연",
+  "at": [
+   33.199083,
+   126.289791
+  ],
+  "addr": "제주 서귀포시 대정읍 상모리 산 2",
+  "kind": "산",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/29/3523429_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "한라산국립공원 어리목탐방로",
+  "category": "자연",
+  "at": [
+   33.36868,
+   126.509055
+  ],
+  "addr": "제주 제주시 애월읍 광령리 산 183-6",
+  "kind": "등산로",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource_photo/41/3460441_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "한라산국립공원 성판악탐방로",
+  "category": "자연",
+  "at": [
+   33.378131,
+   126.575029
+  ],
+  "addr": "제주 제주시 조천읍 교래리 산 137-2",
+  "kind": "등산로",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource_photo/41/3460441_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "도두봉",
+  "category": "자연",
+  "at": [
+   33.507907,
+   126.468372
+  ],
+  "addr": "제주 제주시 도두일동 산 2",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/14/3523614_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "용두암",
+  "category": "자연",
+  "at": [
+   33.516115,
+   126.511973
+  ],
+  "addr": "제주 제주시 용담이동",
+  "kind": "바위",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/68/3011868_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "천지연폭포",
+  "category": "폭포",
+  "at": [
+   33.247212,
+   126.554522
+  ],
+  "addr": "제주 서귀포시 서홍동 2565",
+  "kind": "폭포",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/43/4094043_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "정방폭포",
+  "category": "폭포",
+  "at": [
+   33.244909,
+   126.571526
+  ],
+  "addr": "제주 서귀포시 서귀동",
+  "kind": "폭포",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource_photo/32/3052932_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "천제연폭포",
+  "category": "폭포",
+  "at": [
+   33.252677,
+   126.418375
+  ],
+  "addr": "제주 서귀포시 천제연로 132",
+  "kind": "폭포",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/56/3552156_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "엉또폭포",
+  "category": "폭포",
+  "at": [
+   33.268532,
+   126.499965
+  ],
+  "addr": "제주 서귀포시 강정동 5628",
+  "kind": "폭포",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/58/3536058_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "카멜리아힐",
+  "category": "전시",
+  "at": [
+   33.290337,
+   126.36819
+  ],
+  "addr": "제주 서귀포시 안덕면 병악로 166",
+  "kind": "수목원",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/84/4064284_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "오설록 티뮤지엄",
+  "category": "전시",
+  "at": [
+   33.30592,
+   126.28949
+  ],
+  "addr": "제주 서귀포시 안덕면 신화역사로 15",
+  "kind": "카페",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/22/4017322_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "에코랜드 테마파크",
+  "category": "전시",
+  "at": [
+   33.447085,
+   126.667351
+  ],
+  "addr": "제주 제주시 조천읍 남조로 1982",
+  "kind": "테마파크",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/43/3396943_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주민속촌",
+  "category": "전시",
+  "at": [
+   33.322396,
+   126.842297
+  ],
+  "addr": "제주 서귀포시 표선면 민속해안로 631-34",
+  "kind": "민속촌",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/43/3534943_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "성읍민속마을",
+  "category": "전시",
+  "at": [
+   33.38496,
+   126.801499
+  ],
+  "addr": "제주 서귀포시 표선면 성읍정의현로 30",
+  "kind": "민속촌",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/64/3551564_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "아쿠아플라넷 제주",
+  "category": "전시",
+  "at": [
+   33.433068,
+   126.927846
+  ],
+  "addr": "제주 서귀포시 성산읍 섭지코지로 95",
+  "kind": "아쿠아리움",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/80/2986980_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "김녕미로공원",
+  "category": "전시",
+  "at": [
+   33.536532,
+   126.772235
+  ],
+  "addr": "제주 제주시 구좌읍 만장굴길 122",
+  "kind": "테마파크",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/69/3556269_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "스누피가든",
+  "category": "전시",
+  "at": [
+   33.444131,
+   126.778167
+  ],
+  "addr": "제주 제주시 구좌읍 금백조로 930",
+  "kind": "테마파크",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/87/3354387_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "아르떼뮤지엄 제주",
+  "category": "전시",
+  "at": [
+   33.3967,
+   126.345011
+  ],
+  "addr": "제주 제주시 애월읍 어림비로 478",
+  "kind": "미술관",
+  "thumb": null,
+  "imageRights": ""
+ },
+ {
+  "name": "노형수퍼마켙",
+  "category": "전시",
+  "at": [
+   33.464825,
+   126.455356
+  ],
+  "addr": "제주 제주시 노형로 89",
+  "kind": "전시관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/82/3350682_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주항공우주박물관",
+  "category": "전시",
+  "at": [
+   33.30435,
+   126.299794
+  ],
+  "addr": "제주 서귀포시 안덕면 항공우주로 83",
+  "kind": "박물관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/84/3546884_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주동문시장",
+  "category": "시장",
+  "at": [
+   33.512784,
+   126.528303
+  ],
+  "addr": "제주 제주시 동문로 16",
+  "kind": "시장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/92/4029192_image3_1.JPG",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "서귀포매일올레시장",
+  "category": "시장",
+  "at": [
+   33.25015,
+   126.563232
+  ],
+  "addr": "제주 서귀포시 중앙로62번길 18",
+  "kind": "시장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/66/3546866_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "제주민속오일시장",
+  "category": "시장",
+  "at": [
+   33.497241,
+   126.475484
+  ],
+  "addr": "제주 제주시 오일장서길 26",
+  "kind": "시장",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "세화민속오일시장",
+  "category": "시장",
+  "at": [
+   33.526186,
+   126.857297
+  ],
+  "addr": "제주 제주시 구좌읍 해맞이해안로 1412",
+  "kind": "시장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/52/3410552_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "애월카페거리",
+  "category": "시장",
+  "at": [
+   33.462587,
+   126.309169
+  ],
+  "addr": "제주 제주시 애월읍 애월리",
+  "kind": "테마거리",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "삼양검은모래해변",
+  "category": "바다",
+  "at": [
+   33.525867,
+   126.585537
+  ],
+  "addr": "제주 제주시 삼양이동 1960-4",
+  "kind": "해수욕장",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "하도해수욕장",
+  "category": "바다",
+  "at": [
+   33.513057,
+   126.89923
+  ],
+  "addr": "제주 제주시 구좌읍 하도리",
+  "kind": "해수욕장",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "광치기해변",
+  "category": "바다",
+  "at": [
+   33.452521,
+   126.924193
+  ],
+  "addr": "제주 서귀포시 성산읍 고성리 224-1",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/00/4098400_image3_1.JPG",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "사계해변",
+  "category": "바다",
+  "at": [
+   33.228658,
+   126.308598
+  ],
+  "addr": "제주 서귀포시 안덕면 사계리",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/36/3421436_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "판포포구",
+  "category": "바다",
+  "at": [
+   33.365022,
+   126.200023
+  ],
+  "addr": "제주 제주시 한경면 판포리",
+  "kind": "항구",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/61/3352661_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "황우지해안",
+  "category": "바다",
+  "at": [
+   33.241467,
+   126.550528
+  ],
+  "addr": "제주 서귀포시 서홍동",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/37/3399937_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "외돌개",
+  "category": "바다",
+  "at": [
+   33.239034,
+   126.544862
+  ],
+  "addr": "제주 서귀포시 서홍동 791",
+  "kind": "관광",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/75/3552175_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "새연교",
+  "category": "바다",
+  "at": [
+   33.238533,
+   126.558886
+  ],
+  "addr": "제주 서귀포시 서홍동 707-4",
+  "kind": "교량",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/09/3011809_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "구엄리돌염전",
+  "category": "바다",
+  "at": [
+   33.483437,
+   126.376474
+  ],
+  "addr": "제주 제주시 애월읍 구엄리",
+  "kind": "관광",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/29/3555529_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "종달리해변",
+  "category": "바다",
+  "at": [
+   33.488689,
+   126.905077
+  ],
+  "addr": "제주 제주시 구좌읍 종달리 622-5",
+  "kind": "해수욕장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/36/3553836_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "소천지",
+  "category": "바다",
+  "at": [
+   33.239569,
+   126.592089
+  ],
+  "addr": "제주 서귀포시 보목동 1400",
+  "kind": "관광",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/92/3551992_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "도두동무지개해안도로",
+  "category": "바다",
+  "at": [
+   33.509118,
+   126.471338
+  ],
+  "addr": "제주 제주시 도두일동 1734",
+  "kind": "드라이브코스",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "백약이오름",
+  "category": "자연",
+  "at": [
+   33.436809,
+   126.789758
+  ],
+  "addr": "제주 서귀포시 표선면 성읍리 산 1",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/33/4078433_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "아부오름",
+  "category": "자연",
+  "at": [
+   33.448584,
+   126.777215
+  ],
+  "addr": "제주 제주시 구좌읍 송당리 2263",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/27/3011827_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "따라비오름",
+  "category": "자연",
+  "at": [
+   33.388707,
+   126.752858
+  ],
+  "addr": "제주 서귀포시 표선면 가시리 산 63",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/05/3535905_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "물영아리오름",
+  "category": "자연",
+  "at": [
+   33.368395,
+   126.692064
+  ],
+  "addr": "제주 서귀포시 남원읍 수망리 산 188",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/64/3552664_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "거문오름",
+  "category": "자연",
+  "at": [
+   33.454839,
+   126.718256
+  ],
+  "addr": "제주 제주시 조천읍 선흘리 산 102-1",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/85/4074785_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "지미봉",
+  "category": "자연",
+  "at": [
+   33.499313,
+   126.902439
+  ],
+  "addr": "제주 제주시 구좌읍 종달리 산 3-1",
+  "kind": "산봉우리",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/85/3523585_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "군산오름",
+  "category": "자연",
+  "at": [
+   33.25324,
+   126.36997
+  ],
+  "addr": "제주 서귀포시 안덕면 창천리 산 3-1",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/48/3035448_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "노꼬메오름",
+  "category": "자연",
+  "at": [
+   33.389128,
+   126.411458
+  ],
+  "addr": "제주 제주시 애월읍 유수암리 산 138",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/58/4078058_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "사라봉",
+  "category": "자연",
+  "at": [
+   33.517956,
+   126.544766
+  ],
+  "addr": "제주 제주시 건입동 387-1",
+  "kind": "산봉우리",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/99/3053499_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "별도봉",
+  "category": "자연",
+  "at": [
+   33.519197,
+   126.553092
+  ],
+  "addr": "제주 제주시 화북일동 4472",
+  "kind": "산봉우리",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/05/3527105_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "어승생악",
+  "category": "자연",
+  "at": [
+   33.396522,
+   126.489278
+  ],
+  "addr": "제주 제주시 해안동 산 220-12",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/72/3555172_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "안돌오름",
+  "category": "자연",
+  "at": [
+   33.457831,
+   126.755869
+  ],
+  "addr": "제주 제주시 구좌읍 송당리 산 66-2",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/57/3523657_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "영주산",
+  "category": "자연",
+  "at": [
+   33.404567,
+   126.796239
+  ],
+  "addr": "제주 서귀포시 표선면 성읍리 산 18-1",
+  "kind": "오름",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/68/3528268_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "한라생태숲",
+  "category": "자연",
+  "at": [
+   33.431293,
+   126.5977
+  ],
+  "addr": "제주 제주시 516로 2596",
+  "kind": "숲",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/23/3027023_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "교래자연휴양림",
+  "category": "자연",
+  "at": [
+   33.440361,
+   126.664962
+  ],
+  "addr": "제주 제주시 조천읍 남조로 2023",
+  "kind": "자연휴양림",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/30/3525130_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "서귀포자연휴양림",
+  "category": "자연",
+  "at": [
+   33.311506,
+   126.458754
+  ],
+  "addr": "제주 서귀포시 1100로 882",
+  "kind": "자연휴양림",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/27/3023727_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주곶자왈도립공원",
+  "category": "자연",
+  "at": [
+   33.288946,
+   126.27172
+  ],
+  "addr": "제주 서귀포시 대정읍 에듀시티로 178",
+  "kind": "도립공원",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/62/4074562_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "한라수목원",
+  "category": "자연",
+  "at": [
+   33.469784,
+   126.493266
+  ],
+  "addr": "제주 제주시 수목원길 72",
+  "kind": "수목원",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/91/3541991_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "1100고지습지",
+  "category": "자연",
+  "at": [
+   33.358019,
+   126.46363
+  ],
+  "addr": "제주 서귀포시 색달동 산 1-1",
+  "kind": "생태보존",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/07/3314907_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "천아숲길",
+  "category": "자연",
+  "at": [
+   33.336691,
+   126.455322
+  ],
+  "addr": "제주 서귀포시 중문동 산 1-2",
+  "kind": "입출구",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/38/3545738_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "삼다수숲길",
+  "category": "자연",
+  "at": [
+   33.421585,
+   126.666539
+  ],
+  "addr": "제주 제주시 조천읍 교래리 산 70-1",
+  "kind": "숲",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/08/4073008_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "제주돌문화공원",
+  "category": "자연",
+  "at": [
+   33.448562,
+   126.660273
+  ],
+  "addr": "제주 제주시 조천읍 남조로 2023",
+  "kind": "테마파크",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/94/4094994_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "원앙폭포",
+  "category": "폭포",
+  "at": [
+   33.300177,
+   126.58133
+  ],
+  "addr": "제주 서귀포시 돈내코로 137",
+  "kind": "폭포",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/84/3589084_image2_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "소정방폭포",
+  "category": "폭포",
+  "at": [
+   33.245226,
+   126.577635
+  ],
+  "addr": "제주 서귀포시 토평동",
+  "kind": "폭포",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/77/3384477_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주신화월드",
+  "category": "전시",
+  "at": [
+   33.304944,
+   126.316401
+  ],
+  "addr": "제주 서귀포시 안덕면 신화역사로304번길 38",
+  "kind": "호텔",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/25/4045025_image3_1.png",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "본태박물관",
+  "category": "전시",
+  "at": [
+   33.303771,
+   126.39248
+  ],
+  "addr": "제주 서귀포시 안덕면 산록남로762번길 69",
+  "kind": "박물관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/07/4073607_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "유리의성",
+  "category": "전시",
+  "at": [
+   33.314642,
+   126.27366
+  ],
+  "addr": "제주 제주시 한경면 녹차분재로 462",
+  "kind": "테마파크",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "소인국테마파크",
+  "category": "전시",
+  "at": [
+   33.281805,
+   126.331543
+  ],
+  "addr": "제주 서귀포시 안덕면 화순서동로 347",
+  "kind": "테마파크",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/17/3502717_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주허브동산",
+  "category": "전시",
+  "at": [
+   33.330394,
+   126.815185
+  ],
+  "addr": "제주 서귀포시 표선면 돈오름로 170",
+  "kind": "관광농원",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/86/3551486_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "방주교회",
+  "category": "전시",
+  "at": [
+   33.305049,
+   126.387439
+  ],
+  "addr": "제주 서귀포시 안덕면 산록남로762번길 113",
+  "kind": "기독교",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/71/3400771_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "넥슨컴퓨터박물관",
+  "category": "전시",
+  "at": [
+   33.47176,
+   126.484988
+  ],
+  "addr": "제주 제주시 노형동 86",
+  "kind": "박물관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/73/2721573_image2_1.png",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "헬로키티아일랜드",
+  "category": "전시",
+  "at": [
+   33.29003,
+   126.352084
+  ],
+  "addr": "제주 서귀포시 안덕면 한창로 340",
+  "kind": "박물관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/95/4020595_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "세계자동차제주박물관",
+  "category": "전시",
+  "at": [
+   33.283758,
+   126.349815
+  ],
+  "addr": "제주 서귀포시 안덕면 중산간서로 1610",
+  "kind": "박물관",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "테디베어뮤지엄",
+  "category": "전시",
+  "at": [
+   33.250296,
+   126.412163
+  ],
+  "addr": "제주 서귀포시 중문관광로110번길 31",
+  "kind": "박물관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/67/3548667_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "제주해녀박물관",
+  "category": "전시",
+  "at": [
+   33.523578,
+   126.86343
+  ],
+  "addr": "제주 제주시 구좌읍 해녀박물관길 26",
+  "kind": "박물관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/05/4073405_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "제주민속자연사박물관",
+  "category": "전시",
+  "at": [
+   33.50635,
+   126.531519
+  ],
+  "addr": "제주 제주시 삼성로 40",
+  "kind": "박물관",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "제주도립미술관",
+  "category": "전시",
+  "at": [
+   33.452585,
+   126.489645
+  ],
+  "addr": "제주 제주시 1100로 2894-78",
+  "kind": "미술관",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "이중섭미술관",
+  "category": "전시",
+  "at": [
+   33.24586,
+   126.564873
+  ],
+  "addr": "제주 서귀포시 이중섭로 27-3",
+  "kind": "미술관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/93/3533493_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "기당미술관",
+  "category": "전시",
+  "at": [
+   33.244889,
+   126.551197
+  ],
+  "addr": "제주 서귀포시 남성중로153번길 15",
+  "kind": "미술관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/41/3548141_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "제주현대미술관",
+  "category": "전시",
+  "at": [
+   33.339663,
+   126.265585
+  ],
+  "addr": "제주 제주시 한경면 저지14길 35",
+  "kind": "미술관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/78/4088678_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "서귀포감귤박물관",
+  "category": "전시",
+  "at": [
+   33.271562,
+   126.607467
+  ],
+  "addr": "제주 서귀포시 효돈순환로 441",
+  "kind": "박물관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/33/4001333_image3_1.jpeg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주4.3평화공원",
+  "category": "전시",
+  "at": [
+   33.451268,
+   126.617927
+  ],
+  "addr": "제주 제주시 명림로 430",
+  "kind": "문화유적",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/72/4094972_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "빛의벙커",
+  "category": "전시",
+  "at": [
+   33.439875,
+   126.899211
+  ],
+  "addr": "제주 서귀포시 성산읍 서성일로1168번길 89-17",
+  "kind": "전시관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/08/3548808_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "제주김만덕기념관",
+  "category": "전시",
+  "at": [
+   33.515875,
+   126.530391
+  ],
+  "addr": "제주 제주시 산지로 7",
+  "kind": "기념관",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/30/3396630_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "성이시돌목장",
+  "category": "전시",
+  "at": [
+   33.34777,
+   126.327321
+  ],
+  "addr": "제주 제주시 한림읍 금악동길 35",
+  "kind": "농장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/31/3350731_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주양떼목장",
+  "category": "전시",
+  "at": [
+   33.410984,
+   126.365453
+  ],
+  "addr": "제주 제주시 애월읍 도치돌길 289-13",
+  "kind": "체험학습장",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/29/4073429_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "휴애리자연생활공원",
+  "category": "전시",
+  "at": [
+   33.30941,
+   126.63541
+  ],
+  "addr": "제주 서귀포시 남원읍 신례동로 256",
+  "kind": "도시근린공원",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/87/4066987_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "상효원",
+  "category": "전시",
+  "at": [
+   33.305958,
+   126.584635
+  ],
+  "addr": "제주 서귀포시 산록남로 2847-37",
+  "kind": "수목원",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/13/3533613_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "제주경마공원",
+  "category": "전시",
+  "at": [
+   33.408248,
+   126.398077
+  ],
+  "addr": "제주 제주시 애월읍 평화로 2144",
+  "kind": "경마장",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "제주목관아",
+  "category": "전시",
+  "at": [
+   33.514202,
+   126.522003
+  ],
+  "addr": "제주 제주시 관덕로 25",
+  "kind": "문화유적",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/65/4074265_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "삼성혈",
+  "category": "전시",
+  "at": [
+   33.504428,
+   126.528763
+  ],
+  "addr": "제주 제주시 삼성로 22",
+  "kind": "문화유적",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/44/3555444_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "항파두리항몽유적지",
+  "category": "전시",
+  "at": [
+   33.452748,
+   126.407923
+  ],
+  "addr": "제주 제주시 애월읍 항파두리로 50",
+  "kind": "문화유적",
+  "thumb": null,
+  "imageRights": null
+ },
+ {
+  "name": "약천사",
+  "category": "전시",
+  "at": [
+   33.246236,
+   126.449459
+  ],
+  "addr": "제주 서귀포시 이어도로 293-28",
+  "kind": "불교",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/17/3034717_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "관음사",
+  "category": "전시",
+  "at": [
+   33.42374,
+   126.558124
+  ],
+  "addr": "제주 제주시 산록북로 660",
+  "kind": "불교",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/84/4094984_image3_1.jpg",
+  "imageRights": "Type1"
+ },
+ {
+  "name": "이중섭거리",
+  "category": "시장",
+  "at": [
+   33.247614,
+   126.564004
+  ],
+  "addr": "제주 서귀포시 이중섭로 4-1",
+  "kind": "테마거리",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/36/3403036_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "제주중앙지하상가",
+  "category": "시장",
+  "at": [
+   33.512951,
+   126.524848
+  ],
+  "addr": "제주 제주시 중앙로 지하 60",
+  "kind": "상가",
+  "thumb": "https://tong.visitkorea.or.kr/cms/resource/22/3527922_image3_1.jpg",
+  "imageRights": "Type3"
+ },
+ {
+  "name": "함덕오일시장",
+  "category": "시장",
+  "at": [
+   33.540186,
+   126.667945
+  ],
+  "addr": "제주 제주시 조천읍 함덕16길 15-13",
+  "kind": "시장",
+  "thumb": null,
+  "imageRights": null
+ }
+]

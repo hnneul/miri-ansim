@@ -29,6 +29,9 @@ export default function GoButton({ name, at }: { name: string; at: [number, numb
     q.set("to", name);
     q.set("toLat", String(at[0]));
     q.set("toLng", String(at[1]));
+    // ✕ 로 닫으면 주차장 목록으로 돌아간다. 안 실어 보내면 화이트리스트가 못 알아듣고 홈으로 튕겨
+    // 목적지·목록·상세 세 화면을 한 번에 건너뛴다 (목록의 "여기로 갈게요"와 같은 값이어야 한다).
+    q.set("back", "parking");
     router.push(`/route?${q}`);
   }
 
@@ -36,7 +39,7 @@ export default function GoButton({ name, at }: { name: string; at: [number, numb
     <div className="mx-4 mt-6 shrink-0">
       <button
         onClick={go}
-        className="h-[52px] w-full rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition active:scale-[0.98]"
+        className="h-[52px] w-full rounded-[8px] bg-[#fc7f35] text-[14px] leading-[22px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
       >
         이 주차장까지 경로보기
       </button>

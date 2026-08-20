@@ -1,5 +1,7 @@
 "use server";
 
+import { areaAt } from "@/lib/geocode";
+
 // 길 비교 — 카카오 길찾기 두 갈래를 받아 분석하고 부담점수를 매긴다.
 //
 // 여기서 새로 하는 계산은 없다. lib 에 이미 다 있고(routesFor → scoreRoutes), 이 파일은
@@ -44,7 +46,7 @@ export type Compared =
   | { error: string };
 
 /**
- * 도착지 주차장 — 대본 ④칸의 재료.
+ * 도착지 주차장 — 대본 ⑤칸의 재료.
  *
  * 좌표가 정확히 같은 행을 찾는다. 이름으로 찾지 않는 이유는 원본에 이름도 좌표도 똑같은 행이
  * 15쌍 있어서다 (app/parking/detail/page.tsx 와 같은 방식·같은 이유). 이 좌표는 주차장 화면이
@@ -79,8 +81,13 @@ export async function compareRoutes(
   origin: LatLng,
   destination: LatLng,
   profile: DriverProfile,
-  /** 도착지 주차장. 없으면 대본이 ④칸(도착해서 차를 댈 곳)을 쓰지 않는다 */
+  /** 도착지 주차장. 없으면 대본이 ⑤칸(도착해서 차를 댈 곳)을 쓰지 않는다 */
   dest?: { name: string; place: LatLng | null; placeName?: string },
+  /**
+   * 온보딩 4단계가 고른 부담 유형 (쿼리 hard). parseProfile 이 실제 데이터가 있는 유형을
+   * 점수 가중치로 옮기고, 원래 인덱스는 AI 대본이 무엇을 먼저 설명할지 정하는 데 쓴다.
+   */
+  concerns: number[] = [],
 ): Promise<Compared> {
   // 프로필을 넘긴다 — 후보 셋 중 어느 것이 "안심 길" 자리에 앉을지가 프로필을 탄다 (routesFor 주석)
   const live = await routesFor(origin, destination, LINKS as Link[], profile);
@@ -109,7 +116,7 @@ export async function compareRoutes(
     live.routes.map((r) => [
       r.id,
       // 목적지 이름은 주차장 이름이 아니라 원래 고른 곳이다 — 대본 ①이 "오늘은 성산일출봉
-      // 가시고" 로 연다. 주차장 이름(dest.name)은 ④칸이 따로 쓴다.
+      // 가시고" 로 연다. 주차장 이름(dest.name)은 ⑤칸이 따로 쓴다.
       radioScript(
         profile,
         score,
@@ -126,16 +133,37 @@ export async function compareRoutes(
     score,
     verdicts,
     radio,
-    facts: factsOf(`현위치 → ${dest?.name ?? "도착지"}`, profile, score, live.routes, arrival),
+    facts: factsOf(
+      `현위치 → ${dest?.name ?? "도착지"}`,
+      profile,
+      score,
+      live.routes,
+      arrival,
+      concerns,
+    ),
     at: live.at,
   };
 }
 
 /**
+ * AI 대본을 켠다. 모델이 gpt-5.6-luna 하나로 정해졌고 askModel 의 2단 폴백도 없어졌다 —
+ * 껐던 이유(1순위가 잘리고 2순위가 받아 10초)가 그대로 사라졌다.
+ *
+ * 한 번 부르는 데 10초는 여전하다 — 실측 2026-08-20, lib/ai.smoke.ts 로 초보 9.7초 ·
+ * 베테랑 10.4초였고 둘 다 verify 를 통과했다. **화면은 이걸 안 기다린다** (page.tsx 의
+ * useEffect). 규칙 대본이 먼저 앉고 AI 대본이 오면 갈아끼운다.
+ *
+ * 같은 프롬프트는 캐시가 받아친다 — 같은 실측에서 2회차가 0ms 였다. 시연 전에 열어 볼
+ * 구간을 한 번씩 미리 열어두면 대본이 즉시 뜨고 호출도 안 나간다. 캐시는 서버 메모리라
+ * 배포하면 재시작되며 비므로 **배포 뒤에** 데운다.
+ */
+const AI_대본 = true;
+
+/**
  * AI 대본. 받으면 규칙 대본을 덮어쓰고, 못 받으면(한도·타임아웃·검증 실패) null 이라 그대로 둔다.
  *
  * **compareRoutes 안에서 부르지 않는다.** 저기는 지도와 경로 카드가 기다리는 자리인데
- * AI 호출은 최대 6초다(lib/ai.ts TIMEOUT_MS). 대본 때문에 화면 전체가 6초 늦게 뜨면
+ * AI 호출은 10초 안팎이다(lib/ai.ts TIMEOUT_MS). 대본 때문에 화면 전체가 그만큼 늦게 뜨면
  * 대본이 있는 쪽이 없는 쪽보다 나쁜 화면이 된다. 대본은 늦게 좋아져도 되는 종류다 —
  * 규칙 대본이 이미 재생 가능한 상태로 화면에 앉아 있기 때문이다.
  *
@@ -144,24 +172,22 @@ export async function compareRoutes(
  * 대안이 없는 구간(경로 1개)에서는 부르지 않는다 — 스키마가 경로 두 개를 요구하고,
  * 애초에 비교할 게 없으면 ②칸(왜 이 길인지)이 성립하지 않는다. 규칙 대본이 그 경우를 맡는다.
  */
-/**
- * ponytail: **AI 대본을 지금은 끈다.** 어느 모델을 쓸지 아직 안 정했다.
- *
- * lib/ai.ts 의 askModel 이 openai → groq → gemini×2 를 **순차로** 시도하는데, 1순위가
- * TIMEOUT_MS(6초)를 넘겨 잘리고 2순위가 받으면 그대로 10초다 — 실측 2026-08-16,
- * 제주시청→협재에서 10,012ms 였다 (같은 화면의 compareRoutes 는 517ms).
- *
- * 끄면 화면이 규칙 대본만 쓴다. **빠지는 기능이 없다** — radioScript 가 늘 값을 채우므로
- * 재생 버튼도 칸 수도 그대로고, 문장이 덜 매끄러워지는 것뿐이다. 덤으로 RouteRadio 의
- * 미리받기가 한 벌만 나간다 (대본이 중간에 안 바뀌므로).
- *
- * 후보를 정하면 true 로 되돌린다. 그 실측은 lib/ai.smoke.ts 로 계속 할 수 있다.
- */
-const AI_대본 = false;
-
 export async function aiRadio(facts: Facts): Promise<string[][] | null> {
   if (!AI_대본) return null;
   if (facts.경로.length < 2) return null;
   // 규칙 대본과 같은 이유로 여기도 서명을 붙인다 — 화면이 어느 쪽을 쓰든 주소 모양이 같아야 한다
   return (await aiSentences(facts))?.radio?.map((대본) => 대본.map(붙인칸)) ?? null;
+}
+
+/**
+ * 좌표 → 동네 이름 ("제주시 아라이동"). 주행 저장에 담을 때 출발지 이름으로 쓴다.
+ *
+ * 검색해서 온 사람은 쿼리에 출발지 이름이 실려 있지만, 현위치에서 바로 길을 본 사람은 그게 없다.
+ * 그때 "출발지 → 서귀포매일올레시장"으로 담기면 나중에 목록에서 어디서 떠났는지 알 수 없다.
+ * 키가 없거나 못 찾으면 null 이고, 부르는 쪽이 "현재 위치"로 떨어뜨린다.
+ *
+ * 서버여야 하는 이유는 KAKAO_REST_API_KEY 다 — 브라우저에 내보내면 안 된다 (lib/geocode.ts).
+ */
+export async function areaOf(lat: number, lng: number): Promise<string | null> {
+  return areaAt(lat, lng);
 }

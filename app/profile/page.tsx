@@ -4,16 +4,19 @@
 // 메인화면(/home) 히어로의 프로필 버튼에서 들어온다. 값은 URL 쿼리에 실려 온 걸 되읽는다 (lib/profile.ts).
 //
 // **읽기 전용 화면이다.** 고치는 곳은 온보딩 하나고, "프로필 수정"이 거기로 되돌린다.
-// 온보딩이 묻는 네 값(빈도·제주경험·차량·부담유형)만 적는다 — 경력·시간대는 묻는 곳이 없어
+// 온보딩이 묻는 네 값(익숙함·제주경험·차량·부담유형)만 적는다 — 시간대는 묻는 곳이 없어
 // 늘 기본값에 묶여 있으므로, 적으면 무엇을 골라도 안 바뀌는 줄이 된다 (아래 driver-profile 주석).
 //
 // 좌표는 와이어프레임의 390x844 를 옮겼지만 절대배치는 쓰지 않는다 (app/page.tsx 와 같은 이유 —
 // .phone 높이가 노트북에서 844 보다 낮아질 수 있다). 아래 두 줄(안내·버전)은 flex-1 로 바닥에 붙인다.
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
-import { CONCERNS, LABELS, parseProfile, parseConcerns } from "@/lib/profile";
+import { TOPICS } from "@/lib/serviceinfo";
+import { APP_FOOTER } from "@/lib/version";
+import { CONCERNS, LABELS, characterOf, parseProfile, parseConcerns } from "@/lib/profile";
 
 // useSearchParams 는 프리렌더 때 Suspense 경계가 필요하다 (Next 16 문서 use-search-params.md)
 export default function ProfilePage() {
@@ -26,20 +29,9 @@ export default function ProfilePage() {
 
 /**
  * 마스코트 이름. 와이어프레임이 "귤이 · 소형"으로 적어둔 그 자리다.
- * 경력에 따라 씨앗 → 새싹 → 감귤로 자라지만 이름은 그대로다 — 자라는 건 같은 캐릭터다.
+ * 경력에 따라 그림이 갈리지만(lib/profile.ts CHARACTERS) 이름은 그대로다 — 같은 캐릭터다.
  */
 const MASCOT = "귤이";
-
-/**
- * 서비스 정보 네 줄. 와이어프레임에 대응 화면이 아직 없다.
- * ponytail: 화면이 생기면 여기 href 를 채우고 div → Link 로 바꾼다.
- */
-const MENU = [
-  { title: "부담점수 계산 기준", desc: "길 근거와 가중치 보기" },
-  { title: "데이터 출처 6종", desc: "출처와 갱신일 보기" },
-  { title: "개인정보 처리방침", desc: "수집 항목 확인" },
-  { title: "이용약관", desc: "서비스 이용 기준" },
-];
 
 function Profile() {
   const router = useRouter();
@@ -61,7 +53,7 @@ function Profile() {
         <button
           onClick={() => router.push(`/home?${searchParams}`)}
           aria-label="뒤로"
-          className="-ml-2 flex size-11 shrink-0 items-center justify-center text-[22px] leading-none text-[#262626]"
+          className="-ml-2 flex size-11 shrink-0 items-center justify-center text-[22px] leading-none text-[#262626] transition hover:opacity-40 active:scale-90"
         >
           ‹
         </button>
@@ -73,19 +65,16 @@ function Profile() {
       {/*
         driver-profile — 온보딩이 받아간 값을 사람 말로 되돌려 준다.
 
-        프로필 사진은 와이어프레임 그대로 한 장이다(마이페이지 Figma 2770:1896, 공원의 귤이).
-        전에 쓰던 풋귤(초록) 컷은 와이어프레임에 없는 그림이었다 — 다른 화면 아바타(avatar-my)와
-        얼굴이 갈려서 같은 사람의 프로필로 안 읽혔다. 지금은 둘이 같은 원본에서 잘라낸 같은 그림이고,
-        avatar-my 를 그대로 쓰지 않은 건 그게 176px 짜리라 94px 원에 담으면 성기게 보여서다.
+        프로필 사진은 익숙함 티어마다 갈린다 (Figma "프로필 별 이미지" 4122:596, lib/profile.ts CHARACTERS):
+        왕초보는 라바콘 옆에서 겁먹은 풋귤, 초보는 핸들을 잡은 감귤, 익숙은 열쇠를 든 노란 귤.
+        전에는 한 장(profile.png)이라 프로필을 바꿔도 얼굴이 그대로였다 — "내 운전 설정"을 보여주는
+        자리인데 정작 그 설정이 그림에 안 비쳤다.
         배경이 그려진 그림이라 원을 꽉 채우게 object-cover 로 담는다 — 뒤에 색을 깔 필요가 없다.
-        ponytail: 이 한 장이라 여기서는 경력이 자라는 게 안 보인다 (다른 화면 아바타는 여전히
-        씨앗 → 새싹 → 감귤로 바뀐다, lib/profile.ts CHARACTERS). 여기서도 자라게 하려면
-        같은 화풍으로 단계별 세 장이 있어야 한다.
       */}
       <div className="mt-3 flex shrink-0 items-start gap-6 px-7">
         <img
-          src="/character/profile.png"
-          alt="내 프로필 사진"
+          src={characterOf(profile.experienceYears).src}
+          alt={characterOf(profile.experienceYears).alt}
           className="size-[94px] shrink-0 rounded-full object-cover"
         />
         <div className="min-w-0 pt-1">
@@ -95,11 +84,15 @@ function Profile() {
           </p>
           <div className="mt-2 text-[11px] leading-[1.55] text-[#616161]">
             {/*
-              운전 경력은 안 적는다. 온보딩이 묻지 않는 값이라 늘 기본값("1년 이하")에 묶여 있어,
-              적으면 무엇을 골라도 안 바뀌는 줄이 된다 — 고정된 값을 설정처럼 보여주는 게 거짓말이다.
-              (점수의 isNovice(lib/score.ts)도 같은 이유로 늘 참이다. 경력을 쓰려면 물을 곳이 있어야 한다.)
+              운전 빈도는 안 적는다. 온보딩 1단계가 익숙함 한 문항으로 티어와 빈도를 같이 정하므로
+              둘을 나란히 적으면 같은 대답을 두 번 보여주는 줄이 된다 ("초보 / 운전 거의 안 함").
+              점수에 실제로 걸리는 쪽이 티어라(lib/score.ts EXP_WEIGHT) 그걸 적는다.
+
+              아래 두 줄과 달리 앞에 붙이는 말이 없다. "익숙"이 홀로 서는 명사가 아니라
+              무엇을 붙여도 어그러진다 — "익숙함 익숙"은 겹치고 "운전 익숙"은 말이 끊긴다.
+              라벨 한 단어면 위의 "내 운전 설정" 아래에서 뜻이 그대로 읽힌다.
             */}
-            <p>운전 {LABELS.drivingFrequency[profile.drivingFrequency]}</p>
+            <p>{LABELS.experienceYears[profile.experienceYears]}</p>
             <p>제주 운전 경험 {profile.jejuExperience ? "있음" : "없음"}</p>
             {/* 안 고르고 넘어갈 수 있는 단계라 없으면 줄째 뺀다 — "어려움: " 만 남으면 빈칸으로 보인다 */}
             {concerns.length > 0 && <p>어려움: {concerns.map((i) => CONCERNS[i].short).join(" · ")}</p>}
@@ -112,12 +105,21 @@ function Profile() {
         이 사진은 올리는 그림이 아니다. 누를 수 있어 보이는데 아무 일도 안 하면 시연에서 더 나쁘다
         (/home 프로모 카드와 같은 판단).
 
-        쿼리를 안 실어 보낸다 — 온보딩은 네 값을 처음부터 다시 고르는 자리라 이전 값을 물려줄
-        데가 없다. 다 고르고 나면 온보딩이 새 쿼리를 만들어 /home 으로 넘긴다.
+        쿼리를 실어 보낸다 — 온보딩이 그걸 읽어 지금 값을 미리 짚어 준다(picksOf). 차 크기 하나
+        고치려고 네 문항을 다시 답할 이유가 없고, 1단계에서 뒤로를 눌러도 이 화면으로 되돌아온다.
+        다 고르고 나면 온보딩이 새 쿼리를 만들어 /home 으로 넘긴다.
+      */}
+      {/*
+        **회색은 그대로 두고 호버만 준다.** 이 화면에서 누를 수 있는 건 이 버튼과 아래 정보 카드
+        넷뿐인데, 정작 액션인 이쪽이 흰 카드들보다 흐렸다 (F58). 색을 올려 눈에 띄게 만드는 대신
+        눌리는 것이라는 신호만 붙인다 — 이 화면의 회색은 고른 색이지 빠뜨린 색이 아니다.
+
+        #f5f5f5 → #e5e5e5 는 홈의 회색 칸(app/home/page.tsx bg-[#f0f0f0])이 쓰는 짝과 같은 계열이다.
+        새 색을 만들지 않는다.
       */}
       <button
-        onClick={() => router.push("/onboarding")}
-        className="mx-[34px] mt-[26px] h-[37px] shrink-0 rounded-[32px] bg-[#f5f5f5] text-[13px] text-[#1f1f1f] transition active:scale-[0.99]"
+        onClick={() => router.push(`/onboarding?${searchParams}`)}
+        className="mx-[34px] mt-[26px] h-[37px] shrink-0 rounded-[32px] bg-[#f5f5f5] text-[13px] text-[#1f1f1f] transition hover:bg-[#e5e5e5] active:scale-[0.99]"
       >
         프로필 수정
       </button>
@@ -125,33 +127,41 @@ function Profile() {
       <h2 className="mt-[52px] shrink-0 px-10 text-[18px] leading-normal font-bold text-[#1f1f1f]">서비스 정보</h2>
 
       <div className="mt-2 flex shrink-0 flex-col gap-2.5 px-9">
-        {MENU.map((m) => (
-          <div
-            key={m.title}
-            className="flex h-[68px] items-center justify-between rounded-[12px] border border-[#e6e6e6] bg-white pr-4 pl-[13px]"
+        {TOPICS.map((t) => (
+          <Link
+            key={t.slug}
+            href={`/profile/${t.slug}?${searchParams}`}
+            className="flex h-[68px] items-center justify-between rounded-[12px] border border-[#e6e6e6] bg-white pr-4 pl-[13px] transition active:scale-[0.99] active:bg-[#f5f5f5]"
           >
             <div className="min-w-0">
-              <p className="text-[15px] leading-normal font-medium text-[#1f1f1f]">{m.title}</p>
-              <p className="mt-[5px] text-[12px] leading-normal text-[#616161]">{m.desc}</p>
+              <p className="text-[15px] leading-normal font-medium text-[#1f1f1f]">{t.title}</p>
+              <p className="mt-[5px] text-[12px] leading-normal text-[#616161]">{t.desc}</p>
             </div>
             <span aria-hidden className="text-[22px] leading-none font-bold text-[#616161]">
               ›
             </span>
-          </div>
+          </Link>
         ))}
       </div>
 
       {/* 아래 두 줄은 바닥에 붙는다 — 프레임이 낮아지면 여기 여백부터 줄어든다 */}
       <div className="min-h-6 flex-1" />
 
+      {/*
+        전에는 "추천 순위를 만드는 데 쓰지 않고"라고 적혀 있었는데 **사실이 아니었다** —
+        lib/score.ts 의 expWeightOf 가 익숙함 티어로 위험 가중치를 곱하고(왕초보 ×1.6),
+        그 합이 recommendedRoute 를 정한다. 바로 위 "추천점수 계산 기준"(/profile/score)이
+        그 배수를 표로 설명하고 있어서, 한 화면 안에서 앱이 스스로를 반박하고 있었다.
+        신뢰를 말하는 자리라 틀린 문장의 무게가 더 크다. 실제로 하는 일만 적는다.
+      */}
       <p className="mx-4 shrink-0 rounded-[12px] bg-[#f5f7f7] px-4 py-[9px] text-center text-[12px] leading-normal text-[#616161]">
-        내 설정은 추천 순위를 만드는 데 쓰지 않고,
+        내 설정은 길의 부담을 나에게 맞춰 계산하는 데 쓰고,
         <br />
-        부담 설명을 나에게 맞추는 데만 사용해요.
+        주소창에만 실려 서버에 저장하지 않아요.
       </p>
 
       <p className="mt-[23px] shrink-0 pb-6 text-center text-[11px] leading-none font-medium text-[#616161]">
-        미리 안심 · 앱 버전 1.0.0
+        {APP_FOOTER}
       </p>
     </div>
   );

@@ -16,12 +16,25 @@ const dummy = (type: RiskFactor["type"], label: string, exposure = 0.2): RiskFac
   source: "검증용 더미 (실데이터 아님)",
 });
 
+/*
+  더미 노출이 0.3(배수 1.5)인 이유 — **초보 부담이 COMFORT_THRESHOLD(50)를 넘어야** 아래
+  "실시간 역전" 분기가 갈린다. 요인이 셋에서 둘로 줄면서(사고다발·급경사 폐기) 기준 노출
+  0.2 로는 부담이 49.9 가 되어 문턱 바로 아래로 떨어졌고, 그러면 초보도 빠른 길을 추천받아
+  검증하려던 자리가 사라진다. 재려는 건 특정 숫자가 아니라 그 분기라 노출로 자리를 잡는다.
+*/
 const FAST = [
-  dummy("accidentZone", "사고다발구간"),
-  dummy("sharpCurve", "연속 급커브"),
-  dummy("steepSlope", "급경사"),
+  dummy("sharpCurve", "연속 급커브", 0.3),
+  dummy("narrowRoad", "좁은 교행 구간", 0.3),
 ];
-const SAFE = [dummy("complexJunction", "복잡 교차로"), dummy("highSpeed", "고속주행 구간")];
+/*
+  두 줄이어야 한다 — 아래 "근거 카드가 비지 않는다" 검증이 경로마다 요인 2개를 요구한다.
+  좁은 길은 노출을 0.05(배수 하한 0.25)로 눌러 저부담 자리를 지킨다: 요인 수만 채우고
+  부담은 안 올려야 이 경로가 계속 "안심 길" 쪽에 남는다.
+*/
+const SAFE = [
+  dummy("highSpeed", "고속주행 구간"),
+  dummy("narrowRoad", "좁은 교행 구간", 0.05),
+];
 
 const 초보: DriverProfile = {
   experienceYears: 1,
@@ -52,8 +65,15 @@ console.log("베테랑", b.recommendedRoute, `fast=${b.fastScore} safe=${b.safeS
 assert.equal(a.recommendedRoute, "safe", "초보에게는 저부담 경로를 추천해야 한다");
 assert.equal(b.recommendedRoute, "safe", "시간 이득이 없으면 베테랑에게도 저부담 경로다");
 
-// 부담점수는 프로필에 따라 크게 달라진다 (PDF Core 완료 기준)
-assert.ok(a.fastScore > b.fastScore * 1.5, "초보의 부담점수가 베테랑보다 뚜렷이 높아야 한다");
+// 추천점수는 프로필에 따라 크게 달라진다 (PDF Core 완료 기준)
+//
+// 비율이 아니라 점수 차로 잰다. 추천점수는 100에서 깎아 내려온 값이라 배수에 뜻이 없다 —
+// 부담 71과 35 는 두 배 차이지만 추천점수로는 29와 65 이고, 여기서 "1.5배"는 아무것도
+// 가리키지 않는다. 실측은 36점 차다.
+assert.ok(
+  b.fastScore - a.fastScore >= 20,
+  `초보의 추천점수가 베테랑보다 뚜렷이 낮아야 한다: 초보=${a.fastScore} 베테랑=${b.fastScore}`,
+);
 
 // --- 실시간 교통이 뒤집는 경우 ---
 // 굳힌 값에서는 최단거리 경로가 항상 더 느려서 위 분기만 돌았다. lib/traffic.ts 가
@@ -66,16 +86,18 @@ const d = scoreRoutes(베테랑, 빠른경로, 정체난저부담);
 console.log("실시간 역전 — 초보  ", c.recommendedRoute, `fast=${c.fastScore} safe=${c.safeScore}`);
 console.log("실시간 역전 — 베테랑", d.recommendedRoute, `fast=${d.fastScore} safe=${d.safeScore}`);
 
-// 초보: 시간 이득이 생겨도 부담점수가 임계값을 넘고 저부담 쪽이 30% 이상 낮으므로 저부담 유지.
-// 추천은 그대로여도 이유가 "시간 이득 없음"에서 "부담 차이가 커서"로 바뀐다 — 브리핑이 달라진다.
-assert.equal(c.recommendedRoute, "safe", "초보는 시간 이득보다 부담 차이가 크면 저부담 경로다");
+// **시간이 추천을 뒤집지 못한다.** 추천은 추천점수가 높은 쪽 하나로 정해지므로(lib/score.ts),
+// 빠른 길이 5분 빨라져도 부담이 더 크면 그대로 저부담 경로다.
+assert.equal(c.recommendedRoute, "safe", "초보 — 시간 이득이 생겨도 추천점수가 높은 쪽이다");
 assert.ok(
   !c.reasons[0].includes("시간 이득이 없음"),
   `실시간 역전 시 추천 이유가 바뀌어야 한다: ${c.reasons[0]}`,
 );
 
-// 베테랑: 부담점수가 임계값 이하라 시간 이득이 생기면 최단거리 경로로 넘어간다
-assert.equal(d.recommendedRoute, "fast", "베테랑은 부담이 임계값 이하면 빠른 쪽을 추천한다");
+// 베테랑도 같다. 예전에는 부담이 임계값(50) 이하면 시간을 아끼는 쪽으로 넘어갔는데, 그러면
+// 화면이 추천점수 89 옆에 80 짜리 추천 배지를 다는 자기 모순에 빠졌다 (lib/score.ts 추천 규칙).
+assert.equal(d.recommendedRoute, "safe", "베테랑도 추천점수가 높은 쪽이다 — 시간은 카드가 말한다");
+assert.ok(d.safeScore > d.fastScore, `추천이 점수를 따라야 한다: fast=${d.fastScore} safe=${d.safeScore}`);
 
 // 고속주행은 경력이 쌓이면 부담이 크게 줄지만 요인 자체는 남는다.
 // 요인을 제거해버리면 베테랑의 근거 카드가 한 줄로 비어 완료 기준(2개 이상)에 미달했다.
@@ -108,14 +130,14 @@ const 작은부담 = { risks: [dummy("narrowRoad", "좁은 교행", 0.05)], dura
 const 같은부담 = { risks: [dummy("narrowRoad", "좁은 교행", 0.3)], durationMin: 60 };
 
 const 무의미 = scoreRoutes(초보, 큰부담, 같은부담);
-assert.equal(무의미.recommendedRoute, "single", `부담이 같으면 추천을 접어야 한다: ${무의미.fastScore}/${무의미.safeScore}`);
+assert.equal(무의미.recommendedRoute, "single", `점수가 같으면 추천을 접어야 한다: ${무의미.fastScore}/${무의미.safeScore}`);
 
 // fast 쪽이 부담이 낮은데 시간 이득도 없는 경우 — 전에는 무조건 safe 였다
 const 역전 = scoreRoutes(초보, 작은부담, 큰부담);
 assert.equal(
   역전.recommendedRoute,
   "fast",
-  `부담이 낮은 쪽을 추천해야 한다: fast=${역전.fastScore} safe=${역전.safeScore}`,
+  `추천점수가 높은 쪽을 추천해야 한다: fast=${역전.fastScore} safe=${역전.safeScore}`,
 );
 
 // 브리핑 문장도 추천을 따라가야 한다 (전에는 시간손해만 보고 safe 를 추천한다고 썼다)
@@ -149,24 +171,32 @@ assert.ok(
 assert.equal(무의미.noPick, "tie", "부담이 같아서 접었으면 tie 다");
 assert.equal(역전.noPick, null, "추천이 있으면 noPick 은 없다");
 
-// 차이는 있는데(임계값 미달) 단정만 못 하는 경우 — tie 와 다른 말을 해야 한다.
-// 빠른 쪽 부담이 편안 임계값을 넘어야 이 갈래로 들어오므로 노출을 크게 잡는다.
+// 예전에는 "차이는 있는데 단정 못 하는 자리"(unclear)가 하나 더 있었다 — 부담 차이가 5% 는
+// 넘지만 20% 에는 못 미쳐 시간과 맞바꿔야 하던 구간이다. 추천을 추천점수 하나로 정하면서
+// 사라졌다: 5% 를 넘으면 그냥 높은 쪽이 추천이다. 그 값들이 이제 어디로 가는지 굳혀 둔다.
 const 애매 = scoreRoutes(
   초보,
-  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.5)], durationMin: 60 },
-  { risks: [dummy("accidentZone", "사고 잦은 곳", 0.39)], durationMin: 77 },
+  { risks: [dummy("sharpCurve", "연속 급커브", 0.5)], durationMin: 60 },
+  { risks: [dummy("sharpCurve", "연속 급커브", 0.42)], durationMin: 77 },
 );
-assert.equal(애매.recommendedRoute, "single", `임계값 미달이면 접는다: ${애매.fastScore}/${애매.safeScore}`);
-assert.equal(애매.noPick, "unclear", "부담 차이가 있는데 접었으면 unclear 다");
-// tie 는 한 줄로 말하고 unclear 는 **아무 말도 안 한다** — 카드 두 장이 이미 시간과 점수를
-// 나란히 보여주므로, 그걸 문장으로 옮겨 적고 "직접 고르세요"를 붙이는 건 훈계였다
-// (lib/briefing.ts 못고른말 주석). 빈 문자열이 그 규칙이고, 화면은 그때 줄을 안 그린다.
-const 애매판정 = verdict(애매, { id: "safe", risks: [], durationMin: 77 }, { durationMin: 60 });
-assert.equal(애매판정, "", `단정 못 하면 말을 얹지 않는다: ${애매판정}`);
+assert.equal(애매.recommendedRoute, "safe", `5% 를 넘으면 높은 쪽이 추천이다: ${애매.fastScore}/${애매.safeScore}`);
+assert.equal(애매.noPick, null, "추천이 있으면 noPick 은 없다");
 assert.ok(
-  verdict(무의미, { id: "safe", risks: [], durationMin: 71 }, { durationMin: 80 }).includes("거의 같"),
-  "부담이 같아서 접은 경우(tie)는 그렇다고 말해야 한다",
+  verdict(무의미, { id: "safe", risks: [], durationMin: 71 }, { durationMin: 80 }).includes(
+    "더 효율적인 하나의 경로",
+  ),
+  "부담이 같아서 접은 경우(tie)는 한 경로만 보여준다고 말해야 한다",
 );
+
+// 대안이 없는 구간 — 같은 경로가 양쪽에 온다 (app/route/actions.ts). 차이가 0이라 tie 로
+// 떨어지던 자리고, 그래서 카드가 한 장인 화면에 "두 길의 부담이 거의 같습니다"가 떴었다.
+const 한장 = { risks: [dummy("sharpCurve", "연속 급커브")], durationMin: 41 };
+const 홀로 = scoreRoutes(초보, 한장, 한장);
+assert.equal(홀로.noPick, "alone", "같은 경로를 두 자리에 받으면 alone 이다");
+// 비교 화면은 아무 말도 안 한다 — 고를 것이 없는 자리다. 말하는 건 근거 화면이고
+// (briefing.ts tradeoff), 여기서 tie 로 떨어지면 "두 길의 부담이…"가 나왔다.
+const 홀로판정 = verdict(홀로, { id: "safe", risks: [], durationMin: 41 }, { durationMin: 41 });
+assert.equal(홀로판정, "", `길이 한 장이면 비교 화면은 비운다: ${홀로판정}`);
 
 // --- 노출 크기 반영 ---
 // 같은 종류의 요인이라도 노출이 길면 점수가 커야 한다.
@@ -174,9 +204,15 @@ assert.ok(
 const 긴좁은길 = { risks: [dummy("narrowRoad", "좁은 교행", 0.31)], durationMin: 80 };
 const 짧은좁은길 = { risks: [dummy("narrowRoad", "좁은 교행", 0.03)], durationMin: 71 };
 const 노출 = scoreRoutes(초보, 긴좁은길, 짧은좁은길);
+// 총점이 아니라 **감점(breakdown)** 으로 잰다. 재려는 건 "노출이 10배면 이 요인이 훨씬 무겁냐"인데,
+// 총점은 100에서 깎아 내려온 값이라 배수가 그 뜻을 못 담는다 (56 과 92.9 는 1.7배지만
+// 실제로 깎인 몫은 44 와 7.1 로 6배다). 감점은 요인 무게 그 자체라 배수가 그대로 통한다.
+const [긴것, 짧은것] = ["fast", "safe"].map(
+  (id) => 노출.breakdown.find((b) => b.route === id)!.weighted,
+);
 assert.ok(
-  노출.fastScore > 노출.safeScore * 3,
-  `노출 차이가 점수에 반영되지 않음: ${노출.fastScore} vs ${노출.safeScore}`,
+  긴것 > 짧은것 * 3,
+  `노출 차이가 점수에 반영되지 않음: 감점 ${긴것} vs ${짧은것} (총점 ${노출.fastScore} / ${노출.safeScore})`,
 );
 
 // 근거 카드가 곱셈식을 복원할 수 있어야 한다 (기본 × 노출 × 조건 = 점수)
@@ -236,7 +272,7 @@ console.log("\n✅ 추천 이유 개인화 + 브리핑 정상");
 
 // --- 부담 유형(긴장되는 길) 가중치 — 고른 위험만 ×CONCERN_BOOST, 나머지는 그대로 ---
 {
-  const 길 = { risks: [dummy("narrowRoad", "좁은 골목"), dummy("complexJunction", "교차로")], durationMin: 60 };
+  const 길 = { risks: [dummy("narrowRoad", "좁은 골목"), dummy("sharpCurve", "급커브")], durationMin: 60 };
   const 상대 = { risks: [dummy("highSpeed", "고속 구간")], durationMin: 60 };
 
   const 무 = scoreRoutes(초보, 길, 상대).breakdown;
@@ -248,13 +284,28 @@ console.log("\n✅ 추천 이유 개인화 + 브리핑 정상");
     Math.abs(배수(유, "좁은 골목") - 배수(무, "좁은 골목") * CONCERN_BOOST) < 0.02,
     `좁은 길 가중치가 ×${CONCERN_BOOST} 로 안 올랐다: ${배수(무, "좁은 골목")} → ${배수(유, "좁은 골목")}`,
   );
-  // 안 고른 유형(교차로)은 그대로여야 한다 — 한 유형만 골라도 다른 위험이 같이 오르면 안 된다
-  assert.equal(배수(유, "교차로"), 배수(무, "교차로"), "안 고른 위험 타입 가중치가 바뀌면 안 된다");
-  // 그 위험이 한쪽에만 많으면 그 경로 부담점수가 올라 추천이 갈린다
+  // 안 고른 유형(급커브)은 그대로여야 한다 — 한 유형만 골라도 다른 위험이 같이 오르면 안 된다
+  assert.equal(배수(유, "급커브"), 배수(무, "급커브"), "안 고른 위험 타입 가중치가 바뀌면 안 된다");
+  // 그 위험이 한쪽에만 많으면 부담이 올라가므로 추천점수는 내려간다
   assert.ok(
-    scoreRoutes({ ...초보, fearedRisks: ["narrowRoad"] }, 길, 상대).fastScore >
+    scoreRoutes({ ...초보, fearedRisks: ["narrowRoad"] }, 길, 상대).fastScore <
       scoreRoutes(초보, 길, 상대).fastScore,
-    "긴장되는 길 반영 시 그 경로 부담점수가 커져야 한다",
+    "긴장되는 길 반영 시 그 경로 추천점수가 낮아져야 한다",
   );
   console.log("긴장되는 길 — 좁은 길 배수:", 배수(무, "좁은 골목"), "→", 배수(유, "좁은 골목"));
+}
+
+// 고속주행은 노출이 아무리 커도 상한 1.0 — 큰길을 오래 탔다고 더 깎지 않는다.
+// (실측: 평화로 경유 경로가 경로의 절반을 차지해 노출배수 2.5로 24점씩 깎이고 있었다)
+{
+  const 절반 = scoreRoutes(초보, { risks: [dummy("highSpeed", "고속주행 구간", 0.5)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  const 기준 = scoreRoutes(초보, { risks: [dummy("highSpeed", "고속주행 구간", 0.2)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  assert.equal(절반.fastScore, 기준.fastScore, "고속주행은 노출 50%와 20%가 같은 점수여야 한다");
+
+  // 좁은 길은 반대다 — 오래 노출될수록 더 깎여야 한다
+  const 좁게 = scoreRoutes(초보, { risks: [dummy("narrowRoad", "좁은 교행 구간", 0.5)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  const 좁게기준 = scoreRoutes(초보, { risks: [dummy("narrowRoad", "좁은 교행 구간", 0.2)], durationMin: 60 }, { risks: [], durationMin: 70 });
+  assert.ok(좁게.fastScore < 좁게기준.fastScore, "좁은 길은 노출이 클수록 점수가 낮아야 한다");
+
+  console.log("고속주행 노출 상한 적용:", 기준.fastScore, "=", 절반.fastScore, "/ 좁은 길:", 좁게기준.fastScore, ">", 좁게.fastScore);
 }

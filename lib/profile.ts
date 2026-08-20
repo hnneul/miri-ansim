@@ -4,7 +4,7 @@
 // 안 날아간다. 대신 URL은 사용자가 손으로 고칠 수 있는 입력이므로 값 검증이 필수다 —
 // 여기가 유일한 신뢰 경계다.
 
-import type { DriverProfile, RiskType } from "./score";
+import { EXP_LABEL, type DriverProfile, type RiskType } from "./score.ts";
 import type { LatLng } from "@/app/RouteMap";
 
 /**
@@ -32,31 +32,43 @@ export const OPTIONS = {
  * 값 → 화면에 쓰는 말. 마이 화면(app/profile)이 URL에서 읽은 값을 되읽어 준다.
  */
 export const LABELS = {
-  drivingFrequency: { low: "거의 안 함", medium: "가끔", high: "자주" },
+  /** 익숙함 티어. 점수 가중치와 같은 말을 써야 해서 lib/score.ts 것을 그대로 가져온다 */
+  experienceYears: EXP_LABEL,
+  // drivingFrequency 는 화면에 안 쓴다 — 익숙함 티어가 같은 대답을 이미 보여준다 (app/profile)
   vehicleSize: { compact: "경차", sedan: "중형", suv: "대형" },
   timeOfDay: { day: "주간", night: "야간" },
 };
 
 /**
  * 프로필 아바타. 파일명이 experienceYears 값(OPTIONS)이라 매핑이 표 하나로 끝난다 —
- * 경력이 씨앗(1년 이하) → 새싹(2~5년) → 감귤(5년 이상)로 자란다.
- * 메인화면 히어로(app/home)와 결과 화면 프로필 메뉴(app/ProfileMenu.tsx)가 같이 쓴다.
- * 배경을 지운 PNG라(scripts/cutout.swift) 원 안에서 캐릭터만 뜬다 — 비율이 서로 달라 object-contain 으로 담는다.
+ * 익숙함 티어(EXP_LABEL 왕초보·초보·익숙)마다 그림이 갈린다: 풋귤이 겁먹은 얼굴로 라바콘 옆에 앉아 있고,
+ * 다음은 감귤이 핸들을 잡고, 마지막은 노란 귤이 열쇠를 들고 선다 (Figma "프로필 별 이미지" 4122:596).
+ * alt 는 티어 이름을 그대로 읽어 준다 — 그림이 뜻하는 건 과일 종류가 아니라 운전 익숙함이라
+ * "씨앗/새싹" 같은 별명은 화면 어디에도 안 적혀 있어 스크린리더에서만 겉돈다.
+ * 원형 아바타가 뜨는 세 자리가 같이 쓴다: 마이 화면(app/profile), 메인화면(app/home) 오른쪽 위
+ * 마이 버튼, 여행 기록 머리글(app/trip/record). 한 사람의 프로필이 화면마다 갈리면 안 된다.
+ * 배경이 그려진 정사각 PNG 라 원을 꽉 채우게 object-cover 로 담는다 — 뒤에 색을 깔 필요가 없다.
+ * 배경을 지운 컷(같은 섹션 아래줄)도 있지만 안 쓴다, 세 자리 다 배경 있는 원형 아바타라
+ * 두 벌을 둘 이유가 없다.
  */
 export const CHARACTERS: Record<number, { src: string; alt: string; tier: string }> = {
-  1: { src: "/character/exp1.png", alt: "씨앗 캐릭터", tier: "1년 이하" },
-  3: { src: "/character/exp3.png", alt: "새싹 캐릭터", tier: "2~5년" },
-  10: { src: "/character/exp10.png", alt: "감귤 캐릭터", tier: "5년 이상" },
+  1: { src: "/character/exp1.png", alt: "왕초보 캐릭터", tier: "1년 이하" },
+  3: { src: "/character/exp3.png", alt: "초보 캐릭터", tier: "2~5년" },
+  10: { src: "/character/exp10.png", alt: "익숙 캐릭터", tier: "5년 이상" },
 };
 
-/** 허용값 밖이면 초보 쪽으로 떨어뜨린다 (DEFAULT_PROFILE 과 같은 방향) */
+/** 허용값 밖이면 왕초보 쪽으로 떨어뜨린다 (DEFAULT_PROFILE 과 같은 방향 — 모르면 부담 큰 쪽) */
 export const characterOf = (experienceYears: number) => CHARACTERS[experienceYears] ?? CHARACTERS[1];
 
 /**
- * 부담 유형 — 온보딩 마지막 단계(여러 개 선택)에서 고르는 값.
- * 고른 인덱스를 쿼리 hard=0,4 로 실어 두 곳에 쓴다: (1) 마이 화면(app/profile)에 되보여 주고,
- * (2) CONCERN_RISK 로 위험 타입에 매핑해 점수 가중치(lib/score.ts weight)에 태운다.
+ * 부담 유형 — 온보딩 4단계(여러 개 선택)에서 고르는 값.
+ * 고른 인덱스를 쿼리 hard=0,4 로 실어 세 곳에 쓴다: 마이 화면에 되보여 주고,
+ * CONCERN_RISK 로 실제 데이터가 있는 위험 타입에 매핑해 점수 가중치에 태우며,
+ * 길 비교의 AI 대본에도 사용한다.
  * short 는 카드 한 줄에 넣을 짧은 말이다 ("어려움: 좁은 길 · 주차").
+ *
+ * **라벨에 숫자를 넣지 않는다.** 프롬프트에 그대로 실리는데, AI 검증(lib/ai.ts
+ * 숫자가사실에있나)이 프롬프트에 있는 숫자를 사실로 치므로 모델이 그걸 문장에 쓸 수 있다.
  */
 export const CONCERNS = [
   { label: "좁은 골목길", desc: "차가 마주 오면 불안해요", short: "좁은 길" },
@@ -68,15 +80,13 @@ export const CONCERNS = [
 ];
 
 /**
- * 부담 유형(CONCERNS 인덱스) → 점수에서 무겁게 볼 위험 타입. 승인된 매핑표 그대로다:
- *   0 좁은 골목길 → 좁은 길 · 1 복잡한 교차로 → 교차로 · 2 급경사·굽은 길 → 가파른 길+급커브 ·
- *   3 어두운 길 → 급커브(조명 데이터가 없어 곡률로 대신 — 어두울 때 커브가 특히 위험).
- * 4 주차 어려운 곳·5 해당 없음은 경로 점수에 대응이 없어 뺀다 — 주차는 주차 화면이 따로 쓴다.
+ * 부담 유형(CONCERNS 인덱스) → 실제 점수 데이터가 있는 위험 타입.
+ * 복잡한 교차로·급경사·주차는 현재 경로 점수 데이터가 없어 억지로 다른 값에 붙이지 않는다.
+ * 어두운 길은 조명 데이터가 없어 곡률로 대신하므로, 급커브가 있을 때만 가중치가 적용된다.
  */
 export const CONCERN_RISK: Record<number, RiskType[]> = {
   0: ["narrowRoad"],
-  1: ["complexJunction"],
-  2: ["steepSlope", "sharpCurve"],
+  2: ["sharpCurve"],
   3: ["sharpCurve"],
 };
 

@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
+import DemoLocation from "./DemoLocation";
 
 /*
  * 서체는 Noto Sans KR 하나다 (로고만 Jalnan2, globals.css).
@@ -32,6 +33,20 @@ export const metadata: Metadata = {
   description: "초보 운전자를 위한 제주 안전경로 추천",
 };
 
+/*
+ * iOS 사파리는 **16px 미만인 입력칸에 포커스가 가면 페이지를 통째로 확대한다.**
+ * 우리 입력칸은 12~15px 이라 전부 해당돼서, 목적지 검색을 누르는 순간 화면이 확대되고
+ * 커서 쪽으로 밀려 왼쪽이 잘려 나갔다 ("제주에서 많이 찾는 곳"의 "제"가 화면 밖으로).
+ * 시뮬레이터(iPhone 17 / iOS 26.5)에서 재현하고, 이 한 줄로 사라지는 것까지 확인했다.
+ *
+ * 입력칸 글자를 전부 16px 로 올리는 방법도 있지만 디자인 값(12~15px)을 죄다 건드려야 한다.
+ * **사용자가 직접 하는 핀치 확대는 안 죽는다** — iOS 는 이 제한을 자동 확대에만 걸고
+ * 손가락 제스처는 그대로 통과시킨다 (같은 시뮬레이터에서 두 손가락으로 확대되는 것 확인).
+ * 다만 안드로이드 크롬은 이 값을 곧이곧대로 지켜 핀치 확대가 막힌다 — 거기서는
+ * 자동 확대 문제가 원래 없으니, 안드로이드까지 신경 쓸 때가 오면 입력칸 16px 쪽으로 옮긴다.
+ */
+export const viewport: Viewport = { maximumScale: 1 };
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -44,6 +59,8 @@ export default function RootLayout({
     >
       {/* 세로 배치는 .phone 이 쥔다 (globals.css) — 노트북에서는 그게 폰 프레임이 된다 */}
       <body className="min-h-full">
+        {/* 아무것도 안 그린다 — 시연용 현위치 고정을 켜는 자리다 (./DemoLocation.tsx) */}
+        <DemoLocation />
         <div className="phone">{children}</div>
       </body>
     </html>

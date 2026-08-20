@@ -74,7 +74,7 @@ for (const r of risks) {
 }
 
 // 값이 0인 요인은 아예 넣지 않는다 — "0km 구간이 있습니다"는 근거가 아니다
-const 고속없음: Analysis = { ...fast, highSpeed: { km: 0, exposure: 0, byRoad: {}, at: null } };
+const 고속없음: Analysis = { ...fast, highSpeed: { km: 0, exposure: 0, byRoad: {}, at: null, spans: [] } };
 assert.ok(!risksOf(고속없음).some((r) => r.type === "highSpeed"), "0km 요인을 넣었다");
 
 console.log("✅ 경로 이름·같은 길 판정·위험요인 조립 정상");

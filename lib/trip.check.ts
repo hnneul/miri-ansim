@@ -19,20 +19,17 @@ import {
   nightsOf,
   parseTrip,
   periodLabel,
+  queryRecord,
+  TRIP_KEYS,
   toTripQuery,
   type TripPlan,
 } from "./trip.ts";
 
-/** toTripQuery 결과를 다시 parseTrip 입력 형태로 되돌린다. 같은 키가 여러 번이면 배열로 모은다. */
-const roundTrip = (q: string) => {
-  const sp = new URLSearchParams(q);
-  const rec: Record<string, string | string[]> = {};
-  for (const key of new Set(sp.keys())) {
-    const all = sp.getAll(key);
-    rec[key] = all.length > 1 ? all : all[0];
-  }
-  return parseTrip(rec);
-};
+/** toTripQuery 결과를 다시 parseTrip 입력 형태로 되돌린다 — 화면이 쓰는 그 함수 그대로다 */
+const roundTrip = (q: string) => parseTrip(queryRecord(q));
+
+// 반복 키가 배열로 모인다. 여기가 새면 테마도 "꼭 가고 싶은 곳"도 마지막 하나만 살아남는다
+assert.deepEqual(queryRecord("theme=0&theme=2&must=A"), { theme: ["0", "2"], must: "A" });
 
 // --- 왕복 ---
 // 기본값이 왕복을 견딘다
@@ -40,7 +37,7 @@ assert.deepEqual(roundTrip(toTripQuery(DEFAULT_TRIP)), DEFAULT_TRIP);
 
 // 다 채운 계획도 왕복을 견딘다 — 한 값이라도 새면 그 조건이 코스에서 빠진다
 const full: TripPlan = {
-  theme: 1,
+  themes: [1, 3],
   start: "2026-08-14",
   end: "2026-08-16",
   companion: "family",
@@ -56,27 +53,46 @@ assert.deepEqual(roundTrip(toTripQuery(full)), full);
 for (const c of COMPANIONS)
   for (const d of DRIVE_HOURS)
     for (let t = 0; t < THEMES.length; t++) {
-      const plan = { ...full, companion: c.id, driveHours: d.hours, theme: t };
+      const plan = { ...full, companion: c.id, driveHours: d.hours, themes: [t] };
       assert.deepEqual(roundTrip(toTripQuery(plan)), plan);
     }
+
+// 테마를 전부 고른 것도, 하나도 안 고른 것도 왕복을 견딘다 — 순서까지 그대로다
+const every = { ...full, themes: THEMES.map((_, i) => i) };
+assert.deepEqual(roundTrip(toTripQuery(every)).themes, every.themes);
+assert.deepEqual(roundTrip(toTripQuery({ ...full, themes: [3, 0] })).themes, [3, 0]);
+assert.deepEqual(roundTrip(toTripQuery({ ...full, themes: [] })).themes, []);
 
 // 장소 이름에 쉼표·앰퍼샌드가 들어가도 쪼개지지 않는다 (반복 키로 싣는 이유)
 const comma = { ...full, musts: ["카페 A&B", "제주, 그 바다"] };
 assert.deepEqual(roundTrip(toTripQuery(comma)).musts, comma.musts);
 
+// TRIP_KEYS 는 toTripQuery 가 싣는 키와 어긋나면 안 된다 —
+// 빠진 키는 "새로 시작"할 때 안 걷혀서 지난 여행 조건이 그대로 따라온다
+assert.deepEqual(
+  [...new Set(new URLSearchParams(toTripQuery(full).slice(1)).keys())].sort(),
+  [...TRIP_KEYS].filter((k) => new URLSearchParams(toTripQuery(full).slice(1)).has(k)).sort(),
+  "toTripQuery 가 TRIP_KEYS 에 없는 키를 싣는다",
+);
+assert.equal(new URLSearchParams(toTripQuery(full).slice(1)).getAll("theme").length, full.themes.length);
+
 // --- 검증 (신뢰 경계) ---
 // 빈 쿼리는 기본 계획
 assert.deepEqual(parseTrip({}), DEFAULT_TRIP);
 
-// 테마는 하나만 고른다. 목록 밖·정수 아님은 null — 고른 적 없는 테마로 코스를 짜지 않는다
-for (let i = 0; i < THEMES.length; i++) assert.equal(parseTrip({ theme: String(i) }).theme, i);
-assert.equal(parseTrip({ theme: String(THEMES.length) }).theme, null);
-assert.equal(parseTrip({ theme: "-1" }).theme, null);
-assert.equal(parseTrip({ theme: "1.5" }).theme, null);
-assert.equal(parseTrip({ theme: "바다" }).theme, null);
-assert.equal(parseTrip({ theme: "" }).theme, null);
+// 테마는 여러 개. 목록 밖·정수 아님은 통째로 버린다 — 고른 적 없는 테마로 코스를 짜지 않는다
+for (let i = 0; i < THEMES.length; i++) assert.deepEqual(parseTrip({ theme: String(i) }).themes, [i]);
+assert.deepEqual(parseTrip({ theme: String(THEMES.length) }).themes, []);
+assert.deepEqual(parseTrip({ theme: "-1" }).themes, []);
+assert.deepEqual(parseTrip({ theme: "1.5" }).themes, []);
+assert.deepEqual(parseTrip({ theme: "바다" }).themes, []);
+assert.deepEqual(parseTrip({ theme: "" }).themes, []);
 // 빈 문자열이 0 으로 새면 안 된다 — Number("") 는 0 이다
-assert.equal(parseTrip({}).theme, null);
+assert.deepEqual(parseTrip({}).themes, []);
+// 성한 값만 남기고 나머지는 버린다 (하나가 망가졌다고 나머지까지 버리지 않는다)
+assert.deepEqual(parseTrip({ theme: ["1", "바다", "2"] }).themes, [1, 2]);
+// 같은 테마가 두 번 오면 한 번만 — 안 지우면 그 테마만 후보를 두 배로 긁는다
+assert.deepEqual(parseTrip({ theme: ["2", "2", "0"] }).themes, [2, 0]);
 
 // 없는 날짜는 안 받는다
 assert.equal(parseTrip({ from: "2026-02-31", to: "2026-03-02" }).start, "");
@@ -96,6 +112,7 @@ assert.equal(parseTrip({ drive: "0" }).driveHours, 0);
 assert.equal(parseTrip({ ppl: "99,0,0" }).people.adult, MAX_PER_PEOPLE);
 assert.equal(parseTrip({ ppl: "-3,0,0" }).people.adult, DEFAULT_TRIP.people.adult);
 assert.equal(parseTrip({ ppl: "1.5,0,0" }).people.adult, DEFAULT_TRIP.people.adult);
+assert.equal(DEFAULT_TRIP.people.adult, 0, "카운터가 0 에서 시작한다 (04-B-2)");
 assert.equal(parseTrip({ ppl: "0,0,0" }).people.adult, 0);
 
 // 좌표는 둘 다 수여야 쓴다 — 하나만 오면 지도에 엉뚱한 자리가 찍힌다
@@ -122,6 +139,8 @@ assert.equal(periodLabel({ ...full, end: full.start }), "당일치기");
 assert.equal(periodLabel(DEFAULT_TRIP), null);
 
 assert.equal(companionLabel(full), "가족 6명");
+// 혼자는 인원을 안 붙인다 — "혼자 1명"은 같은 말을 두 번 한다
+assert.equal(companionLabel({ ...full, companion: "solo" }), "혼자");
 // 안 고른 값은 문구를 지어내지 않는다 — 화면이 "동행을 골라주세요"를 대신 쓴다
 assert.equal(companionLabel(DEFAULT_TRIP), null);
 assert.equal(driveLabel(full), "시간 상관없음");
@@ -134,14 +153,15 @@ assert.equal(mustLabel(DEFAULT_TRIP), null);
 // --- 코스를 만들 수 있는 조건 ---
 assert.equal(isReady(full), true);
 assert.equal(isReady(DEFAULT_TRIP), false);
-// 다섯 줄 중 "꼭 가고 싶은 곳"만 빼고 하나라도 비면 못 만든다
+// 필수 세 줄 중 하나라도 비면 못 넘어간다
 assert.equal(isReady({ ...full, origin: "" }), false);
 assert.equal(isReady({ ...full, start: "", end: "" }), false);
 assert.equal(isReady({ ...full, companion: null }), false);
-assert.equal(isReady({ ...full, driveHours: null }), false);
 assert.equal(isReady({ ...full, musts: [] }), true, "꼭 가고 싶은 곳은 없어도 코스가 나온다");
-// 테마는 여기서 안 본다 — TRIP-02 가 자기 화면에서 이미 막는다
-assert.equal(isReady({ ...full, theme: null }), true);
+// 하루 운전은 "선택" 묶음이라 안 골라도 넘어간다 (없으면 이동시간 상한을 안 걸 뿐이다)
+assert.equal(isReady({ ...full, driveHours: null }), true);
+// 테마도 여기서 안 본다 — 다음 화면(TRIP-03)이 자기 자리에서 막는다
+assert.equal(isReady({ ...full, themes: [] }), true);
 
 // --- 달력 격자 (TRIP-04-A) ---
 // 월말·윤년에서 조용히 틀리는 자리라 눈으로 안 보고 여기서 잡는다

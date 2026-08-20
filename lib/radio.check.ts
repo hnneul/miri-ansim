@@ -26,10 +26,19 @@ const 초보: DriverProfile = {
   timeOfDay: "day",
 };
 
-const risk = (type: RiskFactor["type"], label: string, exposure: number): RiskFactor => ({
+/**
+ * 위치를 받는다. ①칸의 정체("○○라는 산길")는 **요인이 그 도로에 있을 때만** 붙으므로
+ * (briefing.ts radioScript), 위치가 경로 이름을 포함하는지가 픽스처의 전제가 된다.
+ */
+const risk = (
+  type: RiskFactor["type"],
+  label: string,
+  exposure: number,
+  location = "서귀포시 남원읍",
+): RiskFactor => ({
   type,
   label,
-  location: "서귀포시 남원읍",
+  location,
   coord: [33.3, 126.6],
   value: "급커브 42곳",
   exposure,
@@ -41,13 +50,13 @@ const fast = {
   id: "fast" as const,
   name: "5.16도로 경유",
   durationMin: 63,
-  risks: [risk("sharpCurve", "연속 급커브", 0.29)],
+  risks: [risk("sharpCurve", "연속 급커브", 0.29, "5.16도로 8.2km")],
 };
 const safe = {
   id: "safe" as const,
   name: "평화로 경유",
   durationMin: 58,
-  risks: [risk("highSpeed", "고속주행 구간", 0.48)],
+  risks: [risk("highSpeed", "고속주행 구간", 0.48, "평화로 22.5km")],
 };
 const 점수 = scoreRoutes(초보, fast, safe);
 assert.equal(점수.recommendedRoute, "safe", "픽스처 전제가 깨졌다");
@@ -66,14 +75,16 @@ const 대본 = (r: 경로 = safe, o: 경로 = fast, a: ArrivalFacts | undefined 
   radioScript(초보, 점수, r, o, a, "성산일출봉");
 
 // --- ① 칸 구성이 AI 대본과 같아야 한다 ---
-// AI 스키마가 2~5칸이고(lib/ai.ts SCHEMA), 재생 컴포넌트는 둘을 구분하지 않는다.
-// ①오프닝 ②추천이유 ③각오 ④도착 ⑤맺음말 중 ②③④가 빠질 수 있다.
+// AI 스키마가 2~6칸이고(lib/ai.ts SCHEMA), 재생 컴포넌트는 둘을 구분하지 않는다.
+// ①오프닝 ②추천이유 ③각오 ④안내 ⑤도착 ⑥맺음말 중 ②③④⑤가 빠질 수 있다.
+//
+// 아래 픽스처에는 stats 가 없어서 ④(안내)가 늘 빠진다 — 안내가 붙는 경우는 이 절 끝에서 따로 본다.
 assert.equal(대본().length, 5, "요인·주차장이 다 있으면 다섯 칸이다");
 // 헬퍼를 안 쓴다 — 기본 인자에 undefined 를 넘기면 기본값이 살아나서 늘 통과한다
 assert.equal(
   radioScript(초보, 점수, safe, fast, undefined, "성산일출봉").length,
   4,
-  "주차장이 없으면 ④칸을 빼야 한다",
+  "주차장이 없으면 ⑤칸을 빼야 한다",
 );
 const 요인없음 = { ...safe, risks: [] };
 const 요인없음점수 = scoreRoutes(초보, fast, 요인없음);
@@ -87,6 +98,27 @@ assert.equal(
   3,
   "둘 다 없으면 세 칸이다",
 );
+
+/*
+  ④ 안내 칸 — 점수를 안 깎는 항목이라 요인(risks)과 따로 붙는다 (briefing.ts NOTE).
+
+  ③에 이어 붙이지 않고 칸을 나눈 게 요지다. 붙이면 90자 상한에 걸려 잘라서() 가 뒤를
+  버리는데, 그건 400 을 막는 장치지 내용을 고르는 장치가 아니다 — 안내가 조용히 사라진다.
+*/
+const 회전있음 = { ...safe, stats: { roundabouts: 2 } };
+const 회전대본 = radioScript(초보, 점수, 회전있음, fast, 추정평행, "성산일출봉");
+assert.equal(회전대본.length, 6, `회전교차로가 있으면 여섯 칸이다: ${회전대본.length}`);
+assert.ok(회전대본[3].includes("회전교차로"), `④칸이 안내여야 한다: ${회전대본[3]}`);
+assert.ok(회전대본[4].includes("주차"), `⑤칸은 도착이어야 한다: ${회전대본[4]}`);
+assert.equal(
+  radioScript(초보, 점수, { ...safe, stats: { roundabouts: 0 } }, fast, 추정평행, "성산일출봉").length,
+  5,
+  "회전교차로가 없으면 ④칸을 빼야 한다 — 0곳을 알려줄 일은 없다",
+);
+// 부담이라고 말하지 않는다. 회전교차로는 신호 교차로보다 안전한 시설이라 점수에도 안 들어가고,
+// 대본이 "까다로운 길"이라 부르면 화면(점수)과 소리가 다른 말을 한다.
+for (const 말 of ["까다", "부담", "위험", "피하"])
+  assert.ok(!회전대본[3].includes(말), `안내 칸이 부담으로 말한다("${말}"): ${회전대본[3]}`);
 
 /*
  * ★ 규칙 대본은 **AI 대본의 검증 기준을 그대로 통과해야 한다.**
@@ -125,16 +157,63 @@ assert.ok(!대본()[0].includes("경유"), `이름의 '경유'를 안 뗐다: ${
  */
 assert.ok(대본()[0].includes("평화로라는 큰길"), 대본()[0]);
 assert.ok(대본(fast, safe)[0].includes("5.16도로라는 산길"), 대본(fast, safe)[0]);
+
+/*
+ * ★ **이름 속 숫자가 수가 아닌 도로는 소리 나는 대로 부른다.**
+ *
+ * 516로는 5·16 에서 온 이름이라 "오일육로"다. 그대로 두면 TTS 가 "오백십육로"로 읽는다.
+ * 화면 이름(516로)은 표지판과 맞아야 하니 바꾸지 않는다 — 대본만 바꾼다.
+ *
+ * 위치 검사가 원래 이름으로 도는지도 여기서 걸린다: 소리 이름으로 찾으면
+ * "오일육로"가 risk.location("516로 8.2km")에 안 걸려 정체("산길")가 통째로 빠진다.
+ */
+const 오일육 = {
+  ...fast,
+  name: "516로 경유",
+  risks: [risk("sharpCurve", "연속 급커브", 0.29, "516로 8.2km")],
+};
+const 오일육첫칸 = radioScript(
+  초보,
+  scoreRoutes(초보, 오일육, safe),
+  오일육,
+  safe,
+  undefined,
+  "성산일출봉",
+)[0];
+assert.ok(오일육첫칸.includes("오일육로라는 산길"), 오일육첫칸);
+assert.ok(!/516/.test(오일육첫칸), `숫자를 그대로 읽히고 있다: ${오일육첫칸}`);
 // 요인이 없으면 붙일 뜻도 없다 — 없는 성격을 지어내지 않고 이름만 부른다
 const 뜻없음 = radioScript(초보, 요인없음점수, 요인없음, fast, undefined, "성산일출봉")[0];
-assert.ok(뜻없음.includes("평화로 타시네요"), 뜻없음);
+assert.ok(뜻없음.includes("평화로 타고 가요"), 뜻없음);
+
+/*
+ * ★ **요인이 다른 도로에 있으면 뜻을 붙이지 않는다.**
+ *
+ * 경로 이름은 가장 많이 달리는 도로에서 오는데(lib/route.ts roadKm) 요인은 다른 도로에 있을 수
+ * 있다. 실측에서 "번영로라는 좁은 길"이 나왔다 — 번영로는 왕복 4차선이고 좁은 건 금백조로였다.
+ */
+const 남의도로 = {
+  ...safe,
+  name: "번영로 경유",
+  risks: [risk("narrowRoad", "좁은 교행 구간", 0.295, "금백조로 10.5km · 비자림로 2.9km")],
+};
+const 남의도로첫칸 = radioScript(
+  초보,
+  scoreRoutes(초보, fast, 남의도로),
+  남의도로,
+  fast,
+  undefined,
+  "성산일출봉",
+)[0];
+assert.ok(남의도로첫칸.includes("번영로 타고 가요"), 남의도로첫칸);
+assert.ok(!남의도로첫칸.includes("라는"), `다른 도로의 성격을 경로 이름에 붙였다: ${남의도로첫칸}`);
 
 // 오늘 어디 가는지 말한다. 라디오인데 목적지를 한 번도 안 부르고 있었다
 assert.ok(대본()[0].includes("성산일출봉"), 대본()[0]);
 // 모르면 지어내지 않는다 — 목적지 화면을 안 거쳐 온 흐름이다
 const 목적지모름 = radioScript(초보, 점수, safe, fast, 추정평행)[0];
 assert.ok(!목적지모름.includes("오늘은"), `목적지를 모르는데 불렀다: ${목적지모름}`);
-assert.ok(목적지모름.includes("평화로라는 큰길 타시네요"), 목적지모름);
+assert.ok(목적지모름.includes("평화로라는 큰길 타고 가요"), 목적지모름);
 
 // --- ②-2 말투: 라디오 진행자 ---
 //
@@ -153,9 +232,11 @@ for (const 종류 of [대본(), 대본(fast, safe)])
  * **입력 화면의 항목 이름을 소리내어 읽는 것**이 된다 — 사람은 자기 사정을 저렇게 말하지 않는다.
  */
 assert.ok(
-  대본()[0].startsWith("운전 시작한 지 얼마 안 되셨고, 제주도 처음이시죠."),
+  대본()[0].startsWith("운전 시작한 지 얼마 안 되셨는데 제주도 처음이시죠."),
   대본()[0],
 );
+// 항목을 쉼표로 늘어놓지 않는다 — "A고, B죠"는 결국 입력 화면을 소리내어 읽는 것이 된다
+assert.ok(!/(되셨|이시|인)고,/.test(대본()[0]), `호명을 항목 나열로 했다: ${대본()[0]}`);
 assert.ok(!대본()[0].includes("라면"), "가정형으로 호명했다");
 for (const 항목 of ["경력 1년", "운전빈도", "미만"])
   assert.ok(!대본()[0].includes(항목), `입력 화면의 항목 이름을 그대로 읽었다: ${항목}`);
@@ -183,26 +264,26 @@ for (const [이름, p] of Object.entries<DriverProfile>({
   const 호명 = 첫칸.split("죠.")[0];
   assert.ok(첫칸.includes("죠. "), `${이름}: 호명이 없다 — ${첫칸}`);
   // 연결형이 종결형 자리에 오면 "…이시고이시죠" 꼴이 된다
-  assert.ok(!/(하고|이고|되셨고|나시고)$/.test(호명), `${이름}: 연결형으로 끝냈다 — ${호명}`);
+  assert.ok(!/(하고|이고|되셨고|나시고|는데|인데)$/.test(호명), `${이름}: 연결형으로 끝냈다 — ${호명}`);
 }
 
 // 걸릴 조건이 없으면 호명을 통째로 생략한다 — 없는 조건을 지어내지 않는다
 const 조건없음 = radioScript(경력자, 점수, safe, fast, 추정평행, "성산일출봉")[0];
 assert.ok(!조건없음.includes("시죠"), `호명할 조건이 없는데 호명했다: ${조건없음}`);
-assert.ok(조건없음.startsWith("오늘은 성산일출봉"), 조건없음);
+assert.ok(조건없음.startsWith("오늘 성산일출봉"), 조건없음);
 
 // --- ③ ②칸: 왜 이 길인지 — 세 갈래 ---
 //
 // (가) 추천한 길을 골랐다. **다른 길에는 있고 이 길에는 없는 부담**을 말한다.
 //
-// 비교표의 좌회전·회전교차로는 쓰지 않는다 — 부담점수에 한 점도 안 들어가는 축이라
+// 비교표의 좌회전·회전교차로는 쓰지 않는다 — 추천점수에 한 점도 안 들어가는 축이라
 // (lib/route.ts risksOf), 화면이 큰 글씨로 띄운 점수와 음성이 서로 다른 얘기를 하게 된다.
 const 추천이유 = 대본()[1];
 assert.ok(추천이유.includes("굽이가 계속 이어지는 산길인데"), 추천이유);
 assert.ok(추천이유.includes("이 길은 그게 없어요"), 추천이유);
 assert.ok(추천이유.includes("5분"), "시간 이득이 있으면 말해야 한다");
 for (const 표 of ["좌회전", "회전교차로", "유턴"])
-  assert.ok(!추천이유.includes(표), `부담점수에 없는 축을 추천 이유로 댔다: ${표}`);
+  assert.ok(!추천이유.includes(표), `추천점수에 없는 축을 추천 이유로 댔다: ${표}`);
 
 /*
  * ★ **다른 경로를 이름이나 지시어로 부르지 않는다.**
@@ -235,11 +316,14 @@ for (const 설득 of ["추천하지 않습니다", "권하지 않", "다시 생�
 // 이 길이 더 느리기까지 하면 시간 얘기를 꺼내지 않는다 — 짚으면 나무라는 말이 된다
 assert.ok(!/\d+분/.test(역선택), `느린 길을 고른 사람에게 시간을 짚었다: ${역선택}`);
 
-// (다) 추천이 없다 — tie 와 unclear 를 **다른 문장으로** 말해야 한다.
-// 예전에 한 문장이 둘을 덮어서 68점과 57점을 두고 "비슷합니다"라고 했다 (score.ts noPick).
+// (다) 추천이 없다 — 점수 차이가 5% 이내인 tie 뿐이다.
+// 예전에는 unclear(차이는 있는데 시간과 맞바꿔야 해서 단정 못 함)가 하나 더 있었고, 한 문장이
+// 둘을 덮어서 68점과 57점을 두고 "비슷합니다"라고 했다. 추천을 추천점수 하나로 정하면서
+// unclear 자체가 사라졌다 (lib/score.ts 추천 규칙) — 5% 를 넘으면 높은 쪽이 추천이다.
 const 동점경로 = { ...safe, risks: [risk("sharpCurve", "연속 급커브", 0.29)] };
 const 동점 = scoreRoutes(초보, fast, 동점경로);
 assert.equal(동점.noPick, "tie", "픽스처 전제가 깨졌다");
+// 차이가 뚜렷하면 접지 않는다 — 예전 unclear 자리로 쓰던 값이다
 const 느린큰부담 = {
   id: "safe" as const,
   name: "평화로 경유",
@@ -252,18 +336,14 @@ const 빠른큰부담 = {
   durationMin: 50,
   risks: [risk("sharpCurve", "연속 급커브", 0.9), risk("narrowRoad", "좁은 교행 구간", 0.5)],
 };
-const 애매 = scoreRoutes(초보, 빠른큰부담, 느린큰부담);
-assert.equal(애매.noPick, "unclear", "픽스처 전제가 깨졌다");
-assert.notEqual(
-  radioScript(초보, 동점, 동점경로, fast, undefined, "성산일출봉")[1],
-  radioScript(초보, 애매, 느린큰부담, 빠른큰부담, undefined, "성산일출봉")[1],
-  "tie 와 unclear 를 같은 문장으로 말하고 있다",
-);
+const 뚜렷 = scoreRoutes(초보, 빠른큰부담, 느린큰부담);
+assert.equal(뚜렷.recommendedRoute, "safe", "점수가 뚜렷이 갈리면 높은 쪽을 추천한다");
+assert.equal(뚜렷.noPick, null, "추천이 있으면 noPick 은 없다");
 // "익숙한 길로 가세요"는 쓰면 안 된다 — 기본 프로필이 경력 1년·제주 처음이고,
 // 익숙한 길이 없어서 여기까지 온 사람들이다 (briefing.ts 못고른말 주석)
 for (const r of [
   radioScript(초보, 동점, 동점경로, fast, undefined, "성산일출봉"),
-  radioScript(초보, 애매, 느린큰부담, 빠른큰부담, undefined, "성산일출봉"),
+  radioScript(초보, 뚜렷, 느린큰부담, 빠른큰부담, undefined, "성산일출봉"),
 ])
   assert.ok(!r.join(" ").includes("익숙한 길"), "없는 걸 가리키는 조언을 하고 있다");
 
@@ -288,36 +368,58 @@ const 셋째 = radioScript(
 // "2차로"는 고속주행 칸에만 나온다 — 좁은 교행 칸이 잡히면 "비켜야 해요"가 온다
 assert.ok(셋째.includes("2차로"), `safe 의 최대 요인(고속주행)이 안 잡혔다: ${셋째}`);
 assert.ok(!셋째.includes("비켜야"), `노출 3%짜리 좁은 교행이 잡혔다: ${셋째}`);
-assert.ok(셋째.startsWith("하나만 기억하세요."), 셋째);
+// 머리말을 달지 않는다 — 매번 같은 자리에 같은 말이 오면 안내가 아니라 양식이 된다
+for (const 머리말 of ["하나만 기억하세요", "알려드릴게요", "주의하세요"])
+  assert.ok(!셋째.startsWith(머리말), `③칸에 고정 머리말이 붙었다: ${셋째}`);
 // ①이 이미 "큰길"·"산길"이라고 불렀으니 되풀이하지 않는다
 for (const 되풀이 of ["큰길", "산길", "고갯길"])
   assert.ok(!대본()[2].includes(되풀이), `①이 부른 길 이름을 ③에서 되풀이했다: ${대본()[2]}`);
 
-// --- ⑤ ④칸: 도착해서 차를 댈 곳 — 이 기능에서 제일 위험한 자리 ---
+/*
+ * ★ **편도 1차선을 왕복 1차선처럼 말하지 않는다.**
+ *
+ * 이 요인의 근거는 LANES=1 이고 그건 편도 한 차로다 — 대개 왕복 2차선이라 중앙선이 있고
+ * 비킬 일이 없다. "넓은 데서 기다렸다 가라"는 중앙선 없는 왕복 1차선 얘기고, 편도 1차선
+ * 70km/h 구간(금백조로)에서는 틀린 데다 위험한 조언이다 (briefing.ts WHY.narrowRoad 주석).
+ */
+const 좁은길칸 = radioScript(
+  초보,
+  scoreRoutes(초보, fast, 남의도로),
+  남의도로,
+  fast,
+  undefined,
+  "성산일출봉",
+)[2];
+for (const 틀린말 of ["비켜", "기다렸다", "후진", "물러나"])
+  assert.ok(!좁은길칸.includes(틀린말), `편도 1차선에 왕복 1차선 조언을 했다: ${좁은길칸}`);
+assert.ok(좁은길칸.includes("앞지르기"), 좁은길칸);
+
+// --- ⑤ ⑤칸: 도착해서 차를 댈 곳 — 이 기능에서 제일 위험한 자리 ---
 const 도착칸 = 대본()[3];
 assert.ok(도착칸.includes("매일올레시장 공영주차장"), 도착칸);
 assert.ok(도착칸.includes("걸어서 4분"), "목적지까지 도보 시간을 빼먹었다");
 
 // ★ 추정을 단정으로 바꾸지 않는다
-assert.ok(도착칸.includes("평행주차일 가능성이 높으니"), 도착칸);
-assert.ok(!도착칸.includes("평행주차 자리라"), "추정을 확정처럼 말했다");
+assert.ok(도착칸.includes("아마 평행주차일 거예요"), 도착칸);
+assert.ok(!도착칸.includes("평행주차 자리"), "추정을 확정처럼 말했다");
 // 확인된 곳에서는 단정해도 된다 — 위성사진으로 사람이 본 값이다
 const 확인직각 = 대본(safe, fast, {
   ...추정평행,
   주차형태: { 형태: "직각주차", 확인됨: true },
 })[3];
-assert.ok(확인직각.includes("직각주차 자리라"), 확인직각);
-assert.ok(!확인직각.includes("가능성"), "확인된 값까지 얼버무렸다");
+assert.ok(확인직각.includes("직각주차 자리예요"), 확인직각);
+for (const 얼버무림 of ["가능성", "아마"])
+  assert.ok(!확인직각.includes(얼버무림), "확인된 값까지 얼버무렸다");
 
 // 유형을 모르는 곳(카카오 POI)은 **아무 말도 안 한다** — 모르면 침묵 (lib/parking.ts)
 const 유형모름 = 대본(safe, fast, { ...추정평행, 주차형태: null })[3];
-for (const w of ["평행", "직각", "가능성"])
+for (const w of ["평행", "직각", "가능성", "아마"])
   assert.ok(!유형모름.includes(w), `모르는 주차 형태를 말했다: ${유형모름}`);
 assert.ok(유형모름.includes("걸어서 4분"), "아는 것까지 지우면 안 된다");
 assert.ok(유형모름.includes("무료"), "형태를 몰라도 요금은 아는 값이다");
 
 // 요금은 무료일 때만 한 마디. 금액은 귀로 들어서 할 일이 없고 화면 카드가 이미 보여준다.
-assert.ok(대본()[3].includes("무료이고,"), 대본()[3]);
+assert.ok(대본()[3].includes("무료고요,"), 대본()[3]);
 const 유료 = 대본(safe, fast, { ...추정평행, 요금: "유료" })[3];
 assert.ok(!유료.includes("무료"), 유료);
 assert.ok(!/\d+원/.test(유료), "금액을 말했다");
@@ -355,7 +457,7 @@ const 괄호이름 = 대본(safe, fast, {
 })[3];
 assert.ok(!괄호이름.includes("북서측"), 괄호이름);
 
-// --- ⑥ ⑤칸: 맺음말 ---
+// --- ⑥ ⑥칸: 맺음말 ---
 // 라디오의 맺음말은 고정이고, 그 한 마디가 안내가 끝났다는 신호가 된다.
 for (const 종류 of [
   대본(),
@@ -363,7 +465,7 @@ for (const 종류 of [
   radioScript(초보, 점수, safe, fast, undefined, "성산일출봉"),
   radioScript(초보, 요인없음점수, 요인없음, fast, undefined, undefined),
 ])
-  assert.equal(종류.at(-1), "오늘도 안전운전하세요.", `맺음말이 없거나 다르다: ${종류.at(-1)}`);
+  assert.equal(종류.at(-1), "안전하게 잘 다녀오세요.", `맺음말이 없거나 다르다: ${종류.at(-1)}`);
 
 console.log("✅ 출발 전 음성 대본 정상");
-console.log(`   칸 구성 2~5 · 도로 이름에 뜻 붙임 · 추정/확정 구분 · 역선택 시 설득 안 함 확인`);
+console.log(`   칸 구성 2~6 (안내 칸 포함) · 도로 이름에 뜻 붙임 · 추정/확정 구분 · 역선택 시 설득 안 함 확인`);

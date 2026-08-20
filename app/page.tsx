@@ -1,6 +1,7 @@
 "use client";
 
 // 온보딩 진입 — 최종 와이어프레임 ONB-01 시작1(스플래시) → 시작2(소개) 두 장이다.
+// 온보딩에서 뒤로 오면 스플래시 없는 /intro 로 간다 (app/Intro.tsx 첫 주석).
 // 프로필 다섯 줄을 묻기 전에 이게 뭘 해주는 앱인지 한 문장으로 먼저 말한다.
 //
 // 좌표는 와이어프레임의 390x844 를 그대로 옮겼지만 절대배치는 쓰지 않는다 —
@@ -9,8 +10,8 @@
 // 프레임이 줄면 여백부터 줄어든다.
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import StatusBar from "./StatusBar";
+import Intro, { Legal } from "./Intro";
 
 /**
  * 스플래시가 완전히 사라지기까지 (ms). 와이어프레임에 시간 표기가 없어 정한 값이다.
@@ -39,15 +40,6 @@ export default function Onboarding() {
       <Intro />
       {splash && <Splash />}
     </div>
-  );
-}
-
-/** 이용약관·개인정보 처리방침. 두 화면 모두 하단 28px 자리에 같은 문구가 앉는다 (글자색만 다르다). */
-function Legal({ tone }: { tone: string }) {
-  return (
-    <p className={`shrink-0 pb-7 text-center text-[11px] leading-4 font-medium ${tone}`}>
-      이용약관&nbsp;&nbsp;·&nbsp;&nbsp;개인정보 처리방침
-    </p>
   );
 }
 
@@ -108,42 +100,6 @@ function Splash() {
         </h1>
       </div>
       <Legal tone="text-[#1f1f1f]" />
-    </div>
-  );
-}
-
-/** ONB-01 | 시작2 — 제목·설명은 위쪽에 붙고, 버튼은 아래에 붙는다. 사이는 flex-1 이 먹는다. */
-function Intro() {
-  return (
-    <div className="flex flex-1 flex-col bg-white">
-      <StatusBar tone="text-[#525252]" />
-
-      {/* 상태바(24px) 아래로 102px → 와이어프레임의 제목 top:126px */}
-      <div className="mt-[102px] shrink-0 px-[31px]">
-        <h1 className="text-[22px] leading-[30px] font-bold text-[#1f1f1f]">
-          제주 운전
-          <br />
-          오늘은 <span className="text-[#fc7f35]">덜 무섭게</span>
-        </h1>
-        <p className="mt-4 text-[14px] leading-[22px] text-[#525252]">
-          제주를 찾는 초보 운전자에게 부담이 적은 길과
-          <br />
-          도착 뒤 필요한 정보까지 이어서 보여드려요.
-        </p>
-      </div>
-
-      <div className="flex-1" />
-
-      <Link
-        href="/onboarding"
-        className="mx-4 flex h-[52px] shrink-0 items-center justify-center rounded-lg bg-[#1f1f1f] text-[14px] font-medium text-white transition active:scale-[0.98]"
-      >
-        프로필 만들기
-      </Link>
-
-      <div className="mt-5">
-        <Legal tone="text-[#9e9e9e]" />
-      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 //
 // AI가 죽거나 하루 한도에 걸린 날 화면에 나가는 문장이다. 여기서 볼 건 문장이 예쁜가가 아니라
 // **점수를 읊던 옛 말투로 돌아가지 않았는가**다. 이 문장이 앉는 자리는 "내 조건으로 본 이 길"이고
-// 부담점수·임계값은 같은 화면이 이미 큰 글씨로 보여준다 — 여기서 또 읊으면 자리가 비는 셈이다.
+// 추천점수·임계값은 같은 화면이 이미 큰 글씨로 보여준다 — 여기서 또 읊으면 자리가 비는 셈이다.
 
 import assert from "node:assert";
 import { briefing, tradeoff } from "./briefing.ts";
@@ -39,9 +39,10 @@ const safe = { name: "평화로 경유", durationMin: 65, risks: [risk("highSpee
 const 해석 = (p: DriverProfile, r = { fast, safe }) => briefing(p, scoreRoutes(p, r.fast, r.safe), r);
 
 // --- ① 점수를 읊지 않는다 (옛 문장: "부담점수도 63.5점으로 편안 임계값 50점을 넘습니다") ---
+// 점수 이름은 둘 다 막는다. 옛 이름만 남겨두면 이름을 바꾼 날 가드가 조용히 통과한다.
 for (const p of [초보, 경력자])
   for (const line of 해석(p))
-    assert.ok(!/부담점수|임계값|\d+점/.test(line), `점수를 읊었다: ${line}`);
+    assert.ok(!/추천점수|부담점수|임계값|\d+점/.test(line), `점수를 읊었다: ${line}`);
 
 // --- ② 운전자 조건이 문장을 갈라야 한다 (없으면 붙이지 않는다) ---
 assert.ok(해석(초보)[0].startsWith("운전을 시작한 지 얼마 안 됐다면 "), 해석(초보)[0]);
@@ -81,25 +82,42 @@ const 느림 = { id: "safe" as const, durationMin: 67 };
 const 빠름 = { id: "fast" as const, durationMin: 58 };
 
 // 추천받은 길: 더 걸리면 그 대가를 말하고, 더 빠르면 둘 다 얻었다고 말한다
-assert.equal(tradeoff("safe", 느림, 빠름), "일반 길보다 9분 더, 대신 훨씬 편해요");
-assert.equal(tradeoff("fast", 빠름, 느림), "일반 길보다 9분 빠르고, 부담도 적어요");
-assert.equal(tradeoff("fast", { id: "fast", durationMin: 58 }, { durationMin: 58 }), "시간은 같은데 부담이 더 적어요");
+assert.equal(tradeoff("safe", 느림, 빠름, "일반 길"), "일반 길보다 9분 더, 대신 훨씬 편해요");
+assert.equal(tradeoff("fast", 빠름, 느림, "일반 길"), "일반 길보다 9분 빠르고, 부담도 적어요");
+assert.equal(
+  tradeoff("fast", { id: "fast", durationMin: 58 }, { durationMin: 58 }, "일반 길"),
+  "시간은 같은데 부담이 더 적어요",
+);
+
+/*
+ * **상대를 부르는 이름은 화면이 정한 걸 그대로 쓴다.** 카드가 비교 상대를 "일반 길"로
+ * 부르므로 이 문장도 같은 이름을 쓴다. 카드와 이 줄이 같은
+ * 길을 다른 이름으로 부르면 두 길 얘기인 줄 안다 — 지금 화면에 실제로 나가는 짝이 이것이다.
+ */
+assert.equal(tradeoff("safe", 느림, 빠름, "일반 길"), "일반 길보다 9분 더, 대신 훨씬 편해요");
 
 // 추천 안 된 길: 나무라지 않는다. 느리기까지 하면 시간 얘기를 아예 안 꺼낸다 —
 // 바로 아래 "58분 → 67분" 줄이 이미 보여주므로 글로 또 짚으면 고른 사람을 탓하는 말이 된다.
-assert.equal(tradeoff("safe", 빠름, 느림), "9분 빠르지만, 긴장할 구간이 더 많아요");
-assert.equal(tradeoff("fast", 느림, 빠름), "긴장할 구간이 더 많은 길이에요");
-for (const 말 of [tradeoff("safe", 빠름, 느림), tradeoff("fast", 느림, 빠름)])
+assert.equal(tradeoff("safe", 빠름, 느림, "안심 길"), "9분 빠르지만, 긴장할 구간이 더 많아요");
+assert.equal(tradeoff("fast", 느림, 빠름, "빠른 길"), "긴장할 구간이 더 많은 길이에요");
+for (const 말 of [tradeoff("safe", 빠름, 느림, "안심 길"), tradeoff("fast", 느림, 빠름, "빠른 길")])
   for (const 나무람 of ["추천하지 않", "부담이 큰", "다시 생각"])
     assert.ok(!말.includes(나무람), `고른 사람을 나무란다: ${말}`);
 
 // 추천을 접었으면 **아무 말도 안 한다** — "추천이 아니다"와 "추천이 없다"를 가른다.
 // 한 갈래로 뭉쳤을 때 못 고른 구간에서 두 길 중 하나를 나무라고 있었다.
-assert.equal(tradeoff("single", 느림, 빠름), "");
-assert.equal(tradeoff("single", 빠름, 느림), "");
-// 비교할 상대가 없으면 맞바꿀 것도 없다
-assert.equal(tradeoff("safe", 느림, null), "");
-assert.equal(tradeoff("safe", { id: "safe", durationMin: null }, 빠름), "");
+assert.equal(tradeoff("single", 느림, 빠름, "빠른 길"), "");
+assert.equal(tradeoff("single", 빠름, 느림, "안심 길"), "");
+// 대안이 접힌 구간(noPick "alone") — 상대가 아예 없다. 비교 화면은 비우고 여기서 말한다:
+// 이 화면은 "왜 이 길인지" 보러 들어온 자리고, 아래 비교표의 상대 칸이 통째로 비어 있다.
+assert.equal(tradeoff("single", 느림, null, ""), "다른 길이 없어서 비교할 게 없어요");
+assert.equal(
+  tradeoff("single", 느림, null, "", "tie"),
+  "비교할 차이가 거의 없어 이 경로만 보여드려요",
+);
+// 비교할 상대가 없으면 맞바꿀 것도 없다 (추천이 있는데 상대가 없는 건 화면이 못 만드는 짝이다)
+assert.equal(tradeoff("safe", 느림, null, ""), "");
+assert.equal(tradeoff("safe", { id: "safe", durationMin: null }, 빠름, "빠른 길"), "");
 
 // 카드 한 줄에 들어가야 한다 — 길어지면 세 줄로 접혀 아래 표보다 무거워진다
 for (const p of ["fast", "safe", "single"] as const)
@@ -107,7 +125,13 @@ for (const p of ["fast", "safe", "single"] as const)
     [느림, 빠름],
     [빠름, 느림],
   ] as const)
-    assert.ok(tradeoff(p, r, o).length <= 30, `한 줄에 안 들어간다: ${tradeoff(p, r, o)}`);
+    // 이름이 가장 긴 경우로 잰다 — 상대 이름이 문장 길이에 그대로 얹힌다
+    for (const 상대 of ["빠른 길", "안심 길"])
+      for (const 짝 of [o, null])
+        assert.ok(
+          tradeoff(p, r, 짝, 상대).length <= 30,
+          `한 줄에 안 들어간다: ${tradeoff(p, r, 짝, 상대)}`,
+        );
 
 console.log("✅ 폴백 해석 문장 정상 — 점수 말투 없음, 조건별 분기·조사·빈 요인 처리 확인");
 console.log("✅ 근거 화면 한 줄 정상 — 시간 방향·추천 접음·나무라지 않기·길이 확인");

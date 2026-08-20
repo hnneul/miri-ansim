@@ -91,7 +91,7 @@ export async function searchParkingNear([lat, lng]: [number, number], radiusM = 
 export type Spot = { name: string; at: [number, number]; addr: string | null; kind: string };
 
 /**
- * 관심 장소 하나의 검색 조건. lib/trip.ts INTERESTS 의 뒤 세 칸이 그대로 들어온다 —
+ * 관심 장소 하나의 검색 조건. lib/trip.ts THEMES 의 recipes 가 그대로 들어온다 —
  * 왜 셋 다 필요한지는 거기 주석에 있다.
  */
 export type Recipe = { query: string; code: string; kinds: readonly string[] };
@@ -148,8 +148,9 @@ const toSpot = (d: any): Spot => ({
 /**
  * 관광지의 부대시설. 분류가 본체와 같아서(“삼양해수욕장종합상황실”도 해수욕장,해변이다)
  * kinds 로는 못 거른다 — 코스에 넣으면 상황실 앞에 차를 대라는 안내가 된다.
+ * "관사"는 겨울 코스에 "국립제주박물관 관사"가 들어와서 붙었다 — 분류는 박물관인데 직원 숙소다.
  */
-const FACILITY = /상황실|관리사무소|매표소|화장실|주차장|안내소|탈의장|샤워장|입구|정류장/;
+const FACILITY = /상황실|관리사무소|매표소|화장실|주차장|안내소|탈의장|샤워장|입구|정류장|관사/;
 
 /** 좌표가 성하고, 관심사에 맞는 유형이고, 갈 수 있는 곳이어야 후보로 쓴다 */
 const keep = (s: Spot, recipe: Recipe) =>

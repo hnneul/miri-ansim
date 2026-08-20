@@ -2,26 +2,22 @@
 
 // 출발 전 음성 안내 — 고른 길이 어떤 길인지 폰이 읽어준다.
 //
-// 대본은 lib/ai.ts(AI) 또는 lib/briefing.ts(규칙)가 만든 3~4칸이고, 이 파일은 소리만 낸다.
+// 대본은 lib/ai.ts(AI) 또는 lib/briefing.ts(규칙)가 만든 2~6칸이고, 이 파일은 소리만 낸다.
 // 어느 쪽이 왔는지 모른 채 같은 모양으로 그린다 — 칸 구성이 같아서 그럴 수 있다.
 //
 // 소리는 두 겹이다:
-//   ① 서버 음성 (app/api/tts) — Edge 의 한국어 SunHi. 기기와 무관하게 늘 같은 소리가 난다
+//   ① 서버 음성 (app/api/tts) — 기기와 무관하게 늘 같은 소리가 난다
 //   ② 브라우저 내장 음성 — ①이 실패하면 여기로 떨어진다. 어색하지만 인터넷 없이도 난다
 //
 // ②만 쓰던 시절이 있었는데 목소리를 기기가 정해서 어색했다. 그렇다고 ②를 지우지는 않는다 —
-// ①은 비공식 API 라 언제든 막힐 수 있고, 그때 재생 버튼이 먹통이 되는 것보다 낫다.
-//
-// 한도 있는 후보(Gemini·OpenAI)는 쓰지 않는다. 이유는 app/api/tts/route.ts 의 VOICE 주석에 있다.
+// ①이 막히거나 늦을 때 재생 버튼이 먹통이 되는 것보다 낫다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * 대본 한 칸의 음성 주소 (app/api/tts/route.ts).
  *
- * **칸마다 따로 부른다.** 한때 한 덩어리로 몰아 불렀는데 그건 한도를 아끼려던 것이고
- * (모델당 하루 10회짜리 후보를 쓰던 시절), 지금 쓰는 Edge 는 한도가 없어서 그럴 이유가 없다.
- * 칸으로 쪼개면 셋을 얻는다: 첫 칸만 오면 재생을 시작할 수 있고, 지금 어느 칸인지 정확히 알며,
+ * **칸마다 따로 부른다.** 칸으로 쪼개면 셋을 얻는다: 첫 칸만 오면 재생을 시작할 수 있고, 지금 어느 칸인지 정확히 알며,
  * 칸 사이에 우리가 원하는 만큼 쉼을 줄 수 있다.
  *
  * 주소가 곧 캐시 키다 — 같은 칸을 다시 재생하면 브라우저가 네트워크를 아예 안 탄다.
@@ -86,9 +82,16 @@ export default function RouteRadio({
   script,
   /** 고른 경로가 바뀌면 읽던 걸 멈춘다 — 화면과 소리가 다른 길을 가리키면 안 된다 */
   routeId,
+  펼침,
 }: {
   script: string[];
   routeId: string;
+  /**
+   * 대본 전체를 글로 편다 (`?대본=1`). 기본은 꺼짐이다 — 아래 주석대로 이 줄이 자라면
+   * 그만큼 지도가 줄어서, 평소에는 위 진행 줄에 한 줄로 잘라 얹는다.
+   * 소리를 못 듣는 자리(시연장·이어폰 없음)에서 내용을 확인할 때만 쿼리로 연다.
+   */
+  펼침?: boolean;
 }) {
   const { voice, 있나 } = useKoreanVoice();
   /** 지금 읽고 있는 칸. null 이면 멈춰 있다 */
@@ -244,35 +247,58 @@ export default function RouteRadio({
   return (
     /*
       와이어프레임(2153:3981 + 2554:445)은 확성기 하나에 회색 글씨 한 줄이다 — 카드도 테두리도
-      주황 배경도 없다. 이 화면의 주인공은 표와 버튼이고, 이 줄은 옆에 조용히 있는 문이다.
-      주황 카드로 그렸더니 표만큼 눈에 띄어서 두 개가 서로 경쟁했다.
+      주황 배경도 없다. 그 모양대로 그렸더니 **이 화면에서 유일하게 누를 수 있는 것이 제일 안
+      보였다**: 회색 잔글씨에 그림 하나라 아무도 버튼으로 안 읽었고, 오른쪽 여백을 먹어(-mr-2)
+      화면 끝까지 붙인 확성기는 실제로 오른쪽이 조금 잘렸다.
 
-      대신 **재생 상태는 글씨로 남긴다.** 소리가 나기 시작했는지, 지금 어느 칸인지 볼 데가
+      초보에게 길을 말로 풀어주는 게 이 앱이 하는 일인데 그 입구가 가장 조용할 이유가 없다.
+      그래서 **테두리 알약**으로 올린다 — 테두리가 "누르는 것"을 말하고, 그림은 "소리로
+      읽어준다"를 말한다. 그래도 주인공은 아니라
+      바탕은 희고 글씨는 작다 — 그림은 와이어프레임의 확성기 그대로다 (표·아래 버튼과 안 겨룬다).
+      폭도 글자만큼만 차지하므로 잘릴 일이 없다.
+
+      **재생 상태는 글씨로 남긴다.** 소리가 나기 시작했는지, 지금 어느 칸인지 볼 데가
       없으면 눌러놓고 기다리는 사람이 고장인 줄 안다 — 그건 모양보다 앞선다.
     */
     <div>
-      <button
-        onClick={재생}
-        // 목록을 아직 못 받았으면(있나 === null) 눌러도 헛돈다 — 그동안만 잠근다
-        disabled={있나 === null}
-        aria-label={읽는칸 !== null || 받는중 ? "안내 멈추기" : "출발 전 안내 듣기"}
-        className="flex w-full items-center gap-[10px] py-1 text-left transition active:scale-[0.99] disabled:opacity-40"
-      >
-        {/* 재생 중에는 ■, 그 밖에는 확성기 그대로 — 아이콘 자리가 곧 멈춤 버튼이다 */}
-        <span
-          aria-hidden
-          className={`w-[20px] shrink-0 text-center text-[20px] leading-none ${받는중 ? "animate-pulse" : ""}`}
+      <div className="flex justify-end">
+        <button
+          onClick={재생}
+          // 목록을 아직 못 받았으면(있나 === null) 눌러도 헛돈다 — 그동안만 잠근다
+          disabled={있나 === null}
+          aria-label={읽는칸 !== null || 받는중 ? "안내 멈추기" : "출발 전 안내 듣기"}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#e5e0db] bg-white pr-3.5 pl-3 transition hover:bg-[#fff0e6] active:scale-[0.98] disabled:opacity-40"
         >
-          {읽는칸 !== null || 받는중 ? "■" : "📢"}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[12px] leading-[18px] text-[#949494]">
-          {읽는칸 !== null
-            ? `${읽는칸 + 1}/${script.length} · ${글(script[읽는칸])}`
-            : 받는중
-              ? "목소리 받는 중…"
-              : "경로 설명듣기"}
-        </span>
-      </button>
+          {/*
+            재생 중에는 ■, 그 밖에는 확성기 — 아이콘 자리가 곧 멈춤 버튼이다.
+            확성기는 와이어프레임 3926:684 에서 받은 그림이다 (시스템 이모지 📢 는 기기마다
+            다르고 안드로이드에서는 회색이다). 자리를 둘이 나눠 쓰므로 상자를 20 으로 고정한다 —
+            안 그러면 재생을 누를 때마다 알약 폭이 그림 너비만큼 튄다.
+          */}
+          <span
+            aria-hidden
+            className={`grid size-5 shrink-0 place-items-center ${받는중 ? "animate-pulse" : ""}`}
+          >
+            {읽는칸 !== null || 받는중 ? (
+              <span className="text-[11px] leading-none text-[#ff7b33]">■</span>
+            ) : (
+              <img src="/route/megaphone.png" alt="" className="size-5" />
+            )}
+          </span>
+          {/*
+            칸이 좁아서 읽는 문장을 그대로 못 얹는다. 문장 대신 **몇 번째 칸인지**만 남긴다 —
+            눌렀는데 조용한 게 아니라는 신호가 목적이고 그건 진행 숫자로 이룬다.
+            문장 전체는 `?대본=1` 과 아래 aria-live 몫이다.
+          */}
+          <span className="truncate text-[13px] leading-[18px] font-medium text-[#1f1f1f]">
+            {읽는칸 !== null
+              ? `${읽는칸 + 1}/${script.length} 읽는 중`
+              : 받는중
+                ? "목소리 받는 중…"
+                : "경로 설명듣기"}
+          </span>
+        </button>
+      </div>
 
       {/*
         문장을 보여주는 줄을 **따로 두지 않는다.** 처음엔 읽는 칸을 아래에 펼쳤는데, 재생할 때만
@@ -284,10 +310,28 @@ export default function RouteRadio({
         높이가 한 번도 안 변한다 — 들으려고 누른 순간 화면이 흔들리는 것보다 낫다.
 
         ponytail: 전체 문장을 보여줘야 하면 시트를 66 키우고(SHEET_H) 여기 3줄 상자를 되살린다.
-        그만큼 지도가 줄어드는 걸 받아들이는 결정이다.
+        그만큼 지도가 줄어드는 걸 받아들이는 결정이다. `?대본=1` 이 그 문이다 — 높이가 자라는
+        걸 받아들이는 대신, 켠 사람만 본다.
+      */}
+      {펼침 && (
+        <ol className="mt-1 space-y-[2px] text-[12px] leading-[18px] text-[#949494]">
+          {script.map((칸, i) => (
+            // 지금 읽는 칸만 진하게 — 어디를 읽는지 소리 없이도 따라갈 수 있어야 편 의미가 있다
+            <li key={i} className={i === 읽는칸 ? "text-[#1a1a1a]" : ""}>
+              {글(칸)}
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {/*
+        **글() 로 서명을 떼고 넘긴다.** script 의 각 칸은 `<서명 16자>.<대본>` 꼴인데
+        여기만 원본을 그대로 넘기고 있었다 — 위 목록(글(칸))과 달랐다. sr-only 라 눈으로는
+        안 보여서, 화면을 못 보는 사람에게만 칸마다 16진수 열여섯 자가 먼저 읽혔다.
+        이 자리를 만든 이유가 그 사람인데 그 사람에게만 깨져 있던 셈이다.
       */}
       <span className="sr-only" aria-live="polite">
-        {읽는칸 !== null ? script[읽는칸] : ""}
+        {읽는칸 !== null ? 글(script[읽는칸]) : ""}
       </span>
     </div>
   );
