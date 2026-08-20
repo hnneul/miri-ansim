@@ -370,14 +370,35 @@ const PRIORITIES = [
   { priority: "RECOMMEND", badge: "내비 추천" },
 ] as const;
 
+/**
+ * 카카오가 준 실패 사유를 **화면에 쓸 말**로 바꾼다.
+ *
+ * result_msg 는 개발자용이다 — "도착 지점 주변의 도로를 탐색할 수 없음" 처럼 명사로 끝나고
+ * 무엇을 하라는 말이 없다. 그 문구가 그대로 길 비교 화면 한복판에 떴다.
+ *
+ * 이 사유가 제일 자주 나오는 자리가 **관광지 좌표로 곧장 길을 만들 때**다 (목적지 지도의 핀,
+ * 대표 관광지 카드). 성산일출봉·우도처럼 봉우리나 섬 한복판이 대표 좌표라 붙일 도로가 없다 —
+ * 게다가 성산일출봉은 목적지 검색 패널이 "제주에서 많이 찾는 곳"으로 **직접 권하는 곳**이라,
+ * 그냥 두면 앱이 권한 대로 눌렀는데 막다른 길이 된다.
+ *
+ * 그래서 사유만 옮기지 않고 **다음에 할 일**까지 적는다. 실제로 그 길이 있다 — 주차장을
+ * 골라 거기까지 가면 된다 (화면이 그 문을 같이 띄운다, app/route/page.tsx).
+ */
+const 사람말 = (msg: string) =>
+  /도로를 탐색할 수 없|결과가 비어/.test(msg)
+    ? "이 지점은 도로에서 떨어져 있어 바로 길을 만들 수 없어요. 근처 주차장을 골라 그곳까지 가면 돼요."
+    : msg;
+
 export async function routesFor(
   origin: LatLng,
   destination: LatLng,
   links: Link[],
   profile: DriverProfile,
 ): Promise<LiveRoutes> {
+  /* 아래 사람말() 이 카카오 원문을 화면에 쓸 말로 바꾼다 — 이 함수의 error 가 그대로 화면에 뜬다 */
   const key = process.env.KAKAO_REST_API_KEY;
   if (!key) return { error: "길찾기 키가 설정되지 않았습니다" };
+
 
   /*
    * allSettled 다 — 하나가 실패해도 나머지로 화면을 그린다. 도착 지점에 따라 특정 priority 만
@@ -398,8 +419,8 @@ export async function routesFor(
     return {
       error:
         /abort|timeout/i.test(msg) || !msg
-          ? "길찾기 응답이 늦어 경로를 만들지 못했습니다"
-          : msg,
+          ? "길찾기 응답이 늦어 경로를 만들지 못했어요. 잠시 뒤 다시 열어주세요."
+          : 사람말(msg),
     };
   }
 

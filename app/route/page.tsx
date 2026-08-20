@@ -507,6 +507,22 @@ function Route() {
     void saveDrive(profile.experienceYears, drive, { keepalive: true });
   }
 
+  /**
+   * 길을 못 만들었을 때 나가는 문 (아래 오류 갈래).
+   *
+   * 이 화면의 흔한 실패가 "도착 지점 주변에 도로가 없음"인데(lib/route.ts 사람말), 그때는
+   * **할 수 있는 일이 있다** — 근처 주차장을 골라 거기까지 가면 된다. 전에는 오류 한 줄만 띄우고
+   * 끝이라 ✕ 나 홈으로 나가는 것 말고 길이 없었다. 도착지를 목적지 자리에 실어 주차장 화면에 넘긴다.
+   */
+  function 주차장으로() {
+    if (!dest) return;
+    const q = new URLSearchParams(searchParams);
+    q.set("dest", to);
+    q.set("destLat", String(dest[0]));
+    q.set("destLng", String(dest[1]));
+    router.push(`/parking?${q}`);
+  }
+
   function go() {
     if (!chosen || !dest) return;
     /*
@@ -775,7 +791,22 @@ function Route() {
         ) : !result ? (
           <Notice>길을 살펴보는 중이에요…</Notice>
         ) : "error" in result ? (
-          <Notice tone="error">{result.error}</Notice>
+          <>
+            <Notice tone="error">{result.error}</Notice>
+            {/*
+              막다른 길로 두지 않는다. 도착지를 아는 이상 주차장을 고르는 길은 늘 열려 있고,
+              그게 "도로에서 떨어진 곳"에 대한 실제 해법이다 (lib/route.ts 사람말).
+            */}
+            {dest && (
+              /* mb 는 시트 바닥 여백이다 — 없으면 버튼 아래끝이 화면 끝에 딱 붙어 잘린 것처럼 보인다 */
+              <button
+                onClick={주차장으로}
+                className="mx-8 mt-5 mb-8 h-[52px] shrink-0 rounded-[10px] bg-[#ff7d32] text-[15px] font-bold text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
+              >
+                근처 주차장 보기
+              </button>
+            )}
+          </>
         ) : (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1105,7 +1136,13 @@ function Field({
 function Notice({ children, tone }: { children: string; tone?: "error" }) {
   return (
     <p
-      className={`mt-[60px] px-8 text-center text-[13px] leading-relaxed ${tone ? "text-rose-600" : "text-[#616161]"}`}
+      /*
+        break-keep — 375px 에서 "…만들 수 없어 / 요." 로 어절 한복판이 끊겼다 (실측).
+        오류 갈래는 아래 버튼과 붙어야 해서 위 여백을 절반으로 줄인다.
+      */
+      className={`px-8 text-center text-[13px] leading-relaxed break-keep ${
+        tone ? "mt-[30px] text-rose-600" : "mt-[60px] text-[#616161]"
+      }`}
     >
       {children}
     </p>
