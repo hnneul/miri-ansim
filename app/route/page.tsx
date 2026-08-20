@@ -109,12 +109,29 @@ function Route() {
   const profile = parseProfile(query);
 
   /**
-   * X 로 닫았을 때 돌아갈 화면. 넘어온 쪽이 ?back= 으로 알려준다.
+   * ‹ 로 **한 걸음 물러날** 화면. 넘어온 쪽이 ?back= 으로 알려준다.
    * **화이트리스트로만 받는다** — 쿼리에 온 주소를 그대로 push 하면 외부로 튕겨 보낼 수 있다.
+   *
+   * 값이 없으면(URL 로 바로 열었거나 흐름을 끊은 뒤) 홈으로 떨어뜨린다. 버튼을 숨기지는 않는다 —
+   * 있다가 없다가 하면 머리 줄의 자리가 화면마다 흔들린다.
    */
-  const 닫고갈곳 = ({ destination: "/destination", nearby: "/nearby", parking: "/parking" } as const)[
+  const 뒤로갈곳 = ({ destination: "/destination", nearby: "/nearby", parking: "/parking" } as const)[
     query.back as "destination" | "nearby" | "parking"
   ] ?? "/home";
+
+  /**
+   * ✕ 로 갈 곳 — **출발지·도착지를 다 버리고 처음부터 고르는 자리**다. 어디서 왔든 목적지 화면 하나다.
+   *
+   * dest 를 보정한다. 목적지 화면은 `dest` 로 고른 곳을 되찾는데(app/destination/page.tsx synced),
+   * 관광지에서 바로 온 길(/nearby)에는 `to` 만 있고 `dest` 가 없다 — 그대로 보내면 방금 보던 곳이
+   * 사라진 **빈 지도**가 열린다. `to` 를 그 자리에 실어 주면 어느 흐름에서 눌러도 핀이 꽂힌 채 열린다.
+   */
+  function 다시고르기() {
+    const q = new URLSearchParams(searchParams);
+    if (!q.get("dest") && query.to) q.set("dest", query.to);
+    q.delete("back"); // 목적지부터 다시 고르는 자리라 "어디서 왔는지"가 쓸 데가 없다
+    router.push(`/destination?${q}`);
+  }
 
   /** 도착지 — 앞 화면에서 고른 주차장이다 (관광지가 아니라 차를 댈 자리로 길을 만든다). */
   const to = query.to ?? "도착지";
@@ -265,6 +282,13 @@ function Route() {
    * 도착지를 고치면 **주차장을 거쳐 온 흐름이 아니게 된다.** 그래서 원래 목적지(dest·destLat·destLng)를
    * 지운다 — 안 지우면 대본 ⑤칸이 "새 도착지에서 옛 관광지까지" 걸어가는 시간을 말하고,
    * ①칸은 "오늘은 (옛 목적지) 가시고" 로 엉뚱한 곳을 부른다.
+   *
+   * **back 도 같이 끊는다.** 목적지를 지워놓고 돌아갈 곳만 남겨두면 ✕ 가 주차장 목록으로 가는데,
+   * 그 화면은 dest 로 도는 곳이라 "어디 주변을 찾을지 몰라 목록을 만들지 못했습니다"만 뜬다 —
+   * 되돌아간 자리가 막다른 길이 된다. 흐름을 끊었으면 돌아갈 자리도 같이 끊어야 앞뒤가 맞는다.
+   *
+   * 출발지만 고친 때는 안 끊는다. 목적지도 도착지(주차장)도 그대로라 여전히 "여기에 차를 대는"
+   * 흐름이고, ✕ 는 고르던 주차장 목록으로 돌아가는 게 맞다.
    */
   function pick(place: Place) {
     const next = new URLSearchParams(searchParams);
@@ -279,6 +303,7 @@ function Route() {
       next.delete("dest");
       next.delete("destLat");
       next.delete("destLng");
+      next.delete("back");
     }
     // 목적지 화면과 같은 목록에 쌓는다 — 여기서 찾은 곳이 거기서 안 보이면 기억이 두 벌이 된다
     addRecent(loadRecent(), place.label);
@@ -610,11 +635,22 @@ function Route() {
           홈은 이 흐름을 통째로 접고 나간다. 외부 내비까지 다녀와 돌아온 사람에게 ✕ 만 주면
           목적지·주차장을 역순으로 되짚어야 첫 화면에 닿는다.
         */}
-        <div className="-mt-[8px] flex shrink-0 justify-end px-[21px]">
+        <div className="-mt-[8px] flex shrink-0 items-center px-[21px]">
+          {/*
+            뒤로 — 한 걸음만 물러난다 (주차장 목록·대표 관광지·목적지). 근거 화면의 ← 와 같은
+            뜻·같은 모양이라 두 화면이 같은 약속을 한다 (위 뒤로갈곳 주석).
+          */}
+          <button
+            onClick={() => router.push(`${뒤로갈곳}?${searchParams}`)}
+            aria-label="뒤로"
+            className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
+          >
+            <img src="/icon-arrow-left.svg" alt="" className="size-6" />
+          </button>
           <button
             onClick={() => router.push(`/home?${searchParams}`)}
             aria-label="홈으로"
-            className="flex size-11 items-center justify-center transition hover:opacity-40 active:scale-90"
+            className="ml-auto flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
           >
             <img src="/route/icon-home.svg" alt="" className="size-6" />
           </button>
@@ -645,19 +681,22 @@ function Route() {
             />
           </div>
           {/*
-            닫기는 **이 경로를 고르기 시작한 화면**으로 나간다 (back 쿼리, 없으면 /home).
-            홈으로 무조건 보내면 튕겨나가는 느낌이 난다 — 온 화면들은 전부 지도 중심이라 배경이 이어진다.
-            back 은 정해둔 몇 곳만 받는다: 임의 주소면 남의 사이트로 튕겨 보낼 수 있다.
+            ✕ 는 **이 두 칸을 다 버리고 처음부터 고르는 문**이다 — 늘 목적지 화면으로 간다 (다시고르기).
+            머리 줄의 ‹ 와 다르다: ‹ 는 한 걸음만 물러나고(주차장 목록 같은 앞 화면), 이건 고르기를
+            처음으로 되돌린다. 셋째 문인 홈은 흐름을 통째로 접는다.
+
+            **카드 옆에 붙어 있는 자리가 곧 뜻이다.** 화면 머리가 아니라 출발지·도착지 카드에
+            딸려 있어서 "이 두 칸을 지운다"로 읽힌다 — 머리 줄에 올리면 ‹ 와 뜻이 겹쳐 보인다.
+
             칸을 고치는 중이면 그것부터 접는다. 한 번에 나가면 고치려다 만 사람이 화면 밖으로 밀려난다.
           */}
           <button
-            onClick={() => (editing ? setEditing(null) : router.push(`${닫고갈곳}?${searchParams}`))}
-            aria-label={editing ? "고치기 그만두기" : "닫기"}
+            onClick={() => (editing ? setEditing(null) : 다시고르기())}
+            aria-label={editing ? "고치기 그만두기" : "출발지·도착지 다시 고르기"}
             /*
-              호버가 **회색**이다 — 위 홈만 옅은 주황(#fff0e6)이다.
-              주황은 이 앱에서 "앞으로 가는 문"의 색이라, 흐름을 접고 나가는 홈에만 남긴다.
-              닫기는 되돌아가는 문이라 색을 안 쓴다. 둘이 나란히 서 있어 색이 같으면
-              어느 쪽이 어디로 가는지 손이 먼저 헷갈린다.
+              호버가 **회색**이다. 머리 줄의 ‹ · 홈 은 아이콘만 흐려지는데(앱의 아이콘 버튼 규칙),
+              이건 테두리 상자에 담긴 버튼이라 바탕을 쓴다 — 상자를 두고 글자만 흐리면 상자가 남아
+              눌린 티가 안 난다.
             */
             className="mt-[32px] grid size-[44px] shrink-0 place-items-center rounded-[10px] border border-[#d6d6d6] bg-white transition hover:bg-[#f1f1f1] active:bg-black/5"
           >
