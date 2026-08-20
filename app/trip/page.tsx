@@ -30,6 +30,8 @@ import {
   COMPANIONS,
   DRIVE_HOURS,
   MAX_MUSTS,
+  MAX_NIGHTS,
+  addDays,
   MAX_PER_PEOPLE,
   PEOPLE,
   THEMES,
@@ -50,6 +52,7 @@ import {
   type Companion,
   type TripPlan,
 } from "@/lib/trip";
+import { isoToday } from "@/lib/record";
 
 /** 타이핑이 멎고 나서 후보를 부르기까지 (app/destination/page.tsx 와 같은 값·같은 이유) */
 const TYPING_MS = 250;
@@ -69,10 +72,10 @@ const 주차장 = (p: Place) => /주차/.test(p.type) || /주차장|주차타워
  * 그래서 가로는 50% 에서 같은 만큼 벌린 짝(23·77, 17·83)이고, 크기도 넷 다 같다.
  */
 const HALO = [
-  "top-[25px] left-[77%]", // 🌊 오른쪽 위
-  "top-[100px] left-[83%]", // 🌿 오른쪽 아래
-  "top-[25px] left-[23%]", // 🍊 왼쪽 위
-  "top-[100px] left-[17%]", // 📷 왼쪽 아래
+  "top-[6.944%] left-[77%]", // 🌊 오른쪽 위
+  "top-[27.778%] left-[83%]", // 🌿 오른쪽 아래
+  "top-[6.944%] left-[23%]", // 🍊 왼쪽 위
+  "top-[27.778%] left-[17%]", // 📷 왼쪽 아래
 ];
 
 /**
@@ -275,7 +278,13 @@ function Shell({
       {note ? (
         <p className="mt-[15px] shrink-0 pb-2 text-center text-[9px] leading-[18px] text-[#7d7d7d]">{note}</p>
       ) : (
-        <div className="h-[67px] shrink-0" />
+        /*
+          **진짜 폰(<480px)에서는 24 로 줄인다.** 이 67 은 피그마 844 화면의 맨 아래 빈 자리인데,
+          폰 브라우저는 위아래 크롬이 먹어 남는 높이가 훨씬 낮다(아이폰 17 사파리 715, SE 553).
+          아무것도 없는 여백을 그대로 들고 있으면 그만큼 본문이 밀려, TRIP-01 의 말풍선이 잘렸다.
+          상태바(StatusBar.tsx)가 폰에서 59→12 로 접히는 것과 같은 규칙이다.
+        */
+        <div className="h-6 shrink-0 min-[480px]:h-[67px]" />
       )}
     </div>
   );
@@ -573,17 +582,25 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
       {/*
         캐릭터 · 이모지 셋 · 꼬리 달린 말풍선. 이 덩어리만은 피그마 좌표(390 폭, 261~621)를
         그대로 박는다 — 이모지가 캐릭터 둘레에 흩어진 그림이라 흐름 배치로는 그 자리가 안 나온다.
-        대신 한 상자(360 고정) 안에서만 절대좌표라, 프레임이 낮아지면 상자째 스크롤될 뿐 안 겹친다.
-        top 값은 전부 피그마 y − 261, 가로는 390 분의 몇(%)이다 — 진짜 폰은 .phone 이 390 보다
-        좁을 수 있어서(375 등) px 로 박으면 섬과 나뭇가지가 양옆으로 잘린다.
+        대신 한 상자 안에서만 절대좌표다.
+
+        **가로도 세로도 % 다** (px 이 아니라). 가로가 % 인 이유는 진짜 폰이 390 보다 좁아서고,
+        세로가 % 인 이유는 **폰 브라우저가 844 보다 훨씬 낮아서**다 — 아이폰 17 사파리의
+        콘텐츠 높이가 715 다(위 상태바 + 아래 툴바가 먹는다). 360 을 px 로 박았더니 이 덩어리가
+        버튼 밑으로 밀려, 말풍선이 반쯤 잘린 채로 첫 화면에 떴다 (실측: 17에서 37px, SE 에서 199px
+        넘쳤다). 상자가 남는 높이만큼만 차지하고 안쪽이 통째로 비례해 줄면 어느 기기에서도 다 보인다.
+        top 값은 전부 (피그마 y − 261) ÷ 360 이다.
+
+        max 360 은 원래 크기이고(노트북 프레임에서는 이 값 그대로다), min 220 은 가장 작은 폰(SE, 사파리 콘텐츠 553)에서도
+        안 넘치면서 말풍선 안쪽(19.444% = 43px)에 글줄 21px 이 여유 있게 드는 선이다.
       */}
-      <div className="flex flex-1 items-center justify-center">
-        <div className="relative h-[360px] w-full max-w-[390px] shrink-0">
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <div className="relative h-full max-h-[360px] min-h-[220px] w-full max-w-[390px]">
           {/* 피그마는 왼쪽으로 치우쳐 있었는데(left 56 / right 71) 가운데로 맞춘다 — 둘레가 대칭이라 */}
           <img
             src="/character/trip-hero.png"
             alt="귤이 캐릭터"
-            className="absolute top-[41px] left-1/2 h-[224.637px] w-[67.489%] -translate-x-1/2 object-contain"
+            className="absolute top-[11.389%] left-1/2 h-[62.399%] w-[67.489%] -translate-x-1/2 object-contain"
           />
           {/*
             둘레의 이모지는 **테마 그대로**다 (lib/trip.ts THEMES — 바다·자연·먹거리·감성).
@@ -603,10 +620,10 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
           <img
             src="/trip/bubble-tail.svg"
             alt=""
-            className="absolute top-[266px] left-1/2 h-6 w-[19.13px] -translate-x-1/2"
+            className="absolute top-[73.889%] left-1/2 h-[6.667%] w-[19.13px] -translate-x-1/2"
           />
           {/* 오른쪽 여백만 7 — 피그마 글줄 상자(left 33 · width 260)라 33 을 양쪽에 주면 한 줄이 안 붙는다 */}
-          <div className="absolute top-[290px] left-1/2 flex h-[70px] w-[76.923%] -translate-x-1/2 items-center rounded-[20px] bg-[#fff0e6] pr-[7px] pl-[33px]">
+          <div className="absolute top-[80.556%] left-1/2 flex h-[19.444%] w-[76.923%] -translate-x-1/2 items-center rounded-[20px] bg-[#fff0e6] pr-[7px] pl-[33px]">
             <p className="text-[14px] leading-[21px] text-[#262626]">오늘의 제주를 가장 완벽하게 즐기는 법 !</p>
           </div>
         </div>
@@ -626,8 +643,27 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
 function PeriodView({ plan, onBack, onApply }: DetailProps) {
   const [start, setStart] = useState(plan.start);
   const [end, setEnd] = useState(plan.end);
-  // 고쳐 열면 그 달부터 보여준다. 처음이면 이번 달 — 여행은 대개 가까운 날짜다
-  const [month, setMonth] = useState(() => (plan.start || new Date().toISOString()).slice(0, 7));
+  /*
+    **오늘보다 앞은 못 고른다.** 전에는 ‹ 로 2019년까지 넘어가 지난 날짜를 시작일로 잡을 수
+    있었고, 달력이 지난 날을 앞으로 올 날과 똑같은 검은 글씨로 그려서 막지도 알려주지도 않았다.
+    (여행 계획을 짜는 화면이라 "어제 출발"은 어느 쪽으로도 뜻이 없다.)
+
+    이 값은 렌더에서 바로 잰다 — 이 화면은 useSearchParams 아래라 서버에서 미리 그리지 않아
+    (위 Suspense 주석) 서버·클라이언트의 날짜가 엇갈릴 자리가 없다.
+  */
+  const 오늘 = isoToday();
+  const 이번달 = 오늘.slice(0, 7);
+  // 고쳐 열면 그 달부터. 처음이면 이번 달 — 여행은 대개 가까운 날짜다.
+  // 지난 달로는 안 연다: 손댈 수 없는 칸만 가득한 달을 첫 화면으로 주는 셈이라
+  const [month, setMonth] = useState(() => {
+    const m = (plan.start || 오늘).slice(0, 7);
+    return m < 이번달 ? 이번달 : m;
+  });
+  /*
+    출발만 고른 상태에서 도착으로 고를 수 있는 마지막 날 (lib/trip.ts MAX_NIGHTS).
+    상한이 없던 때는 "1826박 1827일"까지 만들어졌다.
+  */
+  const 최대끝 = start && !end ? addDays(start, MAX_NIGHTS) : "";
   const label = periodLabel({ ...plan, start, end });
 
   /*
@@ -672,7 +708,13 @@ function PeriodView({ plan, onBack, onApply }: DetailProps) {
         </div>
 
         <div className="mt-9 flex items-center justify-between">
-          <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="지난 달" className="size-11 text-[18px] text-[#7d7d7d]">
+          {/* 이번 달에서 멈춘다 — 더 뒤로 가봐야 고를 수 있는 칸이 하나도 없는 달이다 */}
+          <button
+            onClick={() => setMonth(shiftMonth(month, -1))}
+            disabled={month <= 이번달}
+            aria-label="지난 달"
+            className="size-11 text-[18px] text-[#7d7d7d] disabled:opacity-25"
+          >
             ‹
           </button>
           <span className="text-[16px] leading-6 font-medium text-[#262626]">
@@ -695,11 +737,14 @@ function PeriodView({ plan, onBack, onApply }: DetailProps) {
             const isEnd = date === end;
             const between = !!start && !!end && date > start && date < end;
             const day = Number(date.slice(8));
+            const 오늘칸 = date === 오늘;
+            /* 못 고르는 칸 — 지났거나, 출발에서 너무 멀거나, 옆 달이거나 */
+            const 잠김 = !inMonth || date < 오늘 || (!!최대끝 && date > 최대끝);
             return (
               <button
                 key={date}
-                onClick={() => inMonth && pick(date)}
-                disabled={!inMonth}
+                onClick={() => !잠김 && pick(date)}
+                disabled={잠김}
                 aria-pressed={isStart || isEnd}
                 aria-label={dayLabel(date)}
                 /* 사이 날짜의 옅은 띠가 칸 사이 틈으로 끊기지 않게, 배경은 칸 전체에 깔고 원만 안에 올린다 */
@@ -707,13 +752,20 @@ function PeriodView({ plan, onBack, onApply }: DetailProps) {
                   isStart ? "rounded-l-full bg-[#fff0e6]" : ""
                 } ${isEnd ? "rounded-r-full bg-[#fff0e6]" : ""}`}
               >
+                {/*
+                  오늘은 **테두리**다 (칠하지 않는다) — 칠하면 고른 날과 같은 모양이 돼서
+                  달력에 주황 원이 셋 뜬다. 테두리는 안쪽에 그려지므로 칸 크기가 안 흔들린다.
+                  고른 날이 오늘이면 칠한 쪽이 이긴다: 그때는 "오늘"보다 "고른 날"이 할 말이 많다.
+                */}
                 <span
                   className={`flex size-[38px] items-center justify-center rounded-full text-[14px] leading-5 ${
                     isStart || isEnd
                       ? "bg-[#ff7d32] font-bold text-white"
-                      : inMonth
-                        ? "text-[#262626]"
-                        : "text-[#d6d0c9]"
+                      : 오늘칸
+                        ? "border border-[#ff7d32] font-bold text-[#ff7d32]"
+                        : 잠김
+                          ? "text-[#d6d0c9]"
+                          : "text-[#262626]"
                   }`}
                 >
                   {day}
@@ -1144,8 +1196,8 @@ function MustView({ plan, onBack, onApply }: DetailProps) {
             {text.trim() ? "검색 결과를 눌러 꼭 가고 싶은 곳에 추가하세요." : "많이 찾는 곳을 누르거나, 장소를 검색해 보세요."}
           </p>
         )}
-        {/* 버튼 아래 67 — 다른 화면(Shell)과 같은 값이라 화면을 오갈 때 버튼이 안 튄다 */}
-        <div className="h-[67px] shrink-0" />
+        {/* 버튼 아래 67 — 다른 화면(Shell)과 같은 값이라 화면을 오갈 때 버튼이 안 튄다 (폰에서 줄이는 것도 같이) */}
+        <div className="h-6 shrink-0 min-[480px]:h-[67px]" />
       </div>
     );
 

@@ -291,6 +291,16 @@ const isDate = (s: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 
 /**
+ * 고를 수 있는 가장 긴 여행. **정책이 아니라 안전선이다** — 달력에 상한이 없던 때는
+ * ‹ 로 몇 년을 넘겨 "1826박 1827일"을 만들 수 있었다. 계산이 깨지지는 않지만
+ * (계절은 시작일로만 정해진다) 화면이 그 말을 그대로 적어 앱이 진지하게 헛소리를 한다.
+ *
+ * 30 인 이유는 "이 앱으로 짤 만한 제주 여행"의 넉넉한 바깥쪽이라서다. 실제 상한을
+ * 정하고 싶으면 이 숫자 하나만 고치면 된다 — 달력이 이 값을 보고 칸을 잠근다.
+ */
+export const MAX_NIGHTS = 30;
+
+/**
  * 여행 일수. 못 세면 null (아직 안 골랐거나 값이 망가진 경우).
  * UTC 로 파싱한다 — 로컬 시간대로 두면 서머타임이 있는 지역에서 하루가 23시간이라 밤이 하나 샌다.
  */
@@ -301,6 +311,10 @@ export function nightsOf(start: string, end: string): { nights: number; days: nu
   const nights = Math.round(ms / 86_400_000);
   return { nights, days: nights + 1 };
 }
+
+/** "2026-08-20" 에서 n 일 뒤. monthGrid 와 같은 UTC 기준이다 */
+export const addDays = (date: string, n: number) =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 /**
  * 한 달치 달력 칸. 앞뒤로 옆 달 날짜를 채워 7칸씩 딱 떨어지게 만든다 (TRIP-04-A).
