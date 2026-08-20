@@ -1,3 +1,5 @@
+import { 문장줄 } from "./text";
+
 /**
  * 물음 창. 브라우저 confirm() 대신 쓴다 — 그건 폰 밖(브라우저)에서 뜨고 글꼴·버튼이 앱과 따로 논다.
  * 여기서는 화면을 어둡게 덮고 가운데 흰 상자로 묻는다.
@@ -41,7 +43,7 @@ export default function Confirm({
         className="relative w-full max-w-[280px] rounded-[18px] bg-white px-5 pt-6 pb-4 text-center shadow-[0_12px_32px_0_rgba(0,0,0,0.18)]"
       >
         <p className="text-[15px] leading-[22px] font-bold break-keep text-[#262626]">{title}</p>
-        <p className="mt-2 text-[13px] leading-5 text-[#7d7d7d]">{body}</p>
+        <p className="mt-2 text-[13px] leading-5 whitespace-pre-line text-[#7d7d7d]">{문장줄(body)}</p>
         <div className="mt-5 flex gap-2">
           {/* 알림 창에는 취소가 없다 — 무를 일이 아니라 읽었다고 답하는 자리다 */}
           {onOk && (

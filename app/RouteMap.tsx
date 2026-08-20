@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { WHY } from "@/lib/briefing";
 import type { RiskFactor } from "@/lib/score";
+import { 문장줄 } from "./text";
 
 // ponytail: 카카오 SDK는 타입 정의가 없어 any로 둔다.
 // 지도 교체(Leaflet) 가능성이 있어 타입 패키지를 붙일 만큼 표면적이 넓지 않음.
@@ -462,7 +463,7 @@ export default function RouteMap({
         </div>
       )}
       {selected && sdk === "ready" && <RoadviewPanel risk={selected} onClose={() => setSelected(null)} />}
-      {notice && <Notice>{notice}</Notice>}
+      {notice && <Notice>{문장줄(notice)}</Notice>}
     </div>
   );
 }
@@ -522,7 +523,7 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
         )}
       </div>
       <div className="min-h-0 space-y-2 overflow-y-auto p-4 text-sm">
-        <p className="leading-relaxed text-slate-700">{WHY[risk.type]}</p>
+        <p className="leading-relaxed whitespace-pre-line text-slate-700">{문장줄(WHY[risk.type])}</p>
         <p className="text-xs tabular-nums text-slate-500">
           {risk.value} · 경로의 {Math.round(risk.exposure * 100)}%
         </p>
@@ -536,7 +537,7 @@ function RoadviewPanel({ risk, onClose }: { risk: RiskFactor; onClose: () => voi
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="absolute inset-0 grid place-items-center rounded-[24px] bg-[#F4F7F5] p-4 text-center text-sm text-slate-500">
+    <div className="absolute inset-0 grid place-items-center rounded-[24px] bg-[#F4F7F5] p-4 text-center text-sm whitespace-pre-line text-slate-500">
       {children}
     </div>
   );

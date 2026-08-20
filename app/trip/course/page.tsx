@@ -24,6 +24,7 @@ import { homeQuery, summaryOf, toRecordQuery } from "@/lib/record";
 import { rememberCourse } from "@/lib/courses";
 import { nightsOf, queryRecord, TRIP_KEYS, type TripPlan } from "@/lib/trip";
 import { makeCourses, type Made } from "./actions";
+import { 문장줄 } from "../../text";
 
 /**
  * 구간 선 색. 하루 코스라 한 색이면 되지만, 여러 날로 되돌릴 자리를 위해 배열로 둔다
@@ -118,7 +119,7 @@ function CourseResult() {
           </button>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-          <p className="text-[16px] leading-6 font-medium text-[#262626]">{made.error}</p>
+          <p className="text-[16px] leading-6 font-medium whitespace-pre-line text-[#262626]">{문장줄(made.error)}</p>
         </div>
         <button
           onClick={() => router.replace(`/trip?${searchParams}&resume=1`)}
@@ -533,8 +534,8 @@ function Recommend({
           하루짜리 여행에는 안 띄운다 — 당일치기에 "먼저 첫날"은 할 말이 아니다.
         */}
         {(nightsOf(plan.start, plan.end)?.nights ?? 0) > 0 && (
-          <p className="mt-3 shrink-0 px-[23px] text-[12px] leading-[18px] text-[#7d7d7d]">
-            먼저 첫날 코스를 짰어요. 나머지 날은 다녀와서 다시 받아보세요.
+          <p className="mt-3 shrink-0 px-[23px] text-[12px] leading-[18px] whitespace-pre-line text-[#7d7d7d]">
+            {"먼저 첫날 코스를 짰어요.\n나머지 날은 다녀와서 다시 받아보세요."}
           </p>
         )}
 
@@ -570,8 +571,8 @@ function Recommend({
             잘릴 때만 말한다 (VIA_MAX 5 + 도착지 1 = 6).
           */}
           {days[0] && days[0].stops.length > 6 && (
-            <p className="mx-[22px] mt-2 shrink-0 text-center text-[11px] leading-[16px] text-[#9e9e9e]">
-              내비에는 앞 6곳까지만 넘어가요. 나머지는 도착해서 다시 잡아주세요.
+            <p className="mx-[22px] mt-2 shrink-0 text-center text-[11px] leading-[16px] whitespace-pre-line text-[#9e9e9e]">
+              {"내비에는 앞 6곳까지만 넘어가요.\n나머지는 도착해서 다시 잡아주세요."}
             </p>
           )}
           {/*

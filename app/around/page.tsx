@@ -22,6 +22,7 @@ import { findPlace } from "../destination/actions";
 import { tamnaAround, type Around as Nearby } from "./actions";
 import { type TamnaShop } from "@/lib/tamna";
 import { walkMinutes, meters } from "@/lib/parking";
+import { 문장줄 } from "../text";
 
 /**
  * 반경 — 도보권 1km.
@@ -351,8 +352,8 @@ function Around() {
         </form>
 
         {(error || busy) && (
-          <p className="pointer-events-auto mx-[18px] mt-2 shrink-0 rounded-lg bg-white/95 px-3 py-2 text-[12px] leading-relaxed shadow">
-            <span className={error ? "text-rose-600" : "text-[#616161]"}>{error ?? "찾는 중…"}</span>
+          <p className="pointer-events-auto mx-[18px] mt-2 shrink-0 rounded-lg bg-white/95 px-3 py-2 text-[12px] leading-relaxed whitespace-pre-line shadow">
+            <span className={error ? "text-rose-600" : "text-[#616161]"}>{error ? 문장줄(error) : "찾는 중…"}</span>
           </p>
         )}
 
@@ -918,7 +919,9 @@ function Map({ pins, selected, onPick, onIdle, move, onReady, onBlank, fy }: Map
     <>
       <div ref={box} className="absolute inset-0" />
       {notice && (
-        <p className="absolute inset-x-0 top-1/2 z-0 px-8 text-center text-[13px] text-[#616161]">{notice}</p>
+        <p className="absolute inset-x-0 top-1/2 z-0 px-8 text-center text-[13px] whitespace-pre-line text-[#616161]">
+          {문장줄(notice)}
+        </p>
       )}
     </>
   );

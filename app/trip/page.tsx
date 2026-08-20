@@ -1172,11 +1172,11 @@ function MustView({ plan, onBack, onApply }: DetailProps) {
           0 이라고 적으면 앱이 거짓말을 한다 (usePlaceSuggest).
         */}
         {text.trim() && (
-          <p className="mt-[16px] shrink-0 px-6 text-[14px] leading-[22px] text-[#7d7d7d]">
+          <p className="mt-[16px] shrink-0 px-6 text-[14px] leading-[22px] whitespace-pre-line text-[#7d7d7d]">
             {검색.찾은말 !== text
               ? "검색 결과를 찾는 중…"
               : !검색.물어봤나
-                ? "지금은 장소를 찾아볼 수 없어요. 잠시 뒤에 다시 쳐보세요."
+                ? "지금은 장소를 찾아볼 수 없어요.\n잠시 뒤에 다시 쳐보세요."
                 : found.length
                   ? `검색 결과 ${found.length}`
                   : "이름을 조금 더 적어보세요."}
@@ -1300,7 +1300,7 @@ function MustView({ plan, onBack, onApply }: DetailProps) {
 
         <p className="mt-7 text-[16px] leading-6 font-medium text-[#262626]">추가한 장소 {musts.length}</p>
         <div className="mt-3 flex flex-wrap gap-2.5">
-          {musts.length === 0 && <p className="text-[12px] leading-[18px] text-[#7d7d7d]">아직 없어요. 검색해서 담아보세요.</p>}
+          {musts.length === 0 && <p className="text-[12px] leading-[18px] whitespace-pre-line text-[#7d7d7d]">{"아직 없어요.\n검색해서 담아보세요."}</p>}
           {musts.map((m) => (
             <button
               key={m}
