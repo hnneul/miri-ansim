@@ -273,6 +273,8 @@ function Around() {
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f2f5f0]">
+      {/* 지도를 가리지 않으려고 제목 줄을 뺀 화면이다 (아래 검색바 주석) — 이름은 읽히기만 하면 된다 */}
+      <h1 className="sr-only">가는 길 주변</h1>
       <Map
         pins={pins}
         selected={selected}

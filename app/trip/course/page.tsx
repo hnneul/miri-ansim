@@ -94,6 +94,8 @@ function CourseResult() {
   if ("error" in made)
     return (
       <Frame>
+        {/* 이 갈래만 큰 제목이 없다 — 만드는 중·결과 쪽 제목과 같은 자리를 이름으로만 채운다 */}
+        <h1 className="sr-only">여행 코스</h1>
         {/*
           나가는 문 하나 — 홈. **뒤로 화살표는 안 붙인다**: 아래 큰 버튼이 "조건 다시 고르기"라
           둘 다 /trip 으로 가서 같은 문이 둘이 된다.
@@ -119,7 +121,7 @@ function CourseResult() {
         </div>
         <button
           onClick={() => router.replace(`/trip?${searchParams}&resume=1`)}
-          className="mx-6 mb-8 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition active:scale-[0.98]"
+          className="mx-6 mb-8 h-12 shrink-0 rounded-2xl bg-[#ff7d32] text-[16px] font-medium text-white transition hover:bg-[#ff6114] active:scale-[0.98]"
         >
           조건 다시 고르기
         </button>
@@ -191,11 +193,11 @@ function Making() {
   return (
     <Frame>
       <div className="mt-[94px] shrink-0 px-6 text-center">
-        <h2 className="text-[28px] leading-9 font-bold text-[#262626]">
+        <h1 className="text-[28px] leading-9 font-bold text-[#262626]">
           귤이가 여행을
           <br />
           차곡차곡 잇고 있어요
-        </h2>
+        </h1>
         <p className="mt-4 text-[14px] leading-[21px] text-[#7d7d7d]">
           장소 사이 이동 시간과 쉬운 길을
           <br />
@@ -406,7 +408,7 @@ function Recommend({
           위로 튀었다. 누른 카드가 손가락 밑에서 움직이면 잘못 눌렀나 싶어진다.
         */}
         <div className="relative shrink-0 px-[23px]">
-          <h2 className="mt-[7px] text-[23px] leading-9 font-bold text-[#262626]">
+          <h1 className="mt-[7px] text-[23px] leading-9 font-bold text-[#262626]">
             {골랐나 ? (
               <>
                 <span className="text-[#ff7d32]">선택한 코스</span>로
@@ -420,7 +422,7 @@ function Recommend({
                 제주 여행 코스로 달려볼까요 ?
               </>
             )}
-          </h2>
+          </h1>
         </div>
 
         {/* 높이는 이 상자가 정한다 — RouteMap 이 h-full 이라 자기한테 높이를 주면 안 먹는다 */}

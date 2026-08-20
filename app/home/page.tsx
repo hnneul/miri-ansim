@@ -138,7 +138,7 @@ function Home() {
         같은 그림을 크게 다시 보여주므로, 여기서 다른 얼굴이 뜨면 그 버튼이 내 프로필로 가는 입구로 안 읽힌다.
       */}
       <div className="flex h-[62px] shrink-0 items-center justify-between pr-5 pl-[29px]">
-        <p className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리 안심</p>
+        <h1 className="text-[18px] leading-none font-bold text-[#1f1f1f]">미리 안심</h1>
         {/* 쿼리를 그대로 넘겨야 마이 화면에서 프로필을 되읽는다 (lib/profile.ts) */}
         <button
           onClick={() => router.push(`/profile?${searchParams}`)}

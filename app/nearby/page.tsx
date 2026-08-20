@@ -178,9 +178,9 @@ function Nearby() {
       </div>
 
       <div className="shrink-0 px-[23px]">
-        <h2 className="text-[23px] leading-8 font-bold text-[#262626]">
+        <h1 className="text-[23px] leading-8 font-bold text-[#262626]">
           지금 <span className="text-[#ff7d32]">가기 좋은</span> 곳
-        </h2>
+        </h1>
         {/*
           순서가 왜 이런지 밝힌다 — 이게 빠지면 목록이 그냥 거리순처럼 읽힌다.
           제목은 "좋은"이고 여기는 "편한"인 게 맞다: 무엇을 보여주는지는 넓게 말하고,

@@ -420,6 +420,8 @@ function Destination() {
 
   return (
     <div className="flex flex-1 flex-col">
+      {/* 검색바가 이 화면의 머리다 — 글자로 된 제목이 없어서 이름만 따로 읽힌다 */}
+      <h1 className="sr-only">목적지 입력</h1>
       {/*
         상태바는 지도 밖에 둔다 — 와이어프레임도 Map/Placeholder 가 상태바 아래(y:32)에서 시작한다.
         지도를 상태바 뒤까지 깔면 시각·배터리가 지도 상호명과 겹쳐 양쪽 다 안 읽힌다.

@@ -103,9 +103,9 @@ function Calm() {
       </div>
 
       <div className="shrink-0 px-[23px]">
-        <h2 className="text-[23px] leading-8 font-bold text-[#262626]">
+        <h1 className="text-[23px] leading-8 font-bold text-[#262626]">
           지금 <span className="text-[#ff7d32]">연습하기 좋은</span> 길
-        </h2>
+        </h1>
         <p className="mt-3 text-[14px] leading-[21px] text-[#7d7d7d]">
           {near?.at
             ? `${내위치 ? "내 주변" : "제주시청 주변"} 5km · ${near.at} 기준`

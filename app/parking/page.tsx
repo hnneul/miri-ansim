@@ -360,9 +360,9 @@ function Parking() {
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
-            <span className="min-w-0 flex-1 truncate text-[15px] leading-[22px] font-medium text-[#1f1f1f]">
+            <h1 className="min-w-0 flex-1 truncate text-[15px] leading-[22px] font-medium text-[#1f1f1f]">
               {destName ?? "목적지"}
-            </span>
+            </h1>
             <span className="shrink-0 text-[12px] leading-none text-[#9e9e9e]">주변 주차장</span>
           </div>
 
