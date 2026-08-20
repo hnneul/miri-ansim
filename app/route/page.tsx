@@ -953,7 +953,8 @@ function Route() {
                     {titleOf(
                       chosen,
                       visibleRoutes.find((r) => r.id !== chosen.id) ?? null,
-                      result.score.recommendedRoute === chosen.id,
+                      result.score.recommendedRoute === chosen.id ||
+                        result.score.noPick === "alone",
                     )}
                   </span>
                   <span className="shrink-0 text-[13px] text-[#9e9e9e]">
@@ -1076,7 +1077,8 @@ function Route() {
                           title={titleOf(
                             r,
                             visibleRoutes.find((x) => x.id !== r.id) ?? null,
-                            result.score.recommendedRoute === r.id,
+                            result.score.recommendedRoute === r.id ||
+                              result.score.noPick === "alone",
                           )}
                           score={
                             r.id === "fast"
@@ -1401,7 +1403,7 @@ function Why({
         ) : null}
         {/* 근거 화면도 비교 화면과 같은 이름을 쓴다 — 넘어오면서 이름이 바뀌면 같은 길인지 흔들린다 */}
         <span className="min-w-0 truncate text-[16px] font-bold text-[#1f1f1f]">
-          {titleOf(route, other, recommended)}
+          {titleOf(route, other, recommended || noPick === "alone")}
         </span>
         {/*
           점수만 주황이다. 비교 화면의 카드에서는 검정인데(거기선 두 값을 나란히 재는 자리라
@@ -1549,7 +1551,16 @@ function 기본이름(route: LiveRoute, other: LiveRoute | null, 추천: boolean
 /**
  * 카드에 적을 이름. "맞춤"은 **프로필로 정해진 길**에 얹는다 (와이어프레임의 "맞춤 안심 길").
  *
- * 추천 배지가 붙은 경로만 "맞춤 안심 길"이고, 추천을 접은 단일 카드는 "일반 길"로 둔다.
+ * 얹는 자리는 둘이다.
+ *
+ *   ① 추천 배지가 붙은 경로. 추천이 프로필로 잰 부담에서 나오므로 (lib/score.ts) 참이다.
+ *   ② 갈림길이 아예 없는 구간의 한 장 (noPick "alone"). 고를 상대가 없어 배지는 안 붙지만
+ *      그 한 장도 프로필로 잰 부담 점수를 달고 나온다 — 화면에 뜬 추천점수가 그것이다.
+ *      고른 게 아니라는 사실은 회색 "단일 경로" 배지가 같은 줄에서 말한다.
+ *
+ * **tie 에는 안 얹는다.** 부담 차이가 5% 이내라 한 장만 그리는 경우인데(visibleRoutes),
+ * 그 한 장을 고른 건 efficientRoute 즉 **시간·거리**다. 프로필로 고른 게 아니라서 "맞춤"이
+ * 거짓이 된다. 거기는 "안심 길"까지만 쓴다 — 부담이 낮은 축에 든다는 건 참이다.
  */
 function titleOf(route: LiveRoute, other: LiveRoute | null, 맞춤: boolean): string {
   const base = 기본이름(route, other, 맞춤);
