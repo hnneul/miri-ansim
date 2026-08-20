@@ -135,6 +135,22 @@ type Props = {
    */
   wheelZoom?: boolean;
   /**
+   * 지도 그림을 **손짓에서 통째로 뺀다** (pointer-events). 끄면 화면 스크롤이 지도를 통과한다.
+   *
+   * wheelZoom 과 짝이다 — 세로로 긴 화면 한복판에 박힌 지도는 데스크톱에서 휠을 먹고,
+   * 폰에서는 **끌기가 스크롤을 먹는다**. 실제 아이폰 사파리에서 확인: 메인 지도 위에서
+   * 위로 쓸면 화면이 1px 도 안 내려가고 지도만 밀렸다.
+   *
+   * **카카오의 draggable:false 로는 안 된다** — 끌기는 멈추지만 카카오가 터치를 그대로
+   * 삼켜서 화면은 여전히 안 내려간다 (같은 시뮬레이터에서 확인). 그래서 옵션이 아니라
+   * 브라우저 층에서 뺀다. 그 대신 지도를 누르는 일(마커·빈 곳)도 같이 죽으니,
+   * **onBlank 나 마커 onClick 을 쓰는 화면에는 걸면 안 된다.**
+   *
+   * ＋/－ 버튼은 지도 그림의 형제라 그대로 산다.
+   * 지도가 화면의 주인공인 곳(길 비교·목적지)은 기본값 그대로 둔다.
+   */
+  interactive?: boolean;
+  /**
    * 지도 오른쪽 아래 ＋/－ 버튼. wheelZoom 을 끈 자리(메인)에 확대할 문 하나는 있어야 한다 —
    * 폰의 핀치·더블탭은 살아 있지만 마우스로 여는 사람에게는 더블클릭 말고 보이는 게 없다.
    *
@@ -178,6 +194,7 @@ export default function RouteMap({
   padBottom = 0,
   onBlank,
   wheelZoom = true,
+  interactive = true,
   zoomButtons = false,
 }: Props) {
   const box = useRef<HTMLDivElement>(null);
@@ -390,7 +407,7 @@ export default function RouteMap({
 
   return (
     <div className={`relative h-full w-full overflow-hidden bg-slate-100 ${className}`}>
-      <div ref={box} className="h-full w-full" />
+      <div ref={box} className={`h-full w-full ${interactive ? "" : "pointer-events-none"}`} />
       {zoomButtons && sdk === "ready" && (
         /*
           오른쪽 아래 — 위는 현위치 버튼, 왼쪽 아래는 카카오 로고·축척자가 이미 쓰는 자리다.
