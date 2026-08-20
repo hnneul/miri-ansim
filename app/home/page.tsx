@@ -209,8 +209,14 @@ function Home() {
             routes={[]}
             markers={here ? [{ coord: here, label: "현위치", icon: MY_LOCATION }] : []}
             className=""
-            /* 화면 한가운데라 휠이 지도 축소로 새면 안 된다. 핀치·더블클릭 확대는 산다 (RouteMap wheelZoom 주석) */
+            /*
+              화면 한가운데 208px 짜리 미리보기다 — 지도가 스크롤 제스처를 먹으면 안 된다.
+              데스크톱은 휠(wheelZoom), 폰은 끌기(interactive)가 그 자리를 먹는다. 둘 다 끈다.
+              여기는 마커도 빈 곳도 누를 일이 없어서 지도를 손짓에서 통째로 빼도 잃는 게 없다.
+              확대는 ＋/－ 버튼으로만 (zoomButtons).
+            */
             wheelZoom={false}
+            interactive={false}
             zoomButtons
           />
 

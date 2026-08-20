@@ -312,7 +312,18 @@ function Destination() {
     next.set("to", found.label);
     next.set("toLat", String(found.coord[0]));
     next.set("toLng", String(found.coord[1]));
-    for (const k of ["dest", "destLat", "destLng", "search"]) next.delete(k);
+    /*
+      **돌아올 자리를 여기서 정한다.** 예전에는 back 을 손대지 않아서, 앞 흐름이 남기고 간 값이
+      그대로 실려 갔다 — 그러면 ✕ 가 엉뚱한 화면으로 가고, 마침 destination 이 실려 있으면
+      dest 를 지운 채 이 화면으로 돌아와 **빈 지도**가 떴다 (고른 곳이 URL 에서 사라져서다).
+
+      dest 는 남긴다. 이 화면이 그 값으로 고른 곳을 되찾는다(아래 synced effect).
+      좌표(destLat/destLng)는 지운다 — 그건 "차를 대고 목적지까지 걸어갈" 거리의 재료인데
+      (app/route/page.tsx 대본 ⑤칸), 여기서는 도착지가 곧 목적지라 걸어갈 구간이 없다.
+    */
+    next.set("back", "destination");
+    next.set("dest", found.label);
+    for (const k of ["destLat", "destLng", "search"]) next.delete(k);
     if (fromHome.current) {
       next.set("originLat", fromHome.current[0]);
       next.set("originLng", fromHome.current[1]);
