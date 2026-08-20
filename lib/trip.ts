@@ -28,13 +28,13 @@ import type { LatLng } from "@/app/RouteMap";
  */
 export const THEMES = [
   {
-    emoji: "🌊",
+    icon: "/trip/theme-sea.png",
     label: "조용한 바다 여행",
     desc: "한적한 해변 · 노을",
     recipes: [{ label: "해변", query: "해수욕장", code: "AT4", kinds: ["해수욕장", "해변"] }],
   },
   {
-    emoji: "🌿",
+    icon: "/trip/theme-nature.png",
     label: "자연 속 산책 여행",
     desc: "오름 · 숲길",
     recipes: [
@@ -43,7 +43,7 @@ export const THEMES = [
     ],
   },
   {
-    emoji: "🍊",
+    icon: "/trip/theme-food.png",
     label: "제주 먹거리 여행",
     desc: "시장 · 로컬 맛집",
     recipes: [
@@ -53,7 +53,7 @@ export const THEMES = [
     ],
   },
   {
-    emoji: "📷",
+    icon: "/trip/theme-photo.png",
     label: "감성 명소 여행",
     desc: "카페 · 전시 · 사진",
     recipes: [
@@ -202,10 +202,10 @@ export function recipesFor(plan: TripPlan): Leg[] {
  * 가서야 못 들어가는 것보다 안 묻는 게 낫다. 사람이 만든 목록에 동반 가능 칸이 생기면 그때 되살린다.
  */
 export const COMPANIONS = [
-  { id: "solo", emoji: "🧳", label: "혼자", fixed: 1 },
-  { id: "couple", emoji: "💛", label: "연인", fixed: 2 },
-  { id: "family", emoji: "👨‍👩‍👧", label: "가족", fixed: 0 },
-  { id: "friend", emoji: "🧑‍🤝‍🧑", label: "친구", fixed: 0 },
+  { id: "solo", icon: "/trip/with-solo.png", label: "혼자", fixed: 1 },
+  { id: "couple", icon: "/trip/with-couple.png", label: "연인", fixed: 2 },
+  { id: "family", icon: "/trip/with-family.png", label: "가족", fixed: 0 },
+  { id: "friend", icon: "/trip/with-friend.png", label: "친구", fixed: 0 },
 ] as const;
 
 /** 인원이 말에 이미 들어 있는 동행이면 그 수, 아니면 0 (물어봐야 한다) */

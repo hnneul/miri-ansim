@@ -21,6 +21,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
+import DemoNotice from "../DemoNotice";
 import { recommendSpots, suggestPlaces } from "../destination/actions";
 import { hereNow } from "../home/actions";
 import RouteMap, { type LatLng } from "../RouteMap";
@@ -195,12 +196,12 @@ function Trip() {
           "꼭 가고 싶은 곳"은 여기 없다. 테마 화면(TRIP-03)이 그 줄을 들고 있다.
         */}
         <Group name="필수">
-          <Field icon="📅" name="여행 기간" value={periodLabel(plan)} empty="날짜를 골라주세요" go={() => setView("period")} />
-          <Field icon="👥" name="누구와 가나요?" value={companionLabel(plan)} empty="동행을 골라주세요" go={() => setView("companion")} />
-          <Field icon="✈️" name="출발 위치" value={plan.origin || null} empty="위치를 골라주세요" go={() => setView("origin")} />
+          <Field icon="/trip/field-period.png" name="여행 기간" value={periodLabel(plan)} empty="날짜를 골라주세요" go={() => setView("period")} />
+          <Field icon="/trip/field-people.png" name="누구와 가나요?" value={companionLabel(plan)} empty="동행을 골라주세요" go={() => setView("companion")} />
+          <Field icon="/trip/field-origin.png" name="출발 위치" value={plan.origin || null} empty="위치를 골라주세요" go={() => setView("origin")} />
         </Group>
         <Group name="선택">
-          <Field icon="🚗" name="하루 운전" value={driveLabel(plan)} empty="운전 시간을 골라주세요" go={() => setView("drive")} />
+          <Field icon="/trip/field-drive.png" name="하루 운전" value={driveLabel(plan)} empty="운전 시간을 골라주세요" go={() => setView("drive")} />
         </Group>
       </Shell>
     );
@@ -249,6 +250,7 @@ function Shell({
     // auto 라, 없으면 내용이 길 때(장소 검색 결과) 이 상자째 늘어나 버튼이 프레임 밖으로 밀린다.
     <div className="flex min-h-0 flex-1 flex-col bg-white">
       <StatusBar tone="text-[#262626]" />
+      <DemoNotice />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
       {/* 본문과 버튼 사이 20 · 버튼 아래 안내까지 15 — 피그마 세로 좌표(710 → 730 → 793) 그대로 */}
       <button
@@ -337,14 +339,15 @@ function Detail({
 
 /** TRIP-02 · 04-D 의 가로 줄. 고르면 주황 테두리 + 연한 주황 바탕이 된다. */
 function Row({
-  emoji,
+  icon,
   label,
   desc,
   on,
   onClick,
   radio,
 }: {
-  emoji?: string;
+  /** 왼쪽 그림 경로. radio 줄에는 없다 (● ○ 가 그 자리다) */
+  icon?: string;
   label: string;
   desc: string;
   on: boolean;
@@ -359,12 +362,12 @@ function Row({
         on ? "border-2 border-[#ff7d32] bg-[#fff0e6]" : "border border-[#eae7e2] bg-white"
       }`}
     >
-      <span className="w-[26px] shrink-0 text-center text-[16px] leading-6">
+      <span className="flex w-[26px] shrink-0 items-center justify-center text-center text-[16px] leading-6">
         {radio ? (
           <span className={on ? "text-[#ff7d32]" : "text-[#7d7d7d]"}>{on ? "●" : "○"}</span>
-        ) : (
-          emoji
-        )}
+        ) : icon ? (
+          <img src={icon} alt="" className="size-[22px] object-contain" />
+        ) : null}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[16px] leading-6 font-medium text-[#262626]">{label}</span>
@@ -380,7 +383,7 @@ function Row({
  * 여섯 칸 격자에 2칸·3칸으로 나눠 재면 두 줄 다 가로를 꽉 채우고 사이 간격도 하나로 맞는다.
  * 2열로 두면 마지막 하나가 혼자 남아 반쪽짜리 줄이 생긴다.
  */
-function Tile({ emoji, label, on, onClick }: { emoji: string; label: string; on: boolean; onClick: () => void }) {
+function Tile({ icon, label, on, onClick }: { icon: string; label: string; on: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -389,7 +392,13 @@ function Tile({ emoji, label, on, onClick }: { emoji: string; label: string; on:
         on ? "border-2 border-[#ff7d32] bg-[#fff0e6]" : "border border-[#eae7e2] bg-white"
       }`}
     >
-      <span className="text-[22px] leading-[30px]">{emoji}</span>
+      {/*
+        시스템 이모지였다. 기기마다 다른 그림이 나오고(맥 Apple Color Emoji ↔ 윈도우 Segoe UI Emoji),
+        가족·친구는 ZWJ 로 이어붙인 조합이라 지원이 없는 환경에서는 낱글자로 흩어졌다.
+        3D 캐릭터 옆에 납작한 이모지가 서는 것도 결이 안 맞았다 — 홈 quick-*.png 와 같은 방식으로 옮긴다.
+        alt 는 비운다: 바로 옆에 label 이 글자로 서 있어 읽어 주면 이름이 두 번 들린다.
+      */}
+      <img src={icon} alt="" className="size-[26px] shrink-0 object-contain" />
       <span className="max-w-full truncate px-2 text-[14px] leading-5 font-medium text-[#262626]">{label}</span>
     </button>
   );
@@ -425,7 +434,9 @@ function Field({
 }) {
   return (
     <button onClick={go} className="flex h-[70px] w-full items-center gap-3 rounded-2xl border border-[#eae7e2] bg-white px-4 text-left transition active:scale-[0.99]">
-      <span className="w-7 shrink-0 text-[16px] leading-6">{icon}</span>
+      {/* 이모지 글자였다 — 기기마다 다른 그림이 나와 파일로 옮겼다 (Tile 주석) */}
+      <img src={icon} alt="" className="w-7 shrink-0 object-contain" />
+
       <span className="min-w-0 flex-1">
         <span className="block text-[12px] leading-[18px] text-[#7d7d7d]">{name}</span>
         <span className={`block truncate text-[16px] leading-6 font-medium ${value ? "text-[#262626]" : "text-[#b8b2aa]"}`}>
@@ -500,7 +511,7 @@ function ThemeView({
                 on ? "border-[1.5px] border-[#ff7d32] bg-[#fff0e6]" : "border border-[#eae7e2] bg-white"
               }`}
             >
-              <span className="block text-[24px] leading-8">{t.emoji}</span>
+              <img src={t.icon} alt="" className="block size-[26px] object-contain" />
               <span className={`mt-[5px] block truncate text-[14px] leading-[22px] font-bold ${on ? "text-[#ff7d32]" : "text-[#262626]"}`}>
                 {t.label}
               </span>
@@ -513,7 +524,7 @@ function ThemeView({
 
       {/* 테마 타일과 같은 폭·같은 여백에 서는 한 줄 (TRIP-03). 누르면 04-E 로 간다 */}
       <div className="mt-[18px] shrink-0 px-6">
-        <Field icon="📍" name="꼭 가고 싶은 곳" value={mustLabel(plan)} empty="선택 안 함" go={onMusts} />
+        <Field icon="/trip/field-must.png" name="꼭 가고 싶은 곳" value={mustLabel(plan)} empty="선택 안 함" go={onMusts} />
       </div>
 
       <div className="flex-1" />
@@ -567,11 +578,11 @@ function Intro({ onStart, onBack }: { onStart: () => void; onBack: () => void })
           */}
           {THEMES.slice(0, HALO.length).map((t, i) => (
             <span
-              key={t.emoji}
+              key={t.icon}
               className={`absolute -translate-x-1/2 -translate-y-1/2 text-[36px] leading-none ${HALO[i]}`}
               aria-hidden
             >
-              {t.emoji}
+              <img src={t.icon} alt="" className="size-9 object-contain" />
             </span>
           ))}
           <img
@@ -744,7 +755,7 @@ function CompanionView({ plan, onBack, onApply }: DetailProps) {
       */}
       <div className="grid grid-cols-2 gap-3.5 px-[23px]">
         {COMPANIONS.map((c) => (
-          <Tile key={c.id} emoji={c.emoji} label={c.label} on={companion === c.id} onClick={() => setCompanion(c.id)} />
+          <Tile key={c.id} icon={c.icon} label={c.label} on={companion === c.id} onClick={() => setCompanion(c.id)} />
         ))}
       </div>
 
@@ -848,7 +859,8 @@ function OriginView({ onBack, onApply }: Omit<DetailProps, "plan">) {
             picked?.here ? "border-2 border-[#ff7d32] bg-[#fff0e6]" : "border border-[#eae7e2] bg-white"
           }`}
         >
-          <span className="text-[16px]">📍</span>
+          {/* 이모지 글자였다 — 기기마다 다른 그림이 나와 파일로 옮겼다 (Tile 주석) */}
+          <img src="/trip/field-must.png" alt="" className="size-[22px] shrink-0 object-contain" />
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] leading-6 font-medium text-[#262626]">현재 위치 사용</span>
             <span className="block truncate text-[12px] leading-[18px] text-[#7d7d7d]">
