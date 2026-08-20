@@ -104,11 +104,12 @@ function Profile() {
         이 사진은 올리는 그림이 아니다. 누를 수 있어 보이는데 아무 일도 안 하면 시연에서 더 나쁘다
         (/home 프로모 카드와 같은 판단).
 
-        쿼리를 안 실어 보낸다 — 온보딩은 네 값을 처음부터 다시 고르는 자리라 이전 값을 물려줄
-        데가 없다. 다 고르고 나면 온보딩이 새 쿼리를 만들어 /home 으로 넘긴다.
+        쿼리를 실어 보낸다 — 온보딩이 그걸 읽어 지금 값을 미리 짚어 준다(picksOf). 차 크기 하나
+        고치려고 네 문항을 다시 답할 이유가 없고, 1단계에서 뒤로를 눌러도 이 화면으로 되돌아온다.
+        다 고르고 나면 온보딩이 새 쿼리를 만들어 /home 으로 넘긴다.
       */}
       <button
-        onClick={() => router.push("/onboarding")}
+        onClick={() => router.push(`/onboarding?${searchParams}`)}
         className="mx-[34px] mt-[26px] h-[37px] shrink-0 rounded-[32px] bg-[#f5f5f5] text-[13px] text-[#1f1f1f] transition active:scale-[0.99]"
       >
         프로필 수정

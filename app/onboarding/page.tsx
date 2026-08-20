@@ -16,11 +16,11 @@
 // 좌표는 390x844 절대배치를 flex 로 옮겼다 (app/page.tsx 와 같은 이유 — .phone 높이가
 // 노트북에서 844 보다 낮아질 수 있고, 그때 여백(flex-1)부터 줄어야 버튼이 안 잘린다).
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import StatusBar from "../StatusBar";
 import type { DriverProfile } from "@/lib/score";
-import { CONCERNS, DEFAULT_PROFILE, toProfileQuery } from "@/lib/profile";
+import { CONCERNS, DEFAULT_PROFILE, parseConcerns, parseProfile, toProfileQuery } from "@/lib/profile";
 
 type Step = {
   /** "N / 4" 옆에 붙는 부가 문구 (마지막 단계 "여러 개 선택 가능") */
@@ -114,11 +114,53 @@ const STEPS: Step[] = [
   },
 ];
 
-export default function Onboarding() {
+/**
+ * 이미 있는 프로필 → 단계별 선택 인덱스. 마이 화면의 "프로필 수정"으로 들어오면 네 문항을
+ * 처음부터 다시 답하게 하지 않는다.
+ *
+ * **접힌 선택지는 첫 자리로 편다.** patch 가 값 하나로 접히는 자리가 둘 있다 —
+ * 제주 경험 "아직 없음"·"1회"가 둘 다 false, 차량 "소형차"·"중형차"가 둘 다 sedan.
+ * 되돌릴 때 어느 쪽을 골랐는지는 URL 에 남아 있지 않으므로 앞의 것을 짚는다. 점수는 같고,
+ * 사용자가 다르게 골랐다면 그 자리에서 다시 누르면 된다.
+ * ponytail: 고른 자리를 그대로 되살리려면 쿼리에 인덱스를 따로 실어야 한다 — 점수가 안 갈려서 안 했다.
+ */
+function picksOf(sp: URLSearchParams): number[][] {
+  const query = Object.fromEntries(sp);
+  const profile = parseProfile(query);
+  return STEPS.map((s) =>
+    s.multi
+      ? parseConcerns(query)
+      : // patch 의 모든 값이 프로필과 같은 첫 선택지. 없으면 빈 배열이라 다음 버튼이 잠긴 채로 남는다
+        [
+          s.options.findIndex((o) =>
+            Object.entries(o.patch ?? {}).every(([k, v]) => profile[k as keyof DriverProfile] === v),
+          ),
+        ].filter((i) => i >= 0),
+  );
+}
+
+export default function OnboardingPage() {
+  // useSearchParams 는 경계를 요구한다 (/nearby · /calm 과 같은 모양)
+  return (
+    <Suspense>
+      <Onboarding />
+    </Suspense>
+  );
+}
+
+function Onboarding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  /**
+   * 고치러 들어온 것인가. 프로필 쿼리를 달고 온 경우다 (app/profile 의 "프로필 수정").
+   * 처음 만드는 사람은 쿼리가 없어 선택이 비어 있고, 그래서 다음 버튼도 잠긴 채 시작한다.
+   */
+  const 고치는중 = searchParams.has("exp");
   const [step, setStep] = useState(0);
   // 단계별 선택된 옵션 인덱스. 단일 선택 단계는 길이 0 또는 1, multi 단계만 여러 개.
-  const [picks, setPicks] = useState<number[][]>(STEPS.map(() => []));
+  const [picks, setPicks] = useState<number[][]>(() =>
+    고치는중 ? picksOf(searchParams) : STEPS.map(() => []),
+  );
   const cur = STEPS[step];
   const picked = picks[step];
 
@@ -153,8 +195,17 @@ export default function Onboarding() {
       {/* AppBar/Back — 44px 터치 영역 + 24px 화살표 (피그마 컴포넌트 설명 그대로) */}
       <div className="mx-4 flex h-14 shrink-0 items-center gap-3">
         <button
-          // 소개 화면으로 돌아간다. 스플래시 없는 주소다 (app/intro/page.tsx)
-          onClick={() => (step === 0 ? router.push("/intro") : setStep(step - 1))}
+          /*
+            1단계의 뒤로가 어디로 가느냐는 **어디서 왔느냐**에 달렸다. 처음 만드는 사람은
+            소개 화면으로 돌아가고(스플래시 없는 주소 — app/intro/page.tsx), 고치러 온 사람은
+            들고 온 프로필 그대로 마이 화면으로 되돌아간다. 전에는 둘 다 /intro 로 나가서,
+            잘못 눌러 들어온 사람이 프로필을 통째로 잃고 온보딩을 다시 통과해야 했다.
+          */
+          onClick={() =>
+            step > 0
+              ? setStep(step - 1)
+              : router.push(고치는중 ? `/profile?${searchParams}` : "/intro")
+          }
           aria-label="뒤로"
           className="flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
         >
