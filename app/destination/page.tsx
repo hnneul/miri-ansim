@@ -790,6 +790,17 @@ function PlaceSheet({
    * null 로 뭉치면 도로명 없는 곳(우편번호가 원래 없는 곳)에서 펼칠 때마다 헛호출이 나간다.
    */
   const [postal, setPostal] = useState<string | null | undefined>(undefined);
+  /**
+   * 출발지에서 여기까지 — **직선거리다** (lib/parking.ts meters). 도로를 안 탄다.
+   *
+   * 그래서 화면에 "직선"을 붙여 적는다. 그냥 "25km" 로 두면 주행거리로 읽히는데,
+   * 바로 다음 화면(길 비교)이 카카오 길찾기가 준 진짜 주행거리를 띄우므로 두 화면이
+   * 같은 목적지를 두고 다른 숫자를 말하게 된다 — 제주는 해안도로·중산간이 굽어 차이가 크다.
+   *
+   * 여기서 진짜 거리를 받지 않는 이유: 길찾기는 서버 호출이라 이 줄이 비동기가 되는데,
+   * 목적지 시트는 훑고 지나가는 자리라 늦게 오는 숫자는 없느니만 못하다.
+   * 정확한 값은 한 탭 뒤에 있다.
+   */
   const km = origin ? Math.round(meters(origin, place.coord) / 1000) : null;
 
   // 목적지가 바뀌면 이전 장소의 우편번호가 남아 있으면 안 된다
@@ -857,7 +868,7 @@ function PlaceSheet({
             >
               <span className="min-w-0 truncate">
                 {/* 출발지를 모르면 거리 없이 지역만 — 모르는 값을 0km 로 적으면 거짓말이 된다 */}
-                {km !== null && <span className="mr-[11px]">{km}km</span>}
+                {km !== null && <span className="mr-[11px]">직선 {km}km</span>}
                 {place.region}
               </span>
               {(place.road || place.jibun) && (

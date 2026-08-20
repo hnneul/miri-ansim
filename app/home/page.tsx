@@ -341,7 +341,7 @@ function Home() {
         <Link
           href={`/trip/record?${searchParams}`}
           aria-label="여행 기록 보기"
-          className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0] transition active:scale-[0.99]"
+          className="grid h-[84px] shrink-0 place-items-center rounded-[11px] bg-[#f0f0f0] transition hover:bg-[#e5e5e5] active:scale-[0.99]"
         >
           <img src="/home/icon-add.svg" alt="" className="size-[40px]" />
         </Link>

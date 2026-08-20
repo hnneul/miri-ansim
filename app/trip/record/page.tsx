@@ -658,7 +658,7 @@ function Write({
         </div>
         <div className="mt-2 flex shrink-0 gap-[10px] overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* 추가 칸이 맨 앞이다 (와이어프레임) — 사진이 늘어도 누를 자리가 안 밀린다 */}
-          <label className="grid size-[104px] shrink-0 cursor-pointer place-items-center rounded-[14px] bg-[#fff0e6] transition active:scale-95 has-disabled:opacity-40">
+          <label className="grid size-[104px] shrink-0 cursor-pointer place-items-center rounded-[14px] bg-[#fff0e6] transition hover:bg-[#ffcfbc] active:scale-95 has-disabled:opacity-40">
             <input
               type="file"
               accept="image/*"
@@ -752,7 +752,7 @@ function Write({
                 setAdding(true);
               }}
               aria-label="방문 장소 추가"
-              className="grid size-[35px] shrink-0 place-items-center rounded-full bg-[#fff0e6] text-[19px] leading-none text-[#ff7d32] transition active:scale-95"
+              className="grid size-[35px] shrink-0 place-items-center rounded-full bg-[#fff0e6] text-[19px] leading-none text-[#ff7d32] transition hover:bg-[#ffcfbc] active:scale-95"
             >
               ＋
             </button>
