@@ -21,7 +21,6 @@ import {
   EXPOSURE_REFERENCE,
   EXP_LABEL,
   RECOMMEND_THRESHOLD,
-  SAFE_MARGIN,
   TIE_RATIO,
 } from "./score.ts";
 
@@ -106,9 +105,9 @@ export const TOPICS: Topic[] = [
       { h: "어느 길을 추천할지" },
       {
         rows: [
-          { k: "안심 길 추천", d: `안심 길 부담이 짧은 길보다 ${pct(1 - SAFE_MARGIN)} 이상 낮을 때` },
-          { k: "차이 없음", d: `두 길의 부담 차이가 ${pct(TIE_RATIO)} 이내일 때 - 고를 것이 없습니다` },
-          { k: "판단 유보", d: "그 사이 - 시간과 맞바꿔야 해서 단정하지 않습니다" },
+          { k: "추천", d: "두 길 중 추천점수가 높은 쪽입니다" },
+          { k: "차이 없음", d: `두 길의 추천점수 차이가 ${pct(TIE_RATIO)} 이내일 때 - 고를 것이 없습니다` },
+          { k: "소요시간", d: "추천에는 넣지 않습니다 - 두 카드에 나란히 적어 직접 견주게 합니다" },
         ],
       },
       /*

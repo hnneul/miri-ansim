@@ -86,16 +86,18 @@ const d = scoreRoutes(베테랑, 빠른경로, 정체난저부담);
 console.log("실시간 역전 — 초보  ", c.recommendedRoute, `fast=${c.fastScore} safe=${c.safeScore}`);
 console.log("실시간 역전 — 베테랑", d.recommendedRoute, `fast=${d.fastScore} safe=${d.safeScore}`);
 
-// 초보: 시간 이득이 생겨도 부담이 임계값을 넘고 저부담 쪽이 30% 이상 낮으므로 저부담 유지.
-// 추천은 그대로여도 이유가 "시간 이득 없음"에서 "부담 차이가 커서"로 바뀐다 — 브리핑이 달라진다.
-assert.equal(c.recommendedRoute, "safe", "초보는 시간 이득보다 부담 차이가 크면 저부담 경로다");
+// **시간이 추천을 뒤집지 못한다.** 추천은 추천점수가 높은 쪽 하나로 정해지므로(lib/score.ts),
+// 빠른 길이 5분 빨라져도 부담이 더 크면 그대로 저부담 경로다.
+assert.equal(c.recommendedRoute, "safe", "초보 — 시간 이득이 생겨도 추천점수가 높은 쪽이다");
 assert.ok(
   !c.reasons[0].includes("시간 이득이 없음"),
   `실시간 역전 시 추천 이유가 바뀌어야 한다: ${c.reasons[0]}`,
 );
 
-// 베테랑: 부담이 임계값 이하라 시간 이득이 생기면 최단거리 경로로 넘어간다
-assert.equal(d.recommendedRoute, "fast", "베테랑은 부담이 임계값 이하면 빠른 쪽을 추천한다");
+// 베테랑도 같다. 예전에는 부담이 임계값(50) 이하면 시간을 아끼는 쪽으로 넘어갔는데, 그러면
+// 화면이 추천점수 89 옆에 80 짜리 추천 배지를 다는 자기 모순에 빠졌다 (lib/score.ts 추천 규칙).
+assert.equal(d.recommendedRoute, "safe", "베테랑도 추천점수가 높은 쪽이다 — 시간은 카드가 말한다");
+assert.ok(d.safeScore > d.fastScore, `추천이 점수를 따라야 한다: fast=${d.fastScore} safe=${d.safeScore}`);
 
 // 고속주행은 경력이 쌓이면 부담이 크게 줄지만 요인 자체는 남는다.
 // 요인을 제거해버리면 베테랑의 근거 카드가 한 줄로 비어 완료 기준(2개 이상)에 미달했다.
@@ -169,24 +171,16 @@ assert.ok(
 assert.equal(무의미.noPick, "tie", "부담이 같아서 접었으면 tie 다");
 assert.equal(역전.noPick, null, "추천이 있으면 noPick 은 없다");
 
-// 차이는 있는데(임계값 미달) 단정만 못 하는 경우 — tie 와 다른 말을 해야 한다.
-// 빠른 쪽 부담이 편안 임계값을 넘어야 이 갈래로 들어오므로 노출을 크게 잡는다.
-//
-// 0.39 였는데 SAFE_MARGIN 이 0.7 → 0.8 로 풀리면서 이 값이 추천 쪽으로 넘어가 버렸다.
-// 검증하려는 건 "차이는 있지만 단정 못 하는 자리"지 특정 숫자가 아니라, 그 자리에 계속
-// 머무는 값으로 옮긴다 (부담 72 대 60.5 — 무의미 문턱 5% 는 넘고 추천 문턱 0.8 에는 못 미친다).
+// 예전에는 "차이는 있는데 단정 못 하는 자리"(unclear)가 하나 더 있었다 — 부담 차이가 5% 는
+// 넘지만 20% 에는 못 미쳐 시간과 맞바꿔야 하던 구간이다. 추천을 추천점수 하나로 정하면서
+// 사라졌다: 5% 를 넘으면 그냥 높은 쪽이 추천이다. 그 값들이 이제 어디로 가는지 굳혀 둔다.
 const 애매 = scoreRoutes(
   초보,
   { risks: [dummy("sharpCurve", "연속 급커브", 0.5)], durationMin: 60 },
   { risks: [dummy("sharpCurve", "연속 급커브", 0.42)], durationMin: 77 },
 );
-assert.equal(애매.recommendedRoute, "single", `임계값 미달이면 접는다: ${애매.fastScore}/${애매.safeScore}`);
-assert.equal(애매.noPick, "unclear", "부담 차이가 있는데 접었으면 unclear 다");
-// tie 는 한 줄로 말하고 unclear 는 **아무 말도 안 한다** — 카드 두 장이 이미 시간과 점수를
-// 나란히 보여주므로, 그걸 문장으로 옮겨 적고 "직접 고르세요"를 붙이는 건 훈계였다
-// (lib/briefing.ts 못고른말 주석). 빈 문자열이 그 규칙이고, 화면은 그때 줄을 안 그린다.
-const 애매판정 = verdict(애매, { id: "safe", risks: [], durationMin: 77 }, { durationMin: 60 });
-assert.equal(애매판정, "", `단정 못 하면 말을 얹지 않는다: ${애매판정}`);
+assert.equal(애매.recommendedRoute, "safe", `5% 를 넘으면 높은 쪽이 추천이다: ${애매.fastScore}/${애매.safeScore}`);
+assert.equal(애매.noPick, null, "추천이 있으면 noPick 은 없다");
 assert.ok(
   verdict(무의미, { id: "safe", risks: [], durationMin: 71 }, { durationMin: 80 }).includes("거의 같"),
   "부담이 같아서 접은 경우(tie)는 그렇다고 말해야 한다",

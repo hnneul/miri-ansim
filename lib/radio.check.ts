@@ -316,11 +316,14 @@ for (const 설득 of ["추천하지 않습니다", "권하지 않", "다시 생�
 // 이 길이 더 느리기까지 하면 시간 얘기를 꺼내지 않는다 — 짚으면 나무라는 말이 된다
 assert.ok(!/\d+분/.test(역선택), `느린 길을 고른 사람에게 시간을 짚었다: ${역선택}`);
 
-// (다) 추천이 없다 — tie 와 unclear 를 **다른 문장으로** 말해야 한다.
-// 예전에 한 문장이 둘을 덮어서 68점과 57점을 두고 "비슷합니다"라고 했다 (score.ts noPick).
+// (다) 추천이 없다 — 점수 차이가 5% 이내인 tie 뿐이다.
+// 예전에는 unclear(차이는 있는데 시간과 맞바꿔야 해서 단정 못 함)가 하나 더 있었고, 한 문장이
+// 둘을 덮어서 68점과 57점을 두고 "비슷합니다"라고 했다. 추천을 추천점수 하나로 정하면서
+// unclear 자체가 사라졌다 (lib/score.ts 추천 규칙) — 5% 를 넘으면 높은 쪽이 추천이다.
 const 동점경로 = { ...safe, risks: [risk("sharpCurve", "연속 급커브", 0.29)] };
 const 동점 = scoreRoutes(초보, fast, 동점경로);
 assert.equal(동점.noPick, "tie", "픽스처 전제가 깨졌다");
+// 차이가 뚜렷하면 접지 않는다 — 예전 unclear 자리로 쓰던 값이다
 const 느린큰부담 = {
   id: "safe" as const,
   name: "평화로 경유",
@@ -333,18 +336,14 @@ const 빠른큰부담 = {
   durationMin: 50,
   risks: [risk("sharpCurve", "연속 급커브", 0.9), risk("narrowRoad", "좁은 교행 구간", 0.5)],
 };
-const 애매 = scoreRoutes(초보, 빠른큰부담, 느린큰부담);
-assert.equal(애매.noPick, "unclear", "픽스처 전제가 깨졌다");
-assert.notEqual(
-  radioScript(초보, 동점, 동점경로, fast, undefined, "성산일출봉")[1],
-  radioScript(초보, 애매, 느린큰부담, 빠른큰부담, undefined, "성산일출봉")[1],
-  "tie 와 unclear 를 같은 문장으로 말하고 있다",
-);
+const 뚜렷 = scoreRoutes(초보, 빠른큰부담, 느린큰부담);
+assert.equal(뚜렷.recommendedRoute, "safe", "점수가 뚜렷이 갈리면 높은 쪽을 추천한다");
+assert.equal(뚜렷.noPick, null, "추천이 있으면 noPick 은 없다");
 // "익숙한 길로 가세요"는 쓰면 안 된다 — 기본 프로필이 경력 1년·제주 처음이고,
 // 익숙한 길이 없어서 여기까지 온 사람들이다 (briefing.ts 못고른말 주석)
 for (const r of [
   radioScript(초보, 동점, 동점경로, fast, undefined, "성산일출봉"),
-  radioScript(초보, 애매, 느린큰부담, 빠른큰부담, undefined, "성산일출봉"),
+  radioScript(초보, 뚜렷, 느린큰부담, 빠른큰부담, undefined, "성산일출봉"),
 ])
   assert.ok(!r.join(" ").includes("익숙한 길"), "없는 걸 가리키는 조언을 하고 있다");
 
