@@ -116,7 +116,7 @@ function Route() {
   const searchParams = useSearchParams();
   const query = Object.fromEntries(searchParams);
   const profile = parseProfile(query);
-  // 부담 유형은 프로필과 **따로** 다닌다 — DriverProfile 에 자리가 없다 (lib/profile.ts CONCERNS).
+  // 원래 인덱스는 AI 길 설명에 쓰고, parseProfile 은 실제 데이터가 있는 유형을 점수 가중치로 옮긴다.
   const concerns = parseConcerns(query);
 
   /**
@@ -264,9 +264,16 @@ function Route() {
       concerns,
     );
     setResult(found);
-    // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다
+    // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다.
+    // 부담 차이가 거의 없으면 비교를 접고, 소요시간이 짧은 한 길만 보여준다.
     if (!("error" in found))
-      setPicked(found.score.recommendedRoute === "fast" ? "fast" : "safe");
+      setPicked(
+        found.score.noPick === "tie"
+          ? efficientRoute(found.routes).id
+          : found.score.recommendedRoute === "fast"
+            ? "fast"
+            : "safe",
+      );
     // profile·concerns 는 매 렌더 새 객체라 의존성에 넣으면 무한히 다시 부른다.
     // 둘 다 쿼리에서 나온 값이라 searchParams.toString() 이 이미 그 변화를 잡는다 (hard 포함).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -351,7 +358,16 @@ function Route() {
   }, [view]);
 
   const routes = result && !("error" in result) ? result.routes : [];
-  const chosen = routes.find((r) => r.id === picked) ?? routes[0] ?? null;
+  /** 부담 차이가 거의 없으면 일반 경로 중 더 효율적인 한 길만 남긴다. */
+  const visibleRoutes =
+    result &&
+    !("error" in result) &&
+    result.score.noPick === "tie" &&
+    routes.length
+      ? [efficientRoute(routes)]
+      : routes;
+  const chosen =
+    visibleRoutes.find((r) => r.id === picked) ?? visibleRoutes[0] ?? null;
   const sheetH = collapsed ? STRIP_H : SHEET_H[view];
 
   /*
@@ -387,11 +403,15 @@ function Route() {
    * spans 가 있는 요인만 후보다 — 급커브는 아직 구간 좌표가 없어 칠할 수가 없다.
    */
   const 가른요인 = (() => {
-    if (!result || "error" in result || routes.length < 2) return null;
+    if (!result || "error" in result || visibleRoutes.length < 2) return null;
     const 감점 = (id: string, factor: string) =>
       result.score.breakdown.find((b) => b.route === id && b.factor === factor)?.weighted ?? 0;
     const 후보 = [
-      ...new Set(routes.flatMap((r) => r.risks.filter((k) => k.spans?.length).map((k) => k.label))),
+      ...new Set(
+        visibleRoutes.flatMap((r) =>
+          r.risks.filter((k) => k.spans?.length).map((k) => k.label),
+        ),
+      ),
     ];
     return (
       후보
@@ -447,7 +467,10 @@ function Route() {
    * 근거 화면은 고른 길 하나만 그리므로 여기서 미리 거른다.
    */
   const 부담구간 = 칠할요인
-    ? (view === "why" ? routes.filter((r) => r.id === picked) : routes).map((r) => ({
+    ? (view === "why"
+        ? visibleRoutes.filter((r) => r.id === picked)
+        : visibleRoutes
+      ).map((r) => ({
         r,
         spans: r.risks.find((k) => k.label === 칠할요인)?.spans ?? [],
       }))
@@ -780,14 +803,17 @@ function Route() {
             level={9}
             /* 근거 화면에서는 고른 길 하나만 그린다 — 그 길을 설명하는 자리라 나머지는 방해다 */
             routes={[
-              ...(view === "why" ? routes.filter((r) => r.id === picked) : routes).map((r) => ({
-                path: r.path,
-                color: r.id === picked ? r.color : 흐린색,
-                labelColor: r.color,
-                weight: 굵기(r.id),
-                opacity: r.id === picked ? 0.95 : 0.9,
-                label: `${r.durationMin}분`,
-              })),
+              ...(view === "why"
+                ? visibleRoutes.filter((r) => r.id === picked)
+                : visibleRoutes
+              ).map((r) => ({
+                  path: r.path,
+                  color: r.id === picked ? r.color : 흐린색,
+                  labelColor: r.color,
+                  weight: 굵기(r.id),
+                  opacity: r.id === picked ? 0.95 : 0.9,
+                  label: `${r.durationMin}분`,
+                })),
               /*
                 위험 구간을 경로선 위에 겹친다. **두 화면 다** 같은 요인을 칠한다 (칠할요인 주석).
 
@@ -926,8 +952,8 @@ function Route() {
                   <span className="truncate text-[15px] font-bold text-[#1f1f1f]">
                     {titleOf(
                       chosen,
-                      result.routes.find((r) => r.id !== chosen.id) ?? null,
-                      result.score.recommendedRoute === chosen.id || result.routes.length === 1,
+                      visibleRoutes.find((r) => r.id !== chosen.id) ?? null,
+                      result.score.recommendedRoute === chosen.id,
                     )}
                   </span>
                   <span className="shrink-0 text-[13px] text-[#9e9e9e]">
@@ -940,13 +966,14 @@ function Route() {
               ) : view === "why" && chosen ? (
                 <Why
                   route={chosen}
-                  other={result.routes.find((r) => r.id !== chosen.id) ?? null}
+                  other={visibleRoutes.find((r) => r.id !== chosen.id) ?? null}
                   score={
                     chosen.id === "fast"
                       ? result.score.fastScore
                       : result.score.safeScore
                   }
                   pick={result.score.recommendedRoute}
+                  noPick={result.score.noPick}
                   대본={대본}
                   위험요인={칠할요인}
                   대본펼침={query.대본 === "1"}
@@ -1029,43 +1056,43 @@ function Route() {
                     고정 폭은 그냥 삐져나가는데, 비율이면 둘이 같이 줄어든다.
                   */}
                   {/*
-                    **추천을 왼쪽에 둔다.** 목록 순서(일반 길 → 안심 길)를 그대로 그렸더니
+                    **추천을 왼쪽에 둔다.** 목록 순서(일반 길 → 맞춤 안심 길)를 그대로 그렸더니
                     추천 카드가 오른쪽에 앉았는데, 눈은 왼쪽부터 읽어서 먼저 본 게 추천이
                     아닌 쪽이었다. 큰 카드가 왼쪽에 오면 배지를 찾기 전에 이미 어느 쪽인지 안다.
                     추천이 없는 경우(single)는 recommendedRoute 가 어느 id 와도 안 맞아
                     둘 다 0 이 되고, 원래 순서가 그대로 남는다.
                   */}
                   <div className="mt-[18px] flex items-end gap-[11px] px-4">
-                    {[...result.routes]
+                    {[...visibleRoutes]
                       .sort(
                         (a, b) =>
                           Number(b.id === result.score.recommendedRoute) -
                           Number(a.id === result.score.recommendedRoute),
                       )
                       .map((r) => (
-                      <RouteCard
-                        key={r.id}
-                        route={r}
-                        title={titleOf(
-                          r,
-                          result.routes.find((x) => x.id !== r.id) ?? null,
-                          result.score.recommendedRoute === r.id || result.routes.length === 1,
-                        )}
-                        score={
-                          r.id === "fast"
-                            ? result.score.fastScore
-                            : result.score.safeScore
-                        }
-                        recommended={result.score.recommendedRoute === r.id}
-                        단일={result.routes.length === 1}
-                        picked={r.id === picked}
-                        onPick={() => setPicked(r.id)}
-                        onWhy={() => {
-                          setPicked(r.id);
-                          setView("why");
-                        }}
-                      />
-                    ))}
+                        <RouteCard
+                          key={r.id}
+                          route={r}
+                          title={titleOf(
+                            r,
+                            visibleRoutes.find((x) => x.id !== r.id) ?? null,
+                            result.score.recommendedRoute === r.id,
+                          )}
+                          score={
+                            r.id === "fast"
+                              ? result.score.fastScore
+                              : result.score.safeScore
+                          }
+                          recommended={result.score.recommendedRoute === r.id}
+                          단일={visibleRoutes.length === 1}
+                          picked={r.id === picked}
+                          onPick={() => setPicked(r.id)}
+                          onWhy={() => {
+                            setPicked(r.id);
+                            setView("why");
+                          }}
+                        />
+                      ))}
                   </div>
                 </>
               )}
@@ -1286,6 +1313,7 @@ function Why({
   other,
   score,
   pick,
+  noPick,
   대본,
   대본펼침,
   위험요인,
@@ -1296,6 +1324,8 @@ function Why({
   score: number;
   /** 추천 결과 그대로 (lib/score.ts). "single" 은 추천을 접었다는 뜻이다 */
   pick: "fast" | "safe" | "single";
+  /** single 인 이유. 비슷한 두 길을 접은 경우와 대안 자체가 없는 경우를 가른다. */
+  noPick: "alone" | "tie" | null;
   대본: string[] | null;
   /** `?대본=1` — 대본 전체를 글로 펼친다 (RouteRadio 펼침 주석) */
   대본펼침?: boolean;
@@ -1308,12 +1338,17 @@ function Why({
 }) {
   const recommended = pick === route.id;
   /*
-    **문장이 부르는 이름과 카드가 부르는 이름이 같아야 한다.** 문장 쪽은 상대를 늘 "빠른 길"로
-    못 박고 있었다 — 카드에는 "짧은 길"이라 써 놓고 바로 아래 문장은 "빠른 길보다 7분 더"라고
-    하는 화면이 나왔고, 같은 길을 두 이름으로 부르면 두 길 얘기인 줄 안다.
+    **문장이 부르는 이름과 카드가 부르는 이름이 같아야 한다.** 비교 상대는 카드와 문장 모두
+    "일반 길"로 통일하고, 추천된 쪽만 "맞춤 안심 길"로 부른다.
     이름을 정하는 곳은 기본이름() 한 곳뿐이고, 문장은 그걸 받아 쓴다.
   */
-  const 한줄 = tradeoff(pick, route, other, other ? 기본이름(other, route, pick === other.id) : "");
+  const 한줄 = tradeoff(
+    pick,
+    route,
+    other,
+    other ? titleOf(other, route, pick === other.id) : "",
+    noPick,
+  );
   const rows: { label: string; mine: string; theirs: string }[] = [
     row("회전교차로", (s) => (s.roundabouts ? `${s.roundabouts}곳` : "없음")),
     row("연속 급커브", (s) => (s.sharpCurveKm ? `${s.sharpCurveKm}km` : "없음")),
@@ -1366,7 +1401,7 @@ function Why({
         ) : null}
         {/* 근거 화면도 비교 화면과 같은 이름을 쓴다 — 넘어오면서 이름이 바뀌면 같은 길인지 흔들린다 */}
         <span className="min-w-0 truncate text-[16px] font-bold text-[#1f1f1f]">
-          {titleOf(route, other, recommended || !other)}
+          {titleOf(route, other, recommended)}
         </span>
         {/*
           점수만 주황이다. 비교 화면의 카드에서는 검정인데(거기선 두 값을 나란히 재는 자리라
@@ -1514,9 +1549,7 @@ function 기본이름(route: LiveRoute, other: LiveRoute | null, 추천: boolean
 /**
  * 카드에 적을 이름. "맞춤"은 **프로필로 정해진 길**에 얹는다 (와이어프레임의 "맞춤 안심 길").
  *
- * 추천 배지가 붙는 쪽이 대개 그쪽이지만 둘이 같은 말은 아니다 — 길이 한 장인 구간에는 추천이
- * 안 붙는데(고를 상대가 없다), 그 한 장도 프로필로 잰 부담 점수를 달고 나온다. 그래서 거기도
- * 얹는다. 배지는 회색 "단일 경로"가 대신 앉아 고른 게 아니라는 걸 같은 줄에서 말한다.
+ * 추천 배지가 붙은 경로만 "맞춤 안심 길"이고, 추천을 접은 단일 카드는 "일반 길"로 둔다.
  */
 function titleOf(route: LiveRoute, other: LiveRoute | null, 맞춤: boolean): string {
   const base = 기본이름(route, other, 맞춤);
@@ -1524,13 +1557,10 @@ function titleOf(route: LiveRoute, other: LiveRoute | null, 맞춤: boolean): st
 }
 
 /**
- * 경로 카드 한 장 (와이어프레임 safe-route-card / fast-route-card).
+ * 경로 카드 한 장 (와이어프레임 safe-route-card / general-route-card).
  *
- * **이름을 데이터가 뒷받침하는 만큼만 붙인다.** 와이어프레임은 두 장을 "맞춤 안심 길"·"빠른 길"로
- * 못 박아 뒀는데, 여기 두 갈래는 카카오의 최단거리·최단시간 결과일 뿐이라 어느 쪽이 안심 길인지는
- * 점수를 매겨봐야 안다. 그래서 **점수가 추천한 쪽에만** "맞춤 안심 길"을 쓰고, 나머지는 도로 이름
- * ("번영로 경유")으로 둔다. 실측에서 부담 36점짜리가 35.9점짜리 옆에서 "맞춤 저부담" 배지를
- * 달고 있었던 적이 있다 (lib/route.ts routesFor 주석).
+ * 점수가 추천한 쪽은 "맞춤 안심 길", 비교 상대는 "일반 길"로 부른다. 부담 차이가 거의 없으면
+ * 소요시간·거리 기준으로 더 효율적인 일반 길 한 장만 보여준다.
  */
 function RouteCard({
   route,
@@ -1682,4 +1712,15 @@ function RouteCard({
       </span>
     </button>
   );
+}
+
+/** 부담 차이가 거의 없을 때 남길 경로. 시간, 거리 순으로 더 효율적인 길을 고른다. */
+function efficientRoute(routes: LiveRoute[]): LiveRoute {
+  return routes.reduce((best, route) => {
+    const bestMinutes = best.durationMin ?? Number.POSITIVE_INFINITY;
+    const routeMinutes = route.durationMin ?? Number.POSITIVE_INFINITY;
+    if (routeMinutes !== bestMinutes)
+      return routeMinutes < bestMinutes ? route : best;
+    return route.distanceKm < best.distanceKm ? route : best;
+  });
 }

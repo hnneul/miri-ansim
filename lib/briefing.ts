@@ -119,7 +119,7 @@ const 이라는 = (word: string) => (받침(word) ? "이라는" : "라는");
  */
 function 못고른말(result: ScoreResult): string {
   return result.noPick === "tie"
-    ? "두 길의 부담이 거의 같습니다. 그러면 소요시간이 짧은 쪽이 낫습니다."
+    ? "두 길의 부담 차이가 거의 없어 더 효율적인 하나의 경로만 보여드립니다."
     : "";
 }
 
@@ -194,14 +194,13 @@ export function tradeoff(
   /*
    * 상대 길을 화면이 부르는 이름 그대로 (app/route/page.tsx 기본이름).
    *
-   * 여기서 "빠른 길"로 못 박고 있었는데, 그 자리 후보는 **시간으로 고른 것**이라
-   * (lib/route.ts fast) 거리가 더 짧다는 보장도, 안심 길보다 빠르다는 보장도 없다.
-   * 그래서 카드에는 "짧은 길"이라 써 놓고 이 줄은 "빠른 길보다 7분 더"라고 하는 화면이
-   * 나왔다 — 같은 길을 두 이름으로 부르면 두 길 얘기인 줄 안다.
-   * 지금 화면은 상대를 늘 "일반 길"로 부르지만(app/route/page.tsx 기본이름), 이름을 정하는 건
-   * 여전히 화면 한 곳이고 이 함수는 받아 쓰기만 한다.
-   */
+   * 비교 상대는 화면에서 "일반 길"로 부른다. 카드와 이 줄이 같은 이름을 써야
+   * 같은 길을 두 개의 다른 길로 오해하지 않는다.
+   * 이름을 정하는 건 화면 한 곳이고, 이 함수는 받아 쓰기만 한다.
+  */
   상대: string,
+  /** 경로가 한 장인 이유. tie 면 비슷한 두 길을 접은 것이고 alone 이면 대안 자체가 없다. */
+  singleReason?: ScoreResult["noPick"],
 ): string {
   /*
    * 길이 한 장인 구간(score.ts noPick "alone"). **여기가 그 말을 하는 자리다** — 비교 화면은
@@ -215,7 +214,10 @@ export function tradeoff(
    * **갈림길이 없다 → 그러니 이 길 하나**로 뒤집으면 남는 게 변명이 아니라 안내다.
    * 대본 ②칸도 같은 자리에서 같은 말을 한다 (radioScript "이 구간은 갈림길이 없어요").
    */
-  if (pick === "single" && !other) return "갈림길이 없는 구간이라, 이 길 하나예요";
+  if (pick === "single" && !other)
+    return singleReason === "tie"
+      ? "비교할 차이가 거의 없어 이 경로만 보여드려요"
+      : "다른 길이 없어서 비교할 게 없어요";
 
   // 비교할 상대가 없으면 맞바꿀 것도 없다
   if (!other || route.durationMin == null || other.durationMin == null) return "";

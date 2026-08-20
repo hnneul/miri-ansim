@@ -84,9 +84,8 @@ export async function compareRoutes(
   /** 도착지 주차장. 없으면 대본이 ⑤칸(도착해서 차를 댈 곳)을 쓰지 않는다 */
   dest?: { name: string; place: LatLng | null; placeName?: string },
   /**
-   * 온보딩 4단계가 고른 부담 유형 (쿼리 hard). **점수(scoreRoutes)에는 안 넘긴다** —
-   * 프로필 가중치에 자리가 없고(lib/profile.ts CONCERNS), 넘기면 같은 길의 점수가
-   * 설문 답에 따라 달라져 근거 표와 어긋난다. AI 대본이 무엇을 먼저 말할지에만 쓴다.
+   * 온보딩 4단계가 고른 부담 유형 (쿼리 hard). parseProfile 이 실제 데이터가 있는 유형을
+   * 점수 가중치로 옮기고, 원래 인덱스는 AI 대본이 무엇을 먼저 설명할지 정하는 데 쓴다.
    */
   concerns: number[] = [],
 ): Promise<Compared> {

@@ -2,7 +2,7 @@
 // ⚠️ 아래 위험요인은 검증용 더미다. 출처가 없어 실제 시나리오 데이터가 아니다.
 
 import assert from "node:assert";
-import { scoreRoutes, type DriverProfile, type RiskFactor } from "./score.ts";
+import { scoreRoutes, CONCERN_BOOST, type DriverProfile, type RiskFactor } from "./score.ts";
 import { briefing, verdict } from "./briefing.ts";
 
 /** exposure를 안 주면 기준 노출(20%)로 둔다 — 노출 배수 1.0이라 기존 기대값과 비교하기 쉽다 */
@@ -182,8 +182,10 @@ const 애매 = scoreRoutes(
 assert.equal(애매.recommendedRoute, "safe", `5% 를 넘으면 높은 쪽이 추천이다: ${애매.fastScore}/${애매.safeScore}`);
 assert.equal(애매.noPick, null, "추천이 있으면 noPick 은 없다");
 assert.ok(
-  verdict(무의미, { id: "safe", risks: [], durationMin: 71 }, { durationMin: 80 }).includes("거의 같"),
-  "부담이 같아서 접은 경우(tie)는 그렇다고 말해야 한다",
+  verdict(무의미, { id: "safe", risks: [], durationMin: 71 }, { durationMin: 80 }).includes(
+    "더 효율적인 하나의 경로",
+  ),
+  "부담이 같아서 접은 경우(tie)는 한 경로만 보여준다고 말해야 한다",
 );
 
 // 대안이 없는 구간 — 같은 경로가 양쪽에 온다 (app/route/actions.ts). 차이가 0이라 tie 로
@@ -266,6 +268,31 @@ console.log("\n✅ 추천 이유 개인화 + 브리핑 정상");
   assert.ok(커브판정.includes("급커브가"), `받침 없는 이름에 "이"를 붙였다: ${커브판정}`);
   assert.ok(구간판정.includes("구간이") || !구간판정.includes("구간가"), `받침 있는 이름에 "가"를 붙였다: ${구간판정}`);
   console.log("판정 문장:", 커브판정, "/", 구간판정);
+}
+
+// --- 부담 유형(긴장되는 길) 가중치 — 고른 위험만 ×CONCERN_BOOST, 나머지는 그대로 ---
+{
+  const 길 = { risks: [dummy("narrowRoad", "좁은 골목"), dummy("sharpCurve", "급커브")], durationMin: 60 };
+  const 상대 = { risks: [dummy("highSpeed", "고속 구간")], durationMin: 60 };
+
+  const 무 = scoreRoutes(초보, 길, 상대).breakdown;
+  const 유 = scoreRoutes({ ...초보, fearedRisks: ["narrowRoad"] }, 길, 상대).breakdown;
+  const 배수 = (bd: typeof 무, f: string) => bd.find((b) => b.route === "fast" && b.factor === f)!.multiplier;
+
+  // 고른 유형(좁은 길)만 가중치가 CONCERN_BOOST 배 오른다 (반올림 오차 허용)
+  assert.ok(
+    Math.abs(배수(유, "좁은 골목") - 배수(무, "좁은 골목") * CONCERN_BOOST) < 0.02,
+    `좁은 길 가중치가 ×${CONCERN_BOOST} 로 안 올랐다: ${배수(무, "좁은 골목")} → ${배수(유, "좁은 골목")}`,
+  );
+  // 안 고른 유형(급커브)은 그대로여야 한다 — 한 유형만 골라도 다른 위험이 같이 오르면 안 된다
+  assert.equal(배수(유, "급커브"), 배수(무, "급커브"), "안 고른 위험 타입 가중치가 바뀌면 안 된다");
+  // 그 위험이 한쪽에만 많으면 부담이 올라가므로 추천점수는 내려간다
+  assert.ok(
+    scoreRoutes({ ...초보, fearedRisks: ["narrowRoad"] }, 길, 상대).fastScore <
+      scoreRoutes(초보, 길, 상대).fastScore,
+    "긴장되는 길 반영 시 그 경로 추천점수가 낮아져야 한다",
+  );
+  console.log("긴장되는 길 — 좁은 길 배수:", 배수(무, "좁은 골목"), "→", 배수(유, "좁은 골목"));
 }
 
 // 고속주행은 노출이 아무리 커도 상한 1.0 — 큰길을 오래 탔다고 더 깎지 않는다.

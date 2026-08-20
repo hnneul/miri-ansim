@@ -66,7 +66,7 @@ assert.ok(
 // --- ④ 비교할 게 없을 때 ---
 // 부담이 비슷하면 추천하지 않는다 — 없는 차이를 믿고 길을 고르게 하지 않는다
 const 비슷 = 해석(초보, { fast, safe: { ...safe, risks: [risk("sharpCurve", "연속 급커브", 0.29)] } });
-assert.ok(비슷[0].includes("소요시간이 짧은 쪽이 낫습니다"), 비슷[0]);
+assert.ok(비슷[0].includes("더 효율적인 하나의 경로만 보여드립니다"), 비슷[0]);
 // "익숙한 길로 가세요"를 쓰면 안 된다 — 기본 프로필이 경력 1년·제주 처음이라 익숙한 길이 없어서
 // 여기까지 온 사람들이다. 이 줄이 지워진 문구를 계속 검사하다 깨져 있었다 (briefing.ts 못고른말 주석)
 assert.ok(!비슷[0].includes("익숙한 길"), 비슷[0]);
@@ -83,16 +83,16 @@ const 빠름 = { id: "fast" as const, durationMin: 58 };
 
 // 추천받은 길: 더 걸리면 그 대가를 말하고, 더 빠르면 둘 다 얻었다고 말한다
 assert.equal(tradeoff("safe", 느림, 빠름, "일반 길"), "일반 길보다 9분 더, 대신 훨씬 편해요");
-assert.equal(tradeoff("fast", 빠름, 느림, "안심 길"), "안심 길보다 9분 빠르고, 부담도 적어요");
+assert.equal(tradeoff("fast", 빠름, 느림, "일반 길"), "일반 길보다 9분 빠르고, 부담도 적어요");
 assert.equal(
-  tradeoff("fast", { id: "fast", durationMin: 58 }, { durationMin: 58 }, "안심 길"),
+  tradeoff("fast", { id: "fast", durationMin: 58 }, { durationMin: 58 }, "일반 길"),
   "시간은 같은데 부담이 더 적어요",
 );
 
 /*
- * **상대를 부르는 이름은 화면이 정한 걸 그대로 쓴다.** 화면은 추천 안 된 자리를 늘
- * "일반 길"이라 부른다 (app/route/page.tsx 기본이름). 카드와 이 줄이 같은 길을 다른 이름으로
- * 부르면 두 길 얘기인 줄 안다 — 지금 화면에 실제로 나가는 짝이 이것이다.
+ * **상대를 부르는 이름은 화면이 정한 걸 그대로 쓴다.** 카드가 비교 상대를 "일반 길"로
+ * 부르므로 이 문장도 같은 이름을 쓴다. 카드와 이 줄이 같은
+ * 길을 다른 이름으로 부르면 두 길 얘기인 줄 안다 — 지금 화면에 실제로 나가는 짝이 이것이다.
  */
 assert.equal(tradeoff("safe", 느림, 빠름, "일반 길"), "일반 길보다 9분 더, 대신 훨씬 편해요");
 
@@ -110,8 +110,11 @@ assert.equal(tradeoff("single", 느림, 빠름, "일반 길"), "");
 assert.equal(tradeoff("single", 빠름, 느림, "안심 길"), "");
 // 대안이 접힌 구간(noPick "alone") — 상대가 아예 없다. 비교 화면은 비우고 여기서 말한다:
 // 이 화면은 "왜 이 길인지" 보러 들어온 자리고, 아래 비교표의 상대 칸이 통째로 비어 있다.
-// 없는 것("비교할 게 없어요") 말고 있는 것을 말한다 — 이 줄의 임무는 "그래서 어떻다"다
-assert.equal(tradeoff("single", 느림, null, ""), "갈림길이 없는 구간이라, 이 길 하나예요");
+assert.equal(tradeoff("single", 느림, null, ""), "다른 길이 없어서 비교할 게 없어요");
+assert.equal(
+  tradeoff("single", 느림, null, "", "tie"),
+  "비교할 차이가 거의 없어 이 경로만 보여드려요",
+);
 // 비교할 상대가 없으면 맞바꿀 것도 없다 (추천이 있는데 상대가 없는 건 화면이 못 만드는 짝이다)
 assert.equal(tradeoff("safe", 느림, null, ""), "");
 assert.equal(tradeoff("safe", { id: "safe", durationMin: null }, 빠름, "일반 길"), "");
