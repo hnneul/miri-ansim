@@ -325,8 +325,14 @@ export default function RouteRadio({
         </ol>
       )}
 
+      {/*
+        **글() 로 서명을 떼고 넘긴다.** script 의 각 칸은 `<서명 16자>.<대본>` 꼴인데
+        여기만 원본을 그대로 넘기고 있었다 — 위 목록(글(칸))과 달랐다. sr-only 라 눈으로는
+        안 보여서, 화면을 못 보는 사람에게만 칸마다 16진수 열여섯 자가 먼저 읽혔다.
+        이 자리를 만든 이유가 그 사람인데 그 사람에게만 깨져 있던 셈이다.
+      */}
       <span className="sr-only" aria-live="polite">
-        {읽는칸 !== null ? script[읽는칸] : ""}
+        {읽는칸 !== null ? 글(script[읽는칸]) : ""}
       </span>
     </div>
   );
