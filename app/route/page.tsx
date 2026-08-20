@@ -30,6 +30,7 @@ import PlaceSearch from "./PlaceSearch";
 import type { Place } from "@/lib/geocode";
 import { addRecent, loadRecent } from "@/lib/recent";
 import { aiRadio, areaOf, compareRoutes, type Compared } from "./actions";
+import { 문장줄 } from "../text";
 
 /**
  * 시트 높이 = 지도가 아래로 비워 둘 높이. 상태마다 다르다.
@@ -963,8 +964,8 @@ function Route() {
                 */}
                   {result.verdicts[picked ?? result.routes[0].id] &&
                     result.score.recommendedRoute === "single" && (
-                      <p className="mt-[18px] px-4 text-[13px] leading-[20px] text-[#525252]">
-                        {result.verdicts[picked ?? result.routes[0].id]}
+                      <p className="mt-[18px] px-4 text-[13px] leading-[20px] whitespace-pre-line text-[#525252]">
+                        {문장줄(result.verdicts[picked ?? result.routes[0].id])}
                       </p>
                     )}
 
@@ -1028,7 +1029,7 @@ function Route() {
                     고정 폭은 그냥 삐져나가는데, 비율이면 둘이 같이 줄어든다.
                   */}
                   {/*
-                    **추천을 왼쪽에 둔다.** 목록 순서(빠른 길 → 안심 길)를 그대로 그렸더니
+                    **추천을 왼쪽에 둔다.** 목록 순서(일반 길 → 안심 길)를 그대로 그렸더니
                     추천 카드가 오른쪽에 앉았는데, 눈은 왼쪽부터 읽어서 먼저 본 게 추천이
                     아닌 쪽이었다. 큰 카드가 왼쪽에 오면 배지를 찾기 전에 이미 어느 쪽인지 안다.
                     추천이 없는 경우(single)는 recommendedRoute 가 어느 id 와도 안 맞아
@@ -1254,11 +1255,11 @@ function Notice({ children, tone }: { children: string; tone?: "error" }) {
         break-keep — 375px 에서 "…만들 수 없어 / 요." 로 어절 한복판이 끊겼다 (실측).
         오류 갈래는 아래 버튼과 붙어야 해서 위 여백을 절반으로 줄인다.
       */
-      className={`px-8 text-center text-[13px] leading-relaxed break-keep ${
+      className={`px-8 text-center text-[13px] leading-relaxed break-keep whitespace-pre-line ${
         tone ? "mt-[30px] text-rose-600" : "mt-[60px] text-[#616161]"
       }`}
     >
-      {children}
+      {문장줄(children)}
     </p>
   );
 }
@@ -1389,7 +1390,7 @@ function Why({
         판정 한 줄 → 시간 → 듣기 줄. **세로로 셋**이다 (와이어프레임 3920:630 / 3920:631 /
         3961:721 이 각각 y 12 · 44 · 156 — 옆으로 붙은 게 아니라 아래로 쌓여 있다).
 
-        한때 판정을 62% 상자에 가두고 듣기 줄을 그 오른쪽에 붙였는데, 그러면 "빠른 길보다 9분
+        한때 판정을 62% 상자에 가두고 듣기 줄을 그 오른쪽에 붙였는데, 그러면 "일반 길보다 9분
         더, 대신 훨씬 편해요"가 두 줄로 깨진다. 와이어프레임의 그 줄은 한 줄이다 —
         이 화면에서 유일하게 "그래서 어떻다"를 말하는 줄이라 두 동강 나면 안 된다.
 
@@ -1397,8 +1398,8 @@ function Why({
         와이어프레임에도 판정 둘레에 선이 없다.
       */}
       {한줄 && (
-        <p className="mt-4 text-[14px] leading-[20px] font-bold text-[#1f1f1f]">
-          {한줄}
+        <p className="mt-4 text-[14px] leading-[20px] font-bold whitespace-pre-line text-[#1f1f1f]">
+          {문장줄(한줄)}
         </p>
       )}
 
@@ -1490,14 +1491,16 @@ function Why({
  * (lib/score.ts), 추천된 길은 정의상 두 길 중 덜 부담스러운 쪽이다 — 그러니 그 이름이 참이다.
  * 앱이 권하는 길과 앱 이름이 같은 말을 하게 된다.
  *
- * **나머지 한 장은 상대와 재서 부른다.** 더 빠르면 "빠른 길", 시간은 못 이기는데 거리가 짧으면
- * "짧은 길", 둘 다 아니면 "다른 길". 한때 있다가 뺐던 규칙인데(같은 길이 화면마다 다른 이름으로
- * 불릴까 봐), 이름을 여기 한 곳에서만 정하고 문장·근거 화면이 그걸 받아 쓰는 지금 구조에서는
- * 그 걱정이 안 생긴다 — 한 화면 안에서는 한 이름이다.
+ * **나머지 한 장은 늘 "일반 길"이다.** 한때 상대와 재서 "빠른 길"·"짧은 길"·"다른 길"로
+ * 갈라 불렀는데, 그러면 두 카드가 성격 대 성격으로 맞선다 — "안심"과 "빠름"을 나란히 놓으면
+ * 취향껏 고를 두 값으로 읽히고, 이 앱이 무엇을 권하는 화면인지가 흐려진다. 안심 길의 상대는
+ * 다른 값이 아니라 **기본값**이어야 한다: 아무것도 안 재고 그냥 가면 나오는 길이 "일반 길"이고,
+ * 그 옆에 우리가 재서 얹는 것이 "안심 길"이다.
  *
- * 되살린 이유는 **고정 이름이 거짓말을 했기 때문이다.** fast 자리는 시간으로 고른 값이라
+ * 덤으로 **고정 이름이 거짓말할 일도 없어진다.** fast 자리는 시간으로 고른 값이라
  * (lib/route.ts) 거리가 짧다는 보장이 없는데 "짧은 길"로 못 박고 있었다 — 곽지→함덕에서
  * 67분 42.2km 를 "짧은 길", 89분 37.6km 를 "안심 길"로 부르고 있었다. 4.6km 더 긴 길이었다.
+ * "일반 길"은 재서 붙이는 이름이 아니라 그렇게 틀릴 수가 없다.
  *
  * 추천이 없을 때(두 길 차이 5% 이내·길이 한 장)는 safe 자리가 "안심 길"을 맡는다 —
  * 그 자리가 부담으로 고른 후보라는 사실은 추천 여부와 상관없이 참이다.
@@ -1505,9 +1508,7 @@ function Why({
 function 기본이름(route: LiveRoute, other: LiveRoute | null, 추천: boolean): string {
   if (추천 || !other) return "안심 길";
   if (route.id === "safe") return "안심 길";
-  if (route.durationMin < other.durationMin) return "빠른 길";
-  if (route.distanceKm < other.distanceKm) return "짧은 길";
-  return "다른 길";
+  return "일반 길";
 }
 
 /**
