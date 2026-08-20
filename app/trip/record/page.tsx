@@ -625,15 +625,32 @@ function Write({
           </label>
 
           {photos.map((src, i) => (
-            /* 누르면 뺀다 — 칩과 같은 규칙이라 ✕ 를 따로 안 붙인다 */
-            <button
-              key={src.slice(-24) + i}
-              onClick={() => setPhotos((all) => all.filter((_, n) => n !== i))}
-              aria-label={`사진 ${i + 1} 빼기`}
-              className="size-[104px] shrink-0 overflow-hidden rounded-[14px] transition active:scale-95"
-            >
-              <img src={src} alt="" className="size-full object-cover" />
-            </button>
+            /*
+              **✕ 로만 뺀다.** 전에는 사진 자체가 버튼이라 탭하면 그 자리에서 빠졌다 — 칩과 같은
+              규칙으로 뒀던 자리인데, 34px 글자 칩과 104px 사진은 손이 기대하는 게 다르다.
+              사진을 탭하는 손은 크게 보려는 손이지 지우려는 손이 아니고, 확인도 되돌리기도
+              없어서 잘못 누르면 파일을 처음부터 다시 골라야 했다.
+
+              **확인창은 안 붙인다.** 아직 저장 전이고 기기에만 있는 것이라, "서버에 남는 것만
+              묻는다"는 규칙 밖이다 (app/Confirm.tsx). 여기서까지 물으면 사진 지울 때마다 두 번 눌린다.
+
+              본체 탭은 지금 아무 일도 안 한다 — 크게 보기는 기록 상세와 같이 붙일 자리다.
+              ✕ 는 흰 동그라미를 깔고 얹는다: 아이콘 색이 svg 안에 검정으로 박혀 있어
+              (public/safelog/icon-close.svg) 어두운 사진 위에 그냥 얹으면 안 보인다.
+              음수 좌표로 밖에 내밀지 않는 이유는 이 줄이 가로 스크롤이라 잘리기 때문이다.
+            */
+            <div key={src.slice(-24) + i} className="relative size-[104px] shrink-0">
+              <img src={src} alt="" className="size-full rounded-[14px] object-cover" />
+              <button
+                onClick={() => setPhotos((all) => all.filter((_, n) => n !== i))}
+                aria-label={`사진 ${i + 1} 빼기`}
+                className="absolute top-0 right-0 flex size-[30px] items-center justify-center transition active:scale-90"
+              >
+                <span className="grid size-[22px] place-items-center rounded-full bg-white/90 shadow-[0_1px_4px_0_rgba(0,0,0,0.25)]">
+                  <img src="/safelog/icon-close.svg" alt="" className="size-[11px]" />
+                </span>
+              </button>
+            </div>
           ))}
         </div>
 
