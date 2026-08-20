@@ -37,7 +37,8 @@ export default function Onboarding() {
    */
   return (
     <div className="relative flex flex-1 flex-col">
-      <Intro />
+      {/* 스플래시가 덮는 동안 아래 소개 화면의 링크가 키보드·스크린리더에 먼저 잡히지 않게 한다. */}
+      <Intro covered={splash} />
       {splash && <Splash />}
     </div>
   );

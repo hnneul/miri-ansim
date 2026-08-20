@@ -240,40 +240,45 @@ function Route() {
   const load = useCallback(async () => {
     if (!origin || !dest) return;
     setResult(null);
-    const found = await compareRoutes(
-      origin,
-      dest,
-      profile,
-      /*
-       * 대본 ⑤칸(도착해서 차를 댈 곳)의 재료다. dest 는 **주차장** 좌표고, destLat/destLng 는
-       * 원래 고른 **목적지** 좌표라 둘 사이가 걸어갈 거리다 — /destination → /parking 을 거쳐
-       * 오면서 쿼리에 그대로 실려 있다 (routeQuery 가 URLSearchParams 를 통째로 복사한다).
-       *
-       * query.to 가 없으면 주차장을 거쳐 온 흐름이 아니다. 그때는 넘기지 않는다 —
-       * 이름을 "도착지"로 지어내면 대본이 "차는 도착지에 대시면 됩니다"라고 말하게 된다.
-       */
-      query.to
-        ? {
-            name: query.to,
-            place: coord(query.destLat, query.destLng),
-            // 대본 ①칸이 부를 이름 — 주차장이 아니라 **원래 고른 목적지**다 ("성산일출봉").
-            // 목적지 화면이 실어 보낸 값이 여기까지 그대로 온다 (app/destination/page.tsx).
-            placeName: query.dest,
-          }
-        : undefined,
-      concerns,
-    );
-    setResult(found);
-    // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다.
-    // 부담 차이가 거의 없으면 비교를 접고, 소요시간이 짧은 한 길만 보여준다.
-    if (!("error" in found))
-      setPicked(
-        found.score.noPick === "tie"
-          ? efficientRoute(found.routes).id
-          : found.score.recommendedRoute === "fast"
-            ? "fast"
-            : "safe",
+    try {
+      const found = await compareRoutes(
+        origin,
+        dest,
+        profile,
+        /*
+         * 대본 ⑤칸(도착해서 차를 댈 곳)의 재료다. dest 는 **주차장** 좌표고, destLat/destLng 는
+         * 원래 고른 **목적지** 좌표라 둘 사이가 걸어갈 거리다 — /destination → /parking 을 거쳐
+         * 오면서 쿼리에 그대로 실려 있다 (routeQuery 가 URLSearchParams 를 통째로 복사한다).
+         *
+         * query.to 가 없으면 주차장을 거쳐 온 흐름이 아니다. 그때는 넘기지 않는다 —
+         * 이름을 "도착지"로 지어내면 대본이 "차는 도착지에 대시면 됩니다"라고 말하게 된다.
+         */
+        query.to
+          ? {
+              name: query.to,
+              place: coord(query.destLat, query.destLng),
+              // 대본 ①칸이 부를 이름 — 주차장이 아니라 **원래 고른 목적지**다 ("성산일출봉").
+              // 목적지 화면이 실어 보낸 값이 여기까지 그대로 온다 (app/destination/page.tsx).
+              placeName: query.dest,
+            }
+          : undefined,
+        concerns,
       );
+      setResult(found);
+      // 추천된 쪽을 미리 골라 둔다 — 화면을 열자마자 눌러야 할 게 하나도 없어야 한다.
+      // 부담 차이가 거의 없으면 비교를 접고, 소요시간이 짧은 한 길만 보여준다.
+      if (!("error" in found))
+        setPicked(
+          found.score.noPick === "tie"
+            ? efficientRoute(found.routes).id
+            : found.score.recommendedRoute === "fast"
+              ? "fast"
+              : "safe",
+        );
+    } catch {
+      // 서버 설정·외부 API에서 예상하지 못한 예외가 나도 로딩 문구에 영원히 머물지 않는다.
+      setResult({ error: "길 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요." });
+    }
     // profile·concerns 는 매 렌더 새 객체라 의존성에 넣으면 무한히 다시 부른다.
     // 둘 다 쿼리에서 나온 값이라 searchParams.toString() 이 이미 그 변화를 잡는다 (hard 포함).
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -953,8 +958,7 @@ function Route() {
                     {titleOf(
                       chosen,
                       visibleRoutes.find((r) => r.id !== chosen.id) ?? null,
-                      result.score.recommendedRoute === chosen.id ||
-                        result.score.noPick === "alone",
+                      result.score.recommendedRoute === chosen.id,
                     )}
                   </span>
                   <span className="shrink-0 text-[13px] text-[#9e9e9e]">
@@ -1077,8 +1081,7 @@ function Route() {
                           title={titleOf(
                             r,
                             visibleRoutes.find((x) => x.id !== r.id) ?? null,
-                            result.score.recommendedRoute === r.id ||
-                              result.score.noPick === "alone",
+                            result.score.recommendedRoute === r.id,
                           )}
                           score={
                             r.id === "fast"
@@ -1403,7 +1406,7 @@ function Why({
         ) : null}
         {/* 근거 화면도 비교 화면과 같은 이름을 쓴다 — 넘어오면서 이름이 바뀌면 같은 길인지 흔들린다 */}
         <span className="min-w-0 truncate text-[16px] font-bold text-[#1f1f1f]">
-          {titleOf(route, other, recommended || noPick === "alone")}
+          {titleOf(route, other, recommended)}
         </span>
         {/*
           점수만 주황이다. 비교 화면의 카드에서는 검정인데(거기선 두 값을 나란히 재는 자리라
@@ -1528,39 +1531,18 @@ function Why({
  * (lib/score.ts), 추천된 길은 정의상 두 길 중 덜 부담스러운 쪽이다 — 그러니 그 이름이 참이다.
  * 앱이 권하는 길과 앱 이름이 같은 말을 하게 된다.
  *
- * **나머지 한 장은 늘 "일반 길"이다.** 한때 상대와 재서 "빠른 길"·"짧은 길"·"다른 길"로
- * 갈라 불렀는데, 그러면 두 카드가 성격 대 성격으로 맞선다 — "안심"과 "빠름"을 나란히 놓으면
- * 취향껏 고를 두 값으로 읽히고, 이 앱이 무엇을 권하는 화면인지가 흐려진다. 안심 길의 상대는
- * 다른 값이 아니라 **기본값**이어야 한다: 아무것도 안 재고 그냥 가면 나오는 길이 "일반 길"이고,
- * 그 옆에 우리가 재서 얹는 것이 "안심 길"이다.
- *
- * 덤으로 **고정 이름이 거짓말할 일도 없어진다.** fast 자리는 시간으로 고른 값이라
- * (lib/route.ts) 거리가 짧다는 보장이 없는데 "짧은 길"로 못 박고 있었다 — 곽지→함덕에서
- * 67분 42.2km 를 "짧은 길", 89분 37.6km 를 "안심 길"로 부르고 있었다. 4.6km 더 긴 길이었다.
- * "일반 길"은 재서 붙이는 이름이 아니라 그렇게 틀릴 수가 없다.
- *
- * 추천이 없을 때(두 길 차이 5% 이내·길이 한 장)는 safe 자리가 "안심 길"을 맡는다 —
- * 그 자리가 부담으로 고른 후보라는 사실은 추천 여부와 상관없이 참이다.
+ * **나머지는 "일반 길"이다.** 속도나 거리 중 한 축만으로 이름을 붙이면 실제 데이터에 따라
+ * "빠른 길"이 더 느리거나 "짧은 길"이 더 길어지는 모순이 생긴다. 이 이름은 비교 기준을
+ * 단순하게 유지하면서도 특정 장점을 사실처럼 단정하지 않는다.
  */
-function 기본이름(route: LiveRoute, other: LiveRoute | null, 추천: boolean): string {
-  if (추천 || !other) return "안심 길";
-  if (route.id === "safe") return "안심 길";
-  return "일반 길";
+function 기본이름(_route: LiveRoute, _other: LiveRoute | null, 추천: boolean): string {
+  return 추천 ? "안심 길" : "일반 길";
 }
 
 /**
  * 카드에 적을 이름. "맞춤"은 **프로필로 정해진 길**에 얹는다 (와이어프레임의 "맞춤 안심 길").
  *
- * 얹는 자리는 둘이다.
- *
- *   ① 추천 배지가 붙은 경로. 추천이 프로필로 잰 부담에서 나오므로 (lib/score.ts) 참이다.
- *   ② 갈림길이 아예 없는 구간의 한 장 (noPick "alone"). 고를 상대가 없어 배지는 안 붙지만
- *      그 한 장도 프로필로 잰 부담 점수를 달고 나온다 — 화면에 뜬 추천점수가 그것이다.
- *      고른 게 아니라는 사실은 회색 "단일 경로" 배지가 같은 줄에서 말한다.
- *
- * **tie 에는 안 얹는다.** 부담 차이가 5% 이내라 한 장만 그리는 경우인데(visibleRoutes),
- * 그 한 장을 고른 건 efficientRoute 즉 **시간·거리**다. 프로필로 고른 게 아니라서 "맞춤"이
- * 거짓이 된다. 거기는 "안심 길"까지만 쓴다 — 부담이 낮은 축에 든다는 건 참이다.
+ * 추천 배지가 붙은 경로만 "맞춤 안심 길"이고, 추천을 접은 단일 카드는 "일반 길"로 둔다.
  */
 function titleOf(route: LiveRoute, other: LiveRoute | null, 맞춤: boolean): string {
   const base = 기본이름(route, other, 맞춤);

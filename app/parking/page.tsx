@@ -365,7 +365,7 @@ function Parking() {
             <button
               onClick={() => router.push(`/destination?${searchParams}`)}
               aria-label="뒤로"
-              className="-mx-1.5 shrink-0 p-1.5 transition hover:opacity-40 active:scale-90"
+              className="-mx-2.5 flex size-11 shrink-0 items-center justify-center transition hover:opacity-40 active:scale-90"
             >
               <img src="/icon-arrow-left.svg" alt="" className="size-6" />
             </button>
